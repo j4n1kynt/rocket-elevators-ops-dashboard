@@ -6,85 +6,116 @@
   <title>Rocket Elevators Operations Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="flex h-screen bg-gray-100 overflow-hidden">
+<body class="flex h-screen bg-slate-100 overflow-hidden">
 
-  <!-- Sidebar -->
-  <aside class="w-52 bg-gray-900 text-white flex flex-col shrink-0">
-    <div class="px-5 py-4 text-base font-semibold border-b border-gray-700 tracking-wide">
-      Rocket Elevators
+  <!-- Sidebar — dark navy background per spec §4.2 -->
+  <aside class="w-56 bg-slate-900 text-white flex flex-col shrink-0">
+
+    <!-- Brand area — §4.1: prominent, separated from nav by border -->
+    <div class="px-5 py-5 border-b border-slate-700">
+      <div class="flex items-center gap-2">
+        <!-- Rocket icon — inline SVG, monochrome, enterprise-appropriate -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13.13 22.19L11.5 18.36C13.07 17.78 14.54 17 15.9 16.09L13.13 22.19M5.64 12.5L1.81 10.87L7.91 8.1C7 9.46 6.22 10.93 5.64 12.5M21.61 2.39C21.61 2.39 16.66 .269 11 5.93C8.81 8.12 7.5 10.53 6.65 12.64C6.37 13.39 6.56 14.21 7.11 14.77L9.24 16.89C9.79 17.45 10.61 17.63 11.36 17.35C13.5 16.53 15.88 15.19 18.07 13C23.73 7.34 21.61 2.39 21.61 2.39M14.54 9.46C13.76 8.68 13.76 7.41 14.54 6.63S16.59 5.85 17.37 6.63C18.14 7.41 18.15 8.68 17.37 9.46C16.59 10.24 15.32 10.24 14.54 9.46M8.88 16.53L7.47 15.12L8.88 16.53M6.24 22L9.88 18.36C9.54 18.27 9.21 18.12 8.91 17.91L4.83 22H6.24M2 22H3.41L8.18 17.24L6.76 15.83L2 20.59V22M2 19.17L6.09 15.09C5.88 14.79 5.73 14.46 5.64 14.12L2 17.76V19.17Z"/>
+        </svg>
+        <span class="text-base font-semibold tracking-wide text-white">Rocket Elevators</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-1 ml-7">Operations Dashboard</p>
     </div>
+
+    <!-- Navigation -->
     <nav class="px-3 py-4 space-y-1">
-      <a href="#" class="flex items-center px-3 py-2 rounded text-sm font-medium bg-gray-700 text-white">
+      <a href="#" class="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium bg-slate-700 text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-300" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13 3V9H21V3M13 21H21V11H13M3 21H11V15H3M3 13H11V3H3V13Z"/>
+        </svg>
         Dashboard
       </a>
     </nav>
   </aside>
 
-  <!-- Main content -->
-  <main class="flex-1 overflow-y-auto p-8">
+  <!-- Main content area -->
+  <main class="flex-1 overflow-y-auto">
 
-    <h1 class="text-xl font-semibold text-gray-800 mb-6">Operations Dashboard</h1>
-
-    <!-- Summary cards — four metrics from the spec -->
-    <!-- Total and Active sourced from license.csv; Overdue joins license + inspection; Expiring from license -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-        <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Total Elevators</p>
-        <p class="text-3xl font-bold text-gray-900">18</p>
-        <p class="text-xs text-gray-400 mt-1">Source: license.csv</p>
-      </div>
-
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-        <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Active Elevators</p>
-        <p class="text-3xl font-bold text-gray-900">11 <span class="text-lg font-normal text-gray-500">(61%)</span></p>
-        <p class="text-xs text-gray-400 mt-1">LICENSESTATUS = ACTIVE</p>
-      </div>
-
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-        <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Overdue Inspections</p>
-        <p class="text-3xl font-bold text-red-600">18</p>
-        <p class="text-xs text-gray-400 mt-1">Latest inspection &gt; 1 year ago or missing</p>
-      </div>
-
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-        <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Licenses Expiring in 30 Days</p>
-        <p class="text-3xl font-bold text-gray-900">0</p>
-        <p class="text-xs text-gray-400 mt-1">LICENSEEXPIRYDATE within 30 days</p>
-      </div>
-
+    <!-- Top bar -->
+    <div class="px-8 py-5 border-b border-slate-200 bg-white">
+      <h1 class="text-lg font-semibold text-slate-800">Fleet Overview</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Ontario elevator registry — subset of 18 records</p>
     </div>
 
-    <!-- Detail table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-8 py-6">
 
-      <div class="px-5 py-4 border-b border-gray-200">
-        <input
-          id="search"
-          type="text"
-          placeholder="Search by Elevator ID or Location..."
-          class="w-80 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-        />
+      <!-- Summary cards — §4.3: large bold value, small muted label, accent colors per state -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
+
+        <!-- Card 1: Total Elevators — neutral, no accent (§4.3) -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Total Elevators</p>
+          <p class="text-4xl font-bold text-slate-800">18</p>
+          <p class="text-xs text-slate-400 mt-2">Unique devices in license.csv</p>
+        </div>
+
+        <!-- Card 2: Active Elevators — green accent (§4.3) -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Active Elevators</p>
+          <p class="text-4xl font-bold text-green-600">
+            11 <span class="text-xl font-medium text-slate-400">(61%)</span>
+          </p>
+          <p class="text-xs text-slate-400 mt-2">LICENSESTATUS = ACTIVE</p>
+        </div>
+
+        <!-- Card 3: Overdue Inspections — red accent (§4.3) -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Overdue Inspections</p>
+          <p class="text-4xl font-bold text-red-600">18</p>
+          <p class="text-xs text-slate-400 mt-2">Latest inspection &gt; 1 year ago or missing</p>
+        </div>
+
+        <!-- Card 4: Licenses Expiring — amber accent (§4.3) -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Licenses Expiring in 30 Days</p>
+          <p class="text-4xl font-bold text-amber-600">0</p>
+          <p class="text-xs text-slate-400 mt-2">LICENSEEXPIRYDATE within next 30 days</p>
+        </div>
+
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left">
-          <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
-            <tr>
-              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(0)">Elevator ID <span id="sort0"></span></th>
-              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(1)">Location <span id="sort1"></span></th>
-              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(2)">License Number <span id="sort2"></span></th>
-              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(3)">Status <span id="sort3"></span></th>
-              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(4)">License Expiration Date <span id="sort4"></span></th>
-              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(5)">Latest Inspection Date <span id="sort5"></span></th>
-              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(6)">Elevator Type <span id="sort6"></span></th>
-            </tr>
-          </thead>
-          <tbody id="tableBody" class="divide-y divide-gray-100 text-gray-700">
-          </tbody>
-        </table>
-      </div>
+      <!-- Detail table -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
 
+        <!-- Search bar -->
+        <div class="px-5 py-4 border-b border-slate-200 flex items-center gap-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/>
+          </svg>
+          <input
+            id="search"
+            type="text"
+            placeholder="Search by Elevator ID or Location..."
+            class="flex-1 max-w-sm text-sm text-slate-700 placeholder-slate-400 bg-transparent border-none outline-none"
+          />
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="border-b border-slate-200">
+              <tr>
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(0)">Elevator ID <span id="sort0" class="text-slate-300"></span></th>
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700" onclick="sortTable(1)">Location <span id="sort1" class="text-slate-300"></span></th>
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(2)">License Number <span id="sort2" class="text-slate-300"></span></th>
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700" onclick="sortTable(3)">Status <span id="sort3" class="text-slate-300"></span></th>
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(4)">License Expiration Date <span id="sort4" class="text-slate-300"></span></th>
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(5)">Latest Inspection Date <span id="sort5" class="text-slate-300"></span></th>
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(6)">Elevator Type <span id="sort6" class="text-slate-300"></span></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y divide-slate-100 text-slate-700">
+            </tbody>
+          </table>
+        </div>
+
+      </div>
     </div>
   </main>
 
@@ -124,14 +155,15 @@
       return new Date(dateStr) < ONE_YEAR_AGO;
     }
 
+    // §4.4 — Status badges: green / amber / red per spec
     function statusBadge(status) {
       const map = {
-        "ACTIVE":               "bg-green-100 text-green-800",
-        "BY REQUEST":           "bg-yellow-100 text-yellow-800",
-        "CANCELLED_NOT_RENEWED":"bg-red-100 text-red-800",
+        "ACTIVE":                "bg-green-100 text-green-700 ring-1 ring-green-200",
+        "BY REQUEST":            "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
+        "CANCELLED_NOT_RENEWED": "bg-red-100 text-red-700 ring-1 ring-red-200",
       };
-      const cls = map[status] || "bg-gray-100 text-gray-700";
-      return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${status}</span>`;
+      const cls = map[status] || "bg-slate-100 text-slate-600";
+      return `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${cls}">${status}</span>`;
     }
 
     let sortCol = -1;
@@ -145,19 +177,20 @@
     }
 
     function renderTable(rows) {
+      // §4.5 — Overdue inspection dates rendered in red
       document.getElementById("tableBody").innerHTML = rows.map(r => {
         const overdue = isOverdue(r[5]);
-        const inspCls = overdue ? "text-red-600 font-medium" : "";
+        const inspCls  = overdue ? "text-red-600 font-medium" : "text-slate-700";
         const inspDisplay = r[5] || "—";
         return `
-          <tr class="hover:bg-gray-50">
-            <td class="px-4 py-3 font-mono text-xs">${r[0]}</td>
-            <td class="px-4 py-3 max-w-xs" title="${r[1]}">${r[1]}</td>
-            <td class="px-4 py-3 font-mono text-xs">${r[2]}</td>
-            <td class="px-4 py-3">${statusBadge(r[3])}</td>
-            <td class="px-4 py-3">${r[4]}</td>
-            <td class="px-4 py-3 ${inspCls}">${inspDisplay}</td>
-            <td class="px-4 py-3">${r[6]}</td>
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-5 py-3 font-mono text-xs text-slate-600">${r[0]}</td>
+            <td class="px-5 py-3 text-slate-700 max-w-xs" title="${r[1]}">${r[1]}</td>
+            <td class="px-5 py-3 font-mono text-xs text-slate-600">${r[2]}</td>
+            <td class="px-5 py-3">${statusBadge(r[3])}</td>
+            <td class="px-5 py-3 text-slate-700">${r[4]}</td>
+            <td class="px-5 py-3 ${inspCls}">${inspDisplay}</td>
+            <td class="px-5 py-3 text-slate-700">${r[6]}</td>
           </tr>
         `;
       }).join("");
@@ -166,7 +199,7 @@
     function updateSortIndicators() {
       for (let i = 0; i < 7; i++) {
         const el = document.getElementById("sort" + i);
-        el.textContent = i === sortCol ? (sortAsc ? " ↑" : " ↓") : "";
+        el.textContent = i === sortCol ? (sortAsc ? "↑" : "↓") : "";
       }
     }
 
