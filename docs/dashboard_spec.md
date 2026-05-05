@@ -110,6 +110,70 @@ None of the core fields required by the operations manager are missing. All fiel
 
 ---
 
+## 4. Visual Design
+
+This section defines the presentation and branding of the dashboard. It does not change any layout structure or data definitions from the sections above.
+
+### 4.1 Branding
+
+The sidebar displays the "Rocket Elevators" brand name at the top, above the navigation menu. The brand area should be visually distinct from the rest of the sidebar — larger text weight, slightly more padding, and a bottom border to separate it from the nav links. A simple rocket icon (text character or inline SVG) may appear immediately to the left of the brand name to reinforce identity. The overall treatment should feel like a professional enterprise product, not decorative.
+
+### 4.2 Color Palette
+
+The dashboard uses a restrained, industrial palette appropriate for an operations tool:
+
+| Role | Color |
+|---|---|
+| Sidebar background | Dark navy or dark slate (e.g., #0f172a or #1e293b) |
+| Sidebar text | White or light gray |
+| Page background | Light gray (e.g., #f1f5f9) |
+| Card and table backgrounds | White |
+| Borders | Light gray (e.g., #e2e8f0) |
+| Primary text | Dark gray (e.g., #1e293b) |
+| Secondary / label text | Medium gray (e.g., #64748b) |
+| Active accent | Green (e.g., #16a34a or similar) |
+| Warning / overdue accent | Red (e.g., #dc2626 or similar) |
+| Expiring soon accent | Amber (e.g., #d97706 or similar) |
+
+No decorative gradients, shadows beyond subtle card elevation, or non-functional color are used.
+
+### 4.3 Summary Card Visual Differentiation
+
+Each summary card emphasizes its metric number over its label. The label appears in small, uppercase, muted text above the number. The number is displayed in a large, bold font.
+
+Three of the four cards use an accent color on their metric value to signal state at a glance:
+
+| Card | Metric color | Rationale |
+|---|---|---|
+| Total Elevators | Default dark text | Neutral count; no state signal needed |
+| Active Elevators | Green accent | Positive operational state |
+| Overdue Inspections | Red accent | Compliance risk; requires attention |
+| Licenses Expiring in 30 Days | Amber accent | Time-sensitive but not yet critical |
+
+### 4.4 Status Column Badges
+
+In the detail table, the LICENSESTATUS value is displayed as a small colored badge rather than plain text, using the same accent color system:
+
+| Status value | Badge color |
+|---|---|
+| ACTIVE | Green background, dark green text |
+| BY REQUEST | Amber background, dark amber text |
+| CANCELLED_NOT_RENEWED | Red background, dark red text |
+
+### 4.5 Overdue Inspection Highlighting
+
+In the Latest Inspection Date column, any value that qualifies as overdue (more than one year old, or blank) is displayed in red text. This is consistent with the red accent used for the Overdue Inspections summary card and reinforces the urgency without adding additional UI elements.
+
+### 4.6 Visual Hierarchy
+
+- Card metric values are the largest text element on the page (large, bold).
+- Card labels are small, uppercase, and muted — secondary to the value.
+- Table header labels are small, uppercase, and muted — consistent with card labels.
+- Table row text is standard size and dark, with hover highlight on rows for readability.
+- No decorative elements (icons, charts, illustrations) are added beyond what is described above.
+
+---
+
 ## Scope
 
 This specification describes the initial dashboard as requested by the operations manager. It is a single page focused on fleet overview and elevator lookup. The dashboard uses three core datasets: license.csv, inspection.csv, and installed.json. Future additions, such as detailed reporting, alteration tracking, incident analysis, or additional pages, are outside the scope of this version.

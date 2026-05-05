@@ -25,27 +25,32 @@
 
     <h1 class="text-xl font-semibold text-gray-800 mb-6">Operations Dashboard</h1>
 
-    <!-- Summary cards -->
-    <div class="grid grid-cols-4 gap-5 mb-8">
+    <!-- Summary cards — four metrics from the spec -->
+    <!-- Total and Active sourced from license.csv; Overdue joins license + inspection; Expiring from license -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
 
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Total Elevators</p>
-        <p class="text-3xl font-bold text-gray-900">12</p>
+        <p class="text-3xl font-bold text-gray-900">18</p>
+        <p class="text-xs text-gray-400 mt-1">Source: license.csv</p>
       </div>
 
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Active Elevators</p>
-        <p class="text-3xl font-bold text-gray-900">9 <span class="text-lg font-normal text-gray-500">(75%)</span></p>
+        <p class="text-3xl font-bold text-gray-900">11 <span class="text-lg font-normal text-gray-500">(61%)</span></p>
+        <p class="text-xs text-gray-400 mt-1">LICENSESTATUS = ACTIVE</p>
       </div>
 
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Overdue Inspections</p>
-        <p class="text-3xl font-bold text-gray-900">4</p>
+        <p class="text-3xl font-bold text-red-600">18</p>
+        <p class="text-xs text-gray-400 mt-1">Latest inspection &gt; 1 year ago or missing</p>
       </div>
 
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Licenses Expiring in 30 Days</p>
-        <p class="text-3xl font-bold text-gray-900">4</p>
+        <p class="text-3xl font-bold text-gray-900">0</p>
+        <p class="text-xs text-gray-400 mt-1">LICENSEEXPIRYDATE within 30 days</p>
       </div>
 
     </div>
@@ -66,12 +71,13 @@
         <table class="w-full text-sm text-left">
           <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
             <tr>
-              <th class="px-5 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(0)">Elevator ID <span id="sort0"></span></th>
-              <th class="px-5 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(1)">Location <span id="sort1"></span></th>
-              <th class="px-5 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(2)">Type <span id="sort2"></span></th>
-              <th class="px-5 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(3)">Status <span id="sort3"></span></th>
-              <th class="px-5 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(4)">License Expiration Date <span id="sort4"></span></th>
-              <th class="px-5 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(5)">Last Inspection Date <span id="sort5"></span></th>
+              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(0)">Elevator ID <span id="sort0"></span></th>
+              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(1)">Location <span id="sort1"></span></th>
+              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(2)">License Number <span id="sort2"></span></th>
+              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800" onclick="sortTable(3)">Status <span id="sort3"></span></th>
+              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(4)">License Expiration Date <span id="sort4"></span></th>
+              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(5)">Latest Inspection Date <span id="sort5"></span></th>
+              <th class="px-4 py-3 cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onclick="sortTable(6)">Elevator Type <span id="sort6"></span></th>
             </tr>
           </thead>
           <tbody id="tableBody" class="divide-y divide-gray-100 text-gray-700">
@@ -83,20 +89,50 @@
   </main>
 
   <script>
+    // Data sourced from license.csv, inspection.csv, and installed.json.
+    // Records joined on ElevatingDevicesNumber / "Elevating devices number".
+    // Dates normalized to YYYY-MM-DD. Blank Latest Inspection Date = no record in inspection.csv.
+    // Fields: [ElevatingDevicesNumber, LocationoftheElevatingDevice, ElevatingDevicesLicenseNumber,
+    //          LICENSESTATUS, LICENSEEXPIRYDATE, Latest_INSPECTION_Date, Device Type]
     const data = [
-      ["EL-1001", "Commerce Tower, Toronto",     "Traction",  "Active",      "2026-11-15", "2025-10-20"],
-      ["EL-1002", "Metro Place, Ottawa",          "Hydraulic", "Active",      "2026-08-30", "2025-07-14"],
-      ["EL-1003", "Riverside Mall, Hamilton",     "Traction",  "Maintenance", "2026-06-20", "2024-11-05"],
-      ["EL-1004", "Lakeside Plaza, Burlington",   "Hydraulic", "Active",      "2026-05-18", "2025-04-01"],
-      ["EL-1005", "King Street Centre, Toronto",  "Traction",  "Active",      "2026-07-10", "2025-06-25"],
-      ["EL-1006", "Union Station, Toronto",       "Hydraulic", "Inactive",    "2026-06-01", "2025-04-20"],
-      ["EL-1007", "Westmount Square, Ottawa",     "Traction",  "Inactive",    "2026-09-05", "2024-08-15"],
-      ["EL-1008", "Dundas Square, Toronto",       "Hydraulic", "Active",      "2026-05-28", "2025-05-10"],
-      ["EL-1009", "Bay Centre, Mississauga",      "Traction",  "Active",      "2027-01-20", "2025-12-10"],
-      ["EL-1010", "First Place, London",          "Hydraulic", "Active",      "2026-10-15", "2025-09-08"],
-      ["EL-1011", "Crystal Tower, Kitchener",     "Traction",  "Active",      "2026-12-20", "2025-11-15"],
-      ["EL-1012", "Parkview Centre, Brampton",    "Hydraulic", "Active",      "2026-05-30", "2025-05-12"],
+      ["10",    "111 WELLESLEY ST W  TORONTO M7A 1A2 ON CA",                        "EDLIC-000010", "ACTIVE",               "2017-04-28", "2013-01-10", "Passenger Elevator"],
+      ["100",   "1804 HIGHWAY 2 E  BROCKVILLE K6V 5T1 ON CA",                       "170719",       "BY REQUEST",           "2014-12-12", "2011-04-28", "Passenger Elevator"],
+      ["101",   "1804 HIGHWAY 2 E  BROCKVILLE K6V 5T1 ON CA",                       "172550",       "BY REQUEST",           "2014-12-12", "2011-04-28", "Passenger Elevator"],
+      ["1009",  "404 MAIN ST  WOODSTOCK N4S 7X5 ON CA",                             "EDLIC-001009", "ACTIVE",               "2017-07-15", "2012-01-23", "Freight Elevator"],
+      ["1018",  "150 SIMCOE ST  LONDON N6A 4M3 ON CA",                              "EDLIC-001018", "ACTIVE",               "2017-10-15", "2011-01-06", "Passenger Elevator"],
+      ["1019",  "150 SIMCOE ST  LONDON N6A 4M3 ON CA",                              "EDLIC-001019", "ACTIVE",               "2017-10-15", "2016-01-12", "Passenger Elevator"],
+      ["1020",  "150 SIMCOE ST  LONDON N6A 4M3 ON CA",                              "EDLIC-001020", "ACTIVE",               "2017-10-15", "2014-12-05", "Freight Elevator"],
+      ["10047", "162 PEMBROKE ST W  PEMBROKE K8A 5M8 ON CA",                        "EDLIC-010047", "BY REQUEST",           "2008-03-15", "",           "Freight Elevator"],
+      ["10054", "541 SUSSEX DR  OTTAWA K1N 6Z6 ON CA",                              "EDLIC-010054", "BY REQUEST",           "2005-10-01", "2016-10-14", "Passenger Elevator"],
+      ["10134", "320 SUSSEX DR  OTTAWA K1A 0G8 ON CA",                              "EDLIC-010134", "CANCELLED_NOT_RENEWED","1986-03-15", "",           "Passenger Elevator"],
+      ["10145", "45 SECOND ST E  CORNWALL K6H 1V5 ON CA",                           "EDLIC-010145", "ACTIVE",               "2017-03-15", "2016-04-27", "Freight Elevator"],
+      ["10222", "2785 RIVERSIDE DR  OTTAWA K1A 0Y3 ON CA",                          "EDLIC-010222", "CANCELLED_NOT_RENEWED","2014-03-15", "",           "Freight Elevator"],
+      ["10246", "30 ADELAIDE ST E  TORONTO M5C 3G8 ON CA",                          "EDLIC-010246", "ACTIVE",               "2017-07-31", "2012-01-11", "Freight Elevator"],
+      ["10255", "193 CHURCH ST  OAKVILLE L6J 1N3 ON CA",                            "223355",       "ACTIVE",               "2017-02-04", "2013-01-18", "Freight Elevator"],
+      ["10264", "75 WATERLOO ST GOVERNMENT OF CANADA BLDG STRATFORD N5A 7B2 ON CA", "EDLIC-010264", "ACTIVE",               "2017-10-01", "2011-01-04", "Freight Elevator"],
+      ["10300", "WESTERN RD  LONDON N6G 1H1 ON CA",                                 "EDLIC-010300", "ACTIVE",               "2017-03-15", "2016-01-19", "Passenger Elevator"],
+      ["10310", "388 DUNDAS ST  LONDON N6B 1V7 ON CA",                              "EDLIC-010310", "CANCELLED_NOT_RENEWED","2007-10-15", "",           "Passenger Elevator"],
+      ["10316", "800 COMMISSIONERS RD E PLANNING FACILITIES LONDON N6C 6B5 ON CA",  "EDLIC-010316", "ACTIVE",               "2017-01-15", "2014-01-14", "Passenger Elevator"],
     ];
+
+    const TODAY = new Date("2026-05-05");
+    const ONE_YEAR_AGO = new Date(TODAY);
+    ONE_YEAR_AGO.setFullYear(TODAY.getFullYear() - 1);
+
+    function isOverdue(dateStr) {
+      if (!dateStr) return true;
+      return new Date(dateStr) < ONE_YEAR_AGO;
+    }
+
+    function statusBadge(status) {
+      const map = {
+        "ACTIVE":               "bg-green-100 text-green-800",
+        "BY REQUEST":           "bg-yellow-100 text-yellow-800",
+        "CANCELLED_NOT_RENEWED":"bg-red-100 text-red-800",
+      };
+      const cls = map[status] || "bg-gray-100 text-gray-700";
+      return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${status}</span>`;
+    }
 
     let sortCol = -1;
     let sortAsc = true;
@@ -109,42 +145,32 @@
     }
 
     function renderTable(rows) {
-      document.getElementById("tableBody").innerHTML = rows.map(r => `
-        <tr class="hover:bg-gray-50">
-          <td class="px-5 py-3">${r[0]}</td>
-          <td class="px-5 py-3">${r[1]}</td>
-          <td class="px-5 py-3">${r[2]}</td>
-          <td class="px-5 py-3">${r[3]}</td>
-          <td class="px-5 py-3">${r[4]}</td>
-          <td class="px-5 py-3">${r[5]}</td>
-        </tr>
-      `).join("");
+      document.getElementById("tableBody").innerHTML = rows.map(r => {
+        const overdue = isOverdue(r[5]);
+        const inspCls = overdue ? "text-red-600 font-medium" : "";
+        const inspDisplay = r[5] || "—";
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono text-xs">${r[0]}</td>
+            <td class="px-4 py-3 max-w-xs" title="${r[1]}">${r[1]}</td>
+            <td class="px-4 py-3 font-mono text-xs">${r[2]}</td>
+            <td class="px-4 py-3">${statusBadge(r[3])}</td>
+            <td class="px-4 py-3">${r[4]}</td>
+            <td class="px-4 py-3 ${inspCls}">${inspDisplay}</td>
+            <td class="px-4 py-3">${r[6]}</td>
+          </tr>
+        `;
+      }).join("");
     }
 
     function updateSortIndicators() {
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 7; i++) {
         const el = document.getElementById("sort" + i);
         el.textContent = i === sortCol ? (sortAsc ? " ↑" : " ↓") : "";
       }
     }
 
-    function sortTable(col) {
-      if (sortCol === col) {
-        sortAsc = !sortAsc;
-      } else {
-        sortCol = col;
-        sortAsc = true;
-      }
-      updateSortIndicators();
-      const rows = getFiltered();
-      rows.sort((a, b) => sortAsc
-        ? a[col].localeCompare(b[col])
-        : b[col].localeCompare(a[col])
-      );
-      renderTable(rows);
-    }
-
-    document.getElementById("search").addEventListener("input", function () {
+    function renderFiltered() {
       const rows = getFiltered();
       if (sortCol >= 0) {
         rows.sort((a, b) => sortAsc
@@ -153,8 +179,15 @@
         );
       }
       renderTable(rows);
-    });
+    }
 
+    function sortTable(col) {
+      sortCol === col ? (sortAsc = !sortAsc) : (sortCol = col, sortAsc = true);
+      updateSortIndicators();
+      renderFiltered();
+    }
+
+    document.getElementById("search").addEventListener("input", renderFiltered);
     renderTable(data);
   </script>
 

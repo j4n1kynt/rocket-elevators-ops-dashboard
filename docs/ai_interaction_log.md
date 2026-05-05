@@ -52,3 +52,23 @@ I provided corrective feedback to simplify the document, remove over-specific de
 **Lesson learned:**
 AI can produce very complete outputs, but completion is not the same as correctness for a given context. Clear constraints and targeted feedback are more effective than regenerating content from scratch. Iterating on AI output helped me align the specification with business priorities instead of unnecessary technical precision.
 
+
+## Entry – Refining Dashboard Specification Based on Real Datasets
+
+**Task:** Write and finalize the technical dashboard specification for the Rocket Elevators Operations Dashboard (Task 3).
+
+**Initial prompt / interaction:**
+I initially asked Claude Code to generate a dashboard specification based on the operations manager’s request, focusing on layout, summary metrics, and a detail table. The first versions of the specification were business-aligned but relied on assumed or generic field names (e.g., “Last Inspection Date,” “Elevator Type”) rather than confirmed dataset fields.
+
+**What worked:**
+Claude Code was very effective at translating the business request into a clear dashboard structure (sidebar, summary cards, detail table) and at defining metrics and layout clearly in plain English. Iterating on the specification through targeted prompts helped progressively align the document with both stakeholder needs and technical constraints.
+
+**What didn’t work or was unexpected:**
+The initial specification did not fully reflect the actual structure of the available datasets. After reviewing `license.csv` and `inspection.csv`, it became clear that some assumptions about available fields were incorrect or incomplete. A clarification from the course tutor confirmed that table columns must come directly from the real data files, not from reasonable guesses.
+
+**What I changed:**
+I revised the specification to explicitly review and reference the real datasets (`license.csv`, `inspection.csv`, and later `installed.json`). Table columns were updated to map directly to existing fields, summary metrics were tied to concrete data sources, and joins between datasets were documented using `ElevatingDevicesNumber`. Fields that do not exist (or are not present for all records) were clearly documented as data limitations instead of being invented.
+
+**Lesson learned:**
+A dashboard specification should be business-driven but data-aware. Reviewing real datasets early helps avoid invalid assumptions, while still keeping the specification focused on stakeholder needs rather than raw data exploration. Iterating on the spec based on new information (including tutor feedback) was more effective than trying to design a “perfect” spec in one pass.
+``
