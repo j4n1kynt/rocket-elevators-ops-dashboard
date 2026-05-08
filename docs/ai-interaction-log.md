@@ -282,3 +282,65 @@ Explicitly include dataset context (timeframe, scope) in prompts for time-based 
 
 **Lesson learned:**
 Data interpretation requires context. Reasoning-focused prompting techniques help distinguish correct calculations from meaningful insights.
+
+## Entry – Evaluator Simulation as a Pre‑Submission Quality Gate
+
+**Task:** Review Extra‑Mile tasks using an evaluator mindset prior to final submission.
+
+**Interaction summary:**  
+Both Extra‑Mile tasks were submitted to Claude Code with explicit evaluator‑level constraints: strict checklist review, no invented work, and no overlap with mandatory tasks. The AI acted as an adversarial reviewer rather than a collaborator, confirming Extra‑Mile 1 as fully compliant and identifying a specific evaluation risk in Extra‑Mile 2.
+
+**What worked:**  
+Framing the AI as a critical assessor surfaced issues that were not obvious during implementation. The feedback went beyond syntax and structure, focusing on whether the task fulfilled the evaluator’s intent.
+
+**What was unexpected:**  
+Extra‑Mile 2 passed every formal requirement but still carried a substantive evaluation risk due to lack of variance in the second dimension. This distinction would likely have been missed without an evaluator‑style review.
+
+**Lesson learned:**  
+Using AI as a simulated evaluator is a powerful quality gate. It shifts the role of AI from builder to critic and helps identify risks that only appear when judging intent rather than correctness.
+
+## Entry – Diagnosing Structurally Correct but Conceptually Weak Designs
+
+**Task:** Evaluate the intent of a two‑column visualization that was technically correct.
+
+**Interaction summary:**  
+Extra‑Mile 2 initially met all structural requirements (groupby, unstack, labels, legend, paragraph) but failed to introduce meaningful variation because the second grouping column (Province) contained only one value after filtering.
+
+**What worked:**  
+The evaluator‑style feedback correctly distinguished between structural compliance and analytical value. The chart was valid code, but it did not meaningfully extend insight beyond a single‑column view.
+
+**What was unexpected:**  
+This revealed a subtle failure mode: code that is correct, well‑written, and fully compliant can still undermine the purpose of the task.
+
+**Lesson learned:**  
+Meeting the letter of a requirement is not always sufficient. Visualizations must introduce real explanatory power, not just satisfy structural criteria.
+
+## Entry – Minimal Targeted Correction over Full Rewrite
+
+**Task:** Correct Extra‑Mile 2 based on evaluator feedback with minimal scope change.
+
+**Interaction summary:**  
+To resolve the identified risk, the second grouping dimension was changed from Province to ExpiryYear, a column already derived earlier in the notebook. No new logic or datasets were introduced.
+
+**What worked:**  
+Replacing a single dimension immediately restored meaningful variation to the visualization. Reusing an existing column avoided unnecessary complexity and preserved notebook integrity.
+
+**What was unexpected:**  
+A very small change completely eliminated the evaluation risk, reinforcing that large rewrites are often unnecessary when intent is clearly understood.
+
+**Lesson learned:**  
+The smallest change that satisfies evaluator intent is often the best one. Targeted corrections preserve stability and reduce the chance of introducing new issues.
+
+## Entry – Final Re‑Review as a Submission Checkpoint
+
+**Task:** Re‑audit Extra‑Mile tasks after applying corrections.
+
+**Interaction summary:**  
+After correcting Extra‑Mile 2, both bonus tasks were re‑reviewed against the full evaluation checklist. The re‑review confirmed that all requirements were now fully met, with no remaining risks.
+
+**What worked:**  
+The review‑correct‑re‑review loop ensured confidence that the fix was complete and did not introduce regressions, despite changes in grouping orientation.
+
+**Lesson learned:**  
+A deliberate submission workflow—review, identify risk, correct, re‑review—reduces uncertainty and prevents last‑minute surprises. Passing once is not the same as being submission‑ready.
+
