@@ -344,3 +344,24 @@ The review‑correct‑re‑review loop ensured confidence that the fix was comp
 **Lesson learned:**  
 A deliberate submission workflow—review, identify risk, correct, re‑review—reduces uncertainty and prevents last‑minute surprises. Passing once is not the same as being submission‑ready.
 
+## AND-2 Task 1: CLAUDE.md Setup — Subagent Explore for repo discovery
+
+**Goal:** Create a minimal root-level CLAUDE.md (<30 lines) with accurate repo structure and /data inventory.
+
+**Prompt (paraphrased):**
+"Use the Explore subagent (quick) to inspect the repository and return only: top-level structure, list of /data files with formats, and a one-sentence project purpose. Do not paste raw file contents."
+
+**What went right:**
+- The subagent returned a concise summary (top-level folders + /data file inventory + purpose) without dumping file contents.
+- This preserved my main session context and reduced noise before drafting CLAUDE.md.
+
+**What went wrong / risks noticed:**
+- The returned project purpose was longer than needed for the Task 1 requirement (I needed a shorter, single-sentence purpose).
+- Exploration could have been overkill if it produced long outputs, so I constrained it tightly.
+
+**Context management decision (why subagent):**
+I used Explore to keep repo scanning, file reads, and any dead ends out of the main context window. I only brought back a short summary to draft the initial CLAUDE.md.
+
+**What I will change next time:**
+- Ask Explore to produce the purpose as a strict single sentence (max ~20–25 words).
+- Request the /data inventory in a fixed bullet format to copy directly into CLAUDE.md.
