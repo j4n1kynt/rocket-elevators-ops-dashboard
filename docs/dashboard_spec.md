@@ -69,14 +69,45 @@ The table displays columns sourced from license.csv, inspection.csv, and install
 | **Elevator ID** | license.csv | ElevatingDevicesNumber | Text | As stored | Unique identifier for each elevator; used to reference a specific unit |
 | **Location** | license.csv | LocationoftheElevatingDevice | Text | As stored | Address or building name where the elevator is installed |
 | **License Number** | license.csv | ElevatingDevicesLicenseNumber | Text | As stored | License number assigned to the elevator |
-| **Status** | license.csv | LICENSESTATUS | Text | As stored | Current license status (e.g., Active, Inactive) |
+| **Status** | license.csv | LICENSESTATUS | Text | As stored | Current license status (e.g., ACTIVE, BY REQUEST, CANCELLED_NOT_RENEWED) |
 | **License Expiration Date** | license.csv | LICENSEEXPIRYDATE | Date | YYYY-MM-DD | Date when the current license expires |
 | **Latest Inspection Date** | inspection.csv | Latest_INSPECTION_Date | Date | YYYY-MM-DD | Date of the most recent inspection on record; blank if no inspection record exists |
-| **Elevator Type** | installed.json | Device Type | Text | As stored | Type of elevator (e.g., Passenger Elevator, Freight Elevator) |
+| **Latest Inspection Outcome** | inspection.csv | InspectionOutcome | Text | As stored | Outcome of the most recent inspection (e.g., PASS/FAIL); blank if no inspection record exists |
+| **Elevator Type** | installed.json | Device Type | Text | As stored | Type of elevator (e.g., Passenger Elevator, Freight Elevator); blank if no installed.json match |
+
+
+## Data Model
+
+This section defines the unified **Elevator** entity that the dashboard backend will serve and the dashboard UI will display. Field choices here determine valid filtering and sorting options for the interactive dashboard.
+
+### AND-2 Task 2: Elevator Entity Fields
+
+For each field: name, data type, source (dataset + column), and description.
+
+| Field name | Data type | Source (dataset.column) | Description |
+|---|---|---|---|
+| elevator_id | text | license.csv.ElevatingDevicesNumber | Primary elevator identifier and join key used to unify datasets. |
+| location | text | license.csv.LocationoftheElevatingDevice | Full location string for the elevator (address/building descriptor) shown in the table. |
+| location_city_region | text | Derived from license.csv.LocationoftheElevatingDevice | City/region extracted from the location string (derived field; used to support the “city/region” requirement and future filtering). |
+| equipment_type | text | installed.json.Device Type | Elevator equipment type/category (e.g., Passenger, Freight). Displayed as “Elevator Type”. |
+| status | text | license.csv.LICENSESTATUS | Operational/license status (e.g., ACTIVE, BY REQUEST, CANCELLED_NOT_RENEWED). Used for filtering. |
+| license_expiry_date | date | license.csv.LICENSEEXPIRYDATE | License expiry date (normalized to YYYY-MM-DD). Used for sorting and renewals monitoring. |
+| last_inspection_date | date | inspection.csv.Latest_INSPECTION_Date (derived per elevator) | Most recent inspection date per elevator (normalized to YYYY-MM-DD). Null/blank if none exists. |
+| last_inspection_outcome | text | inspection.csv.InspectionOutcome (derived per elevator) | Outcome of the most recent inspection (pass/fail). Null/blank if none exists. |
+
+### Derivations and Join Rules
+
+- **Primary join key:** `license.csv.ElevatingDevicesNumber` is the canonical elevator identifier. It is used to associate records across datasets (e.g., inspections and installed device type).
+- **One-to-many handling (inspections):** inspection records may be many per elevator. The dashboard entity uses only the **most recent** inspection to populate `last_inspection_date` and `last_inspection_outcome`.
+- **City/region requirement:** the datasets provide a full location string, not separate city/region fields. `location_city_region` is therefore a **derived** field, produced by parsing the location string consistently (or left blank when parsing fails).
+
 
 ### Data Limitations
 
-None of the core fields required by the operations manager are missing. All fields in the detail table exist in the available datasets.
+Some fields may be blank due to missing cross-dataset matches or missing inspection history:
+- Elevators with no inspection record will have blank **Latest Inspection Date** and **Latest Inspection Outcome**, and are treated as overdue in the overdue inspections metric.
+- Elevators with no installed.json match will display a blank **Elevator Type**.
+- The **location_city_region** field is derived from a free-text location string and may be blank if parsing is ambiguous.
 
 ---
 
