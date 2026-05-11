@@ -100,7 +100,7 @@ For each field: name, data type, source (dataset + column), and description.
 - **Primary join key:** `license.csv.ElevatingDevicesNumber` is the canonical elevator identifier. It is used to associate records across datasets (e.g., inspections and installed device type).
 - **One-to-many handling (inspections):** inspection records may be many per elevator. The dashboard entity uses only the **most recent** inspection to populate `last_inspection_date` and `last_inspection_outcome`.
 - **City/region requirement:** the datasets provide a full location string, not separate city/region fields. `location_city_region` is therefore a **derived** field, produced by parsing the location string consistently (or left blank when parsing fails).
-
+- **Display note:** `location_city_region` supports the “city/region” requirement and potential future filtering, but it is not displayed as a separate table column in this initial version (the table displays the full `location` string).
 
 ### Data Limitations
 
