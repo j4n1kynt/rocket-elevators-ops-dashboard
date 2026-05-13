@@ -1,0 +1,43 @@
+{% if rows %}
+{% for row in rows %}
+<tr class="hover:bg-slate-50 transition-colors">
+
+  <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ row['Elevator ID'] }}</td>
+
+  <td class="px-5 py-3 text-slate-700 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap"
+      title="{{ row['Location'] }}">{{ row['Location'] }}</td>
+
+  <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ row['License Number'] }}</td>
+
+  {# §4.4 — Status badge color reflects license state #}
+  <td class="px-5 py-3">
+    {% set s = row['Status'] %}
+    {% if s == 'ACTIVE' %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ s }}</span>
+    {% elif s == 'BY REQUEST' %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ s }}</span>
+    {% else %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ s }}</span>
+    {% endif %}
+  </td>
+
+  <td class="px-5 py-3 text-slate-700 whitespace-nowrap">{{ row['License Expiration Date'] or '—' }}</td>
+
+  {# §4.5 — Overdue inspection dates shown in red (blank counts as overdue) #}
+  <td class="px-5 py-3 whitespace-nowrap {{ 'text-red-600 font-medium' if row['_overdue'] else 'text-slate-700' }}">
+    {{ row['Latest Inspection Date'] or '—' }}
+  </td>
+
+  <td class="px-5 py-3 text-slate-700">{{ row['Latest Inspection Outcome'] or '—' }}</td>
+
+  <td class="px-5 py-3 text-slate-700 whitespace-nowrap">{{ row['Elevator Type'] or '—' }}</td>
+
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+  <td colspan="8" class="px-5 py-8 text-center text-sm text-slate-400">
+    No elevators match the current filters.
+  </td>
+</tr>
+{% endif %}

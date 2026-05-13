@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rocket Elevators Operations Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"
+          integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+          crossorigin="anonymous"></script>
 </head>
 <body class="flex h-screen bg-slate-100 overflow-hidden">
 
@@ -39,8 +42,8 @@
 
     <!-- Top bar -->
     <div class="px-8 py-5 border-b border-slate-200 bg-white">
-      <h1 class="text-lg font-semibold text-slate-800">Fleet Overview</h1>
-      <p class="text-sm text-slate-500 mt-0.5">Ontario elevator registry — subset of 18 records</p>
+      <h1 class="text-lg font-semibold text-slate-800">Operational Fleet Overview</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Active and by-request licensed devices — server-rendered, HTMX-driven</p>
     </div>
 
     <div class="px-8 py-6">
@@ -51,30 +54,28 @@
         <!-- Card 1: Total Elevators — neutral, no accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Total Elevators</p>
-          <p class="text-4xl font-bold text-slate-800">18</p>
+          <p class="text-4xl font-bold text-slate-800">{{ total_elevators }}</p>
           <p class="text-xs text-slate-400 mt-2">Unique devices in license.csv</p>
         </div>
 
         <!-- Card 2: Active Elevators — green accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Active Elevators</p>
-          <p class="text-4xl font-bold text-green-600">
-            11 <span class="text-xl font-medium text-slate-400">(61%)</span>
-          </p>
+          <p class="text-4xl font-bold text-green-600">{{ active_elevators }}</p>
           <p class="text-xs text-slate-400 mt-2">LICENSESTATUS = ACTIVE</p>
         </div>
 
         <!-- Card 3: Overdue Inspections — red accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Overdue Inspections</p>
-          <p class="text-4xl font-bold text-red-600">18</p>
+          <p class="text-4xl font-bold text-red-600">{{ overdue_inspections }}</p>
           <p class="text-xs text-slate-400 mt-2">Latest inspection &gt; 1 year ago or missing</p>
         </div>
 
         <!-- Card 4: Licenses Expiring — amber accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Licenses Expiring in 30 Days</p>
-          <p class="text-4xl font-bold text-amber-600">0</p>
+          <p class="text-4xl font-bold text-amber-600">{{ expiring_soon }}</p>
           <p class="text-xs text-slate-400 mt-2">LICENSEEXPIRYDATE within next 30 days</p>
         </div>
 
@@ -83,35 +84,153 @@
       <!-- Detail table -->
       <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
 
-        <!-- Search bar -->
-        <div class="px-5 py-4 border-b border-slate-200 flex items-center gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/>
-          </svg>
-          <input
-            id="search"
-            type="text"
-            placeholder="Search by Elevator ID or Location..."
-            class="flex-1 max-w-sm text-sm text-slate-700 placeholder-slate-400 bg-transparent border-none outline-none"
-          />
-        </div>
+        <!--
+          Controls form — all named inputs are included in every HTMX request via hx-include="#controls".
+          Filters (status, type) and search (q) each target #tableBody for a lightweight tbody-only swap.
+        -->
+        <form id="controls" class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
+
+          <!-- Search input: debounced keyup fires GET /table with all current filter values -->
+          <div class="flex items-center gap-2 flex-1 min-w-48">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/>
+            </svg>
+            <input
+              type="text"
+              name="q"
+              placeholder="Search by Elevator ID or Location..."
+              class="flex-1 min-w-0 text-sm text-slate-700 placeholder-slate-400 bg-transparent border-none outline-none"
+              hx-get="/table"
+              hx-target="#tableBody"
+              hx-swap="innerHTML"
+              hx-include="#controls"
+              hx-trigger="keyup changed delay:300ms"
+            />
+          </div>
+
+          <!-- Status filter: GET /table on change, swaps #tableBody innerHTML -->
+          <select
+            name="status"
+            class="text-sm text-slate-700 border border-slate-200 rounded px-2 py-1.5 bg-white outline-none cursor-pointer hover:border-slate-400"
+            hx-get="/table"
+            hx-target="#tableBody"
+            hx-swap="innerHTML"
+            hx-include="#controls"
+            hx-trigger="change"
+          >
+            <option value="">All Statuses</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="BY REQUEST">BY REQUEST</option>
+          </select>
+
+          <!-- Elevator Type filter: GET /table on change, swaps #tableBody innerHTML -->
+          <select
+            name="type"
+            class="text-sm text-slate-700 border border-slate-200 rounded px-2 py-1.5 bg-white outline-none cursor-pointer hover:border-slate-400"
+            hx-get="/table"
+            hx-target="#tableBody"
+            hx-swap="innerHTML"
+            hx-include="#controls"
+            hx-trigger="change"
+          >
+            <option value="">All Types</option>
+            <option value="Passenger Elevator">Passenger Elevator</option>
+            <option value="Freight Elevator">Freight Elevator</option>
+          </select>
+
+        </form>
 
         <!-- Table -->
         <div class="overflow-x-auto">
-          <table class="w-full text-sm text-left">
+          <!--
+            id="fleetTable": sort buttons target this element with hx-swap="outerHTML" so the server
+            can return an updated full table (including refreshed sort-button URLs) without custom JS.
+          -->
+          <table id="fleetTable" class="w-full text-sm text-left">
             <thead class="border-b border-slate-200">
               <tr>
-                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(0)">Elevator ID <span id="sort0" class="text-slate-300"></span></th>
-                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700" onclick="sortTable(1)">Location <span id="sort1" class="text-slate-300"></span></th>
-                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(2)">License Number <span id="sort2" class="text-slate-300"></span></th>
-                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700" onclick="sortTable(3)">Status <span id="sort3" class="text-slate-300"></span></th>
-                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(4)">License Expiration Date <span id="sort4" class="text-slate-300"></span></th>
-                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(5)">Latest Inspection Date <span id="sort5" class="text-slate-300"></span></th>
-                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-slate-700 whitespace-nowrap" onclick="sortTable(6)">Elevator Type <span id="sort6" class="text-slate-300"></span></th>
+
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                  Elevator ID
+                </th>
+
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Location
+                </th>
+
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                  License Number
+                </th>
+
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Status
+                </th>
+
+                <!--
+                  Sortable: License Expiration Date.
+                  Initial state: first click sorts ascending (order=asc).
+                  After the server returns an outerHTML-swapped table, it updates this button's
+                  URL to order=desc so the next click reverses — no JS required.
+                -->
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                  <button
+                    hx-get="/table?sort=license_expiry&order=asc"
+                    hx-target="#fleetTable"
+                    hx-swap="outerHTML"
+                    hx-include="#controls"
+                    class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    License Expiration Date
+                    <span class="text-slate-300 text-base leading-none">&#8597;</span>
+                  </button>
+                </th>
+
+                <!--
+                  Sortable: Latest Inspection Date.
+                  Same toggle mechanism as License Expiration Date above.
+                -->
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                  <button
+                    hx-get="/table?sort=latest_inspection&order=asc"
+                    hx-target="#fleetTable"
+                    hx-swap="outerHTML"
+                    hx-include="#controls"
+                    class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    Latest Inspection Date
+                    <span class="text-slate-300 text-base leading-none">&#8597;</span>
+                  </button>
+                </th>
+
+                <!-- Added per spec §3 — sourced from inspection.csv.InspectionOutcome -->
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                  Latest Inspection Outcome
+                </th>
+
+                <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                  Elevator Type
+                </th>
+
               </tr>
             </thead>
-            <tbody id="tableBody" class="divide-y divide-slate-100 text-slate-700">
+
+            <!--
+              tbody#tableBody: hx-trigger="load" populates rows on initial page load.
+              Filters and search also target this element (innerHTML swap).
+              Sort buttons target #fleetTable (outerHTML swap), which replaces the whole table
+              including updated sort-button URLs for the next click.
+            -->
+            <tbody
+              id="tableBody"
+              class="divide-y divide-slate-100 text-slate-700"
+              hx-get="/table"
+              hx-trigger="load"
+              hx-target="#tableBody"
+              hx-swap="innerHTML"
+              hx-include="#controls"
+            >
             </tbody>
+
           </table>
         </div>
 
@@ -119,110 +238,7 @@
     </div>
   </main>
 
-  <script>
-    // Data sourced from license.csv, inspection.csv, and installed.json.
-    // Records joined on ElevatingDevicesNumber / "Elevating devices number".
-    // Dates normalized to YYYY-MM-DD. Blank Latest Inspection Date = no record in inspection.csv.
-    // Fields: [ElevatingDevicesNumber, LocationoftheElevatingDevice, ElevatingDevicesLicenseNumber,
-    //          LICENSESTATUS, LICENSEEXPIRYDATE, Latest_INSPECTION_Date, Device Type]
-    const data = [
-      ["10",    "111 WELLESLEY ST W  TORONTO M7A 1A2 ON CA",                        "EDLIC-000010", "ACTIVE",               "2017-04-28", "2013-01-10", "Passenger Elevator"],
-      ["100",   "1804 HIGHWAY 2 E  BROCKVILLE K6V 5T1 ON CA",                       "170719",       "BY REQUEST",           "2014-12-12", "2011-04-28", "Passenger Elevator"],
-      ["101",   "1804 HIGHWAY 2 E  BROCKVILLE K6V 5T1 ON CA",                       "172550",       "BY REQUEST",           "2014-12-12", "2011-04-28", "Passenger Elevator"],
-      ["1009",  "404 MAIN ST  WOODSTOCK N4S 7X5 ON CA",                             "EDLIC-001009", "ACTIVE",               "2017-07-15", "2012-01-23", "Freight Elevator"],
-      ["1018",  "150 SIMCOE ST  LONDON N6A 4M3 ON CA",                              "EDLIC-001018", "ACTIVE",               "2017-10-15", "2011-01-06", "Passenger Elevator"],
-      ["1019",  "150 SIMCOE ST  LONDON N6A 4M3 ON CA",                              "EDLIC-001019", "ACTIVE",               "2017-10-15", "2016-01-12", "Passenger Elevator"],
-      ["1020",  "150 SIMCOE ST  LONDON N6A 4M3 ON CA",                              "EDLIC-001020", "ACTIVE",               "2017-10-15", "2014-12-05", "Freight Elevator"],
-      ["10047", "162 PEMBROKE ST W  PEMBROKE K8A 5M8 ON CA",                        "EDLIC-010047", "BY REQUEST",           "2008-03-15", "",           "Freight Elevator"],
-      ["10054", "541 SUSSEX DR  OTTAWA K1N 6Z6 ON CA",                              "EDLIC-010054", "BY REQUEST",           "2005-10-01", "2016-10-14", "Passenger Elevator"],
-      ["10134", "320 SUSSEX DR  OTTAWA K1A 0G8 ON CA",                              "EDLIC-010134", "CANCELLED_NOT_RENEWED","1986-03-15", "",           "Passenger Elevator"],
-      ["10145", "45 SECOND ST E  CORNWALL K6H 1V5 ON CA",                           "EDLIC-010145", "ACTIVE",               "2017-03-15", "2016-04-27", "Freight Elevator"],
-      ["10222", "2785 RIVERSIDE DR  OTTAWA K1A 0Y3 ON CA",                          "EDLIC-010222", "CANCELLED_NOT_RENEWED","2014-03-15", "",           "Freight Elevator"],
-      ["10246", "30 ADELAIDE ST E  TORONTO M5C 3G8 ON CA",                          "EDLIC-010246", "ACTIVE",               "2017-07-31", "2012-01-11", "Freight Elevator"],
-      ["10255", "193 CHURCH ST  OAKVILLE L6J 1N3 ON CA",                            "223355",       "ACTIVE",               "2017-02-04", "2013-01-18", "Freight Elevator"],
-      ["10264", "75 WATERLOO ST GOVERNMENT OF CANADA BLDG STRATFORD N5A 7B2 ON CA", "EDLIC-010264", "ACTIVE",               "2017-10-01", "2011-01-04", "Freight Elevator"],
-      ["10300", "WESTERN RD  LONDON N6G 1H1 ON CA",                                 "EDLIC-010300", "ACTIVE",               "2017-03-15", "2016-01-19", "Passenger Elevator"],
-      ["10310", "388 DUNDAS ST  LONDON N6B 1V7 ON CA",                              "EDLIC-010310", "CANCELLED_NOT_RENEWED","2007-10-15", "",           "Passenger Elevator"],
-      ["10316", "800 COMMISSIONERS RD E PLANNING FACILITIES LONDON N6C 6B5 ON CA",  "EDLIC-010316", "ACTIVE",               "2017-01-15", "2014-01-14", "Passenger Elevator"],
-    ];
-
-    const TODAY = new Date("2026-05-05");
-    const ONE_YEAR_AGO = new Date(TODAY);
-    ONE_YEAR_AGO.setFullYear(TODAY.getFullYear() - 1);
-
-    function isOverdue(dateStr) {
-      if (!dateStr) return true;
-      return new Date(dateStr) < ONE_YEAR_AGO;
-    }
-
-    // §4.4 — Status badges: green / amber / red per spec
-    function statusBadge(status) {
-      const map = {
-        "ACTIVE":                "bg-green-100 text-green-700 ring-1 ring-green-200",
-        "BY REQUEST":            "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
-        "CANCELLED_NOT_RENEWED": "bg-red-100 text-red-700 ring-1 ring-red-200",
-      };
-      const cls = map[status] || "bg-slate-100 text-slate-600";
-      return `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${cls}">${status}</span>`;
-    }
-
-    let sortCol = -1;
-    let sortAsc = true;
-
-    function getFiltered() {
-      const q = document.getElementById("search").value.toLowerCase();
-      return data.filter(r =>
-        r[0].toLowerCase().includes(q) || r[1].toLowerCase().includes(q)
-      );
-    }
-
-    function renderTable(rows) {
-      // §4.5 — Overdue inspection dates rendered in red
-      document.getElementById("tableBody").innerHTML = rows.map(r => {
-        const overdue = isOverdue(r[5]);
-        const inspCls  = overdue ? "text-red-600 font-medium" : "text-slate-700";
-        const inspDisplay = r[5] || "—";
-        return `
-          <tr class="hover:bg-slate-50 transition-colors">
-            <td class="px-5 py-3 font-mono text-xs text-slate-600">${r[0]}</td>
-            <td class="px-5 py-3 text-slate-700 max-w-xs" title="${r[1]}">${r[1]}</td>
-            <td class="px-5 py-3 font-mono text-xs text-slate-600">${r[2]}</td>
-            <td class="px-5 py-3">${statusBadge(r[3])}</td>
-            <td class="px-5 py-3 text-slate-700">${r[4]}</td>
-            <td class="px-5 py-3 ${inspCls}">${inspDisplay}</td>
-            <td class="px-5 py-3 text-slate-700">${r[6]}</td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    function updateSortIndicators() {
-      for (let i = 0; i < 7; i++) {
-        const el = document.getElementById("sort" + i);
-        el.textContent = i === sortCol ? (sortAsc ? "↑" : "↓") : "";
-      }
-    }
-
-    function renderFiltered() {
-      const rows = getFiltered();
-      if (sortCol >= 0) {
-        rows.sort((a, b) => sortAsc
-          ? a[sortCol].localeCompare(b[sortCol])
-          : b[sortCol].localeCompare(a[sortCol])
-        );
-      }
-      renderTable(rows);
-    }
-
-    function sortTable(col) {
-      sortCol === col ? (sortAsc = !sortAsc) : (sortCol = col, sortAsc = true);
-      updateSortIndicators();
-      renderFiltered();
-    }
-
-    document.getElementById("search").addEventListener("input", renderFiltered);
-    renderTable(data);
-  </script>
+  <!-- No custom JavaScript. All interactivity is HTMX-driven via GET /table. -->
 
 </body>
 </html>

@@ -8,13 +8,18 @@ The Rocket Elevators Operations Dashboard provides a single-page view of the ele
 
 ## 1. Page Layout
 
-The dashboard consists of three main sections:
+The dashboard consists of four visual areas:
 
 1. **Sidebar**: A navigation panel on the left side of the page. It contains the "Rocket Elevators" title and a menu that currently links to the Dashboard. The sidebar is designed to support additional pages in the future if needed.
 
-2. **Summary Cards**: Four metric cards displayed at the top of the main content area. Each card shows a key fleet statistic that answers the operations manager's top questions: How many elevators do we have? How many are active? How many have overdue inspections? Are any licenses expiring soon? On desktop screens, the four cards appear in a single horizontal row. On smaller screens, the cards may wrap to multiple rows while preserving their original order.
+2. **Page Header**: A top bar displayed above the main content area. It contains a page title and a subtitle that together identify the scope of the current view.
+   - **Title**: Operational Fleet Overview
+   - **Subtitle**: Active and by-request licensed devices — server-rendered, HTMX-driven
+   - The title reflects that the dashboard presents an operational subset of the Ontario elevator registry (ACTIVE and BY REQUEST licenses only), not the complete registry. The subtitle reinforces the technical rendering approach.
 
-3. **Detail Table**: Below the summary cards, a sortable table displays all elevators in the fleet. The operations manager can sort by any column and search by elevator ID or location to look up a specific elevator's details.
+3. **Summary Cards**: Four metric cards displayed at the top of the main content area. Each card shows a key fleet statistic that answers the operations manager's top questions: How many elevators do we have? How many are active? How many have overdue inspections? Are any licenses expiring soon? On desktop screens, the four cards appear in a single horizontal row. On smaller screens, the cards may wrap to multiple rows while preserving their original order.
+
+4. **Detail Table**: Below the summary cards, a sortable table displays all elevators in the fleet. The operations manager can sort by any column and search by elevator ID or location to look up a specific elevator's details.
 
 ---
 
@@ -54,6 +59,17 @@ Four metric cards appear at the top of the dashboard in a horizontal row.
 - **Data Source**: license.csv
 - **Purpose**: Alerts operations staff to upcoming license renewals that need planning.
 
+### Metric Computation
+
+Summary card values are computed on the server at page load (`GET /`) using the unified dataset in `platform/elevator_fleet.csv`. Each metric is calculated once per request and injected into the rendered HTML; cards are **not** updated by HTMX and do not respond to table filter or sort changes.
+
+| Card | Calculation |
+|---|---|
+| **Total Elevators** | Count of all records in elevator_fleet.csv. |
+| **Active Elevators** | Count of records where `Status = "ACTIVE"`, displayed as both a raw count and a percentage of Total Elevators (e.g., "847 (92%)"). |
+| **Overdue Inspections** | Count of records where `Latest Inspection Date` is blank **or** more than 365 days before today. |
+| **Licenses Expiring in 30 Days** | Count of records where `License Expiration Date` falls between today and 30 days from today (inclusive). |
+
 ---
 
 ## 3. Detail Table
@@ -74,6 +90,39 @@ The table displays columns sourced from license.csv, inspection.csv, and install
 | **Latest Inspection Date** | inspection.csv | Latest_INSPECTION_Date | Date | YYYY-MM-DD | Date of the most recent inspection on record; blank if no inspection record exists |
 | **Latest Inspection Outcome** | inspection.csv | InspectionOutcome | Text | As stored | Outcome of the most recent inspection (e.g., PASS/FAIL); blank if no inspection record exists |
 | **Elevator Type** | installed.json | Device Type | Text | As stored | Type of elevator (e.g., Passenger Elevator, Freight Elevator); blank if no installed.json match |
+
+### Interactive Behavior (HTMX)
+
+> **Note:** The static prototype used custom JavaScript for client-side sorting and search. The dynamic version replaces this entirely with HTMX-driven server requests — no custom JavaScript is required for table interactivity.
+
+#### Filtering
+
+Two dropdown filters appear above the table. Selecting a value triggers a `GET /table` request; HTMX swaps the updated HTML fragment into the table body without a full page reload.
+
+| Filter | Source field | HTMX attributes | Behavior |
+|---|---|---|---|
+| **Status** | `status` (license.csv.LICENSESTATUS) | `hx-get="/table"` `hx-target="#table-body"` `hx-swap="innerHTML"` on `<select>` | Limits rows to the selected status value; shows all statuses when blank |
+| **Elevator Type** | `equipment_type` (installed.json.Device Type) | `hx-get="/table"` `hx-target="#table-body"` `hx-swap="innerHTML"` on `<select>` | Limits rows to the selected equipment type; shows all types when blank |
+
+Both filters use `hx-trigger="change"` so the request fires immediately on selection with no submit button.
+
+#### Sorting
+
+Two columns are sortable: **License Expiration Date** and **Latest Inspection Date**. Clicking a column header toggles the sort direction (ascending → descending → ascending) without any custom JavaScript. The active sort column and direction are passed as query parameters; the server returns a freshly ordered HTML fragment.
+
+| Sortable column | `sort=` value | `dir=` values |
+|---|---|---|
+| License Expiration Date | `license_expiry_date` | `asc` / `desc` |
+| Latest Inspection Date | `last_inspection_date` | `asc` / `desc` |
+
+Each sortable `<th>` carries `hx-get="/table?sort=<field>&dir=<next_dir>"`, `hx-target="#table-body"`, and `hx-swap="innerHTML"`. The server handles all ordering logic; the browser holds no sort state in JavaScript.
+
+#### Server Contract
+
+- **Endpoint:** `GET /table`
+- **Query parameters:** `status` (optional), `elevator_type` (optional), `sort` (optional), `dir` (`asc` or `desc`, optional, default `asc`)
+- **Response:** An HTML fragment — a `<tbody>` block of `<tr>` rows — suitable for direct `innerHTML` swap by HTMX. The server returns **HTML, not JSON**; the browser receives ready-to-render markup.
+- All filtering and sorting logic runs on the server; the client carries no state beyond what is encoded in HTMX attributes and query parameters.
 
 
 ## Data Model

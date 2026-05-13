@@ -365,3 +365,30 @@ I used Explore to keep repo scanning, file reads, and any dead ends out of the m
 **What I will change next time:**
 - Ask Explore to produce the purpose as a strict single sentence (max ~20–25 words).
 - Request the /data inventory in a fixed bullet format to copy directly into CLAUDE.md.
+
+## AND-2 Task 3: Dynamic Dashboard — Context Reset and Server-Rendered Summary Cards
+
+**Context / Situation**  
+While implementing HTMX-based filtering and sorting for the dashboard table, the Summary Cards at the top of the page stopped displaying values and showed placeholder dashes ("—"). Table interactivity via HTMX was functioning correctly.
+
+**Prompt (paraphrased)**  
+"Why did the summary cards stop showing values after migrating from a JavaScript-based prototype to an HTMX + server-rendered dashboard?"
+
+**What the output got right**  
+The analysis correctly identified that the cards were previously populated by custom JavaScript in the static prototype. After removing custom JS to comply with Task 3 requirements, the `/` route was still serving `index.html` as a static file via `send_from_directory`, so no server-side rendering or data injection was occurring. As a result, the cards had no mechanism to receive values.
+
+**What went wrong / limitation identified**  
+Although HTMX was correctly implemented for the table, the dashboard shell (`/`) was not rendered as a template. This meant summary metrics were never calculated or injected by the server, leaving the cards empty. This was not an HTMX issue, but an architectural gap introduced during the migration away from client-side JavaScript.
+
+**Context management decision**  
+At this point, the session context had grown to ~40% of the available window and response quality began to degrade. I deliberately used `/compact` to preserve the current state (HTMX table working, root cause of missing card values identified) while discarding resolved exploration and reducing noise before planning the fix.
+
+**Design decision taken**  
+To remain compliant with course constraints (no direct HTML edits, spec-driven workflow, no custom JavaScript), I chose to implement server-rendered summary cards:
+- Update `docs/dashboard_spec.md` to explicitly define summary cards as server-rendered metrics.
+- Regenerate `platform/index.html` from the updated spec, replacing placeholders with template variables.
+- Modify the server to compute metrics from `elevator_fleet.csv` and render the dashboard using server-side templating.
+
+**What I would do differently next time**  
+When migrating from a static prototype to server-rendered interactivity, I would proactively audit which UI elements depend on client-side logic and plan equivalent server-rendered behavior earlier, instead of discovering missing functionality after removing JavaScript.
+``
