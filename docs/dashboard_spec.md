@@ -115,7 +115,7 @@ Two columns are sortable: **License Expiration Date** and **Latest Inspection Da
 | License Expiration Date | `license_expiry` | `asc` / `desc` |
 | Latest Inspection Date | `latest_inspection` | `asc` / `desc` |
 
-Each sortable `<th>` carries `hx-get="/table?sort=<field>&order=<next_order>"`, `hx-target="#tableBody"`, and `hx-swap="outerHTML"`. The server handles all ordering logic; the browser holds no sort state in JavaScript.
+Each sortable `<th>` carries `hx-get="/table?sort=<field>&order=<next_order>"`, `hx-target="#fleetTable"`, and `hx-swap="outerHTML"`. The server handles all ordering logic; the browser holds no sort state in JavaScript.
 
 #### Server Contract
 
