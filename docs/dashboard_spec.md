@@ -101,8 +101,8 @@ Two dropdown filters appear above the table. Selecting a value triggers a `GET /
 
 | Filter | Source field | HTMX attributes | Behavior |
 |---|---|---|---|
-| **Status** | `status` (license.csv.LICENSESTATUS) | `hx-get="/table"` `hx-target="#table-body"` `hx-swap="innerHTML"` on `<select>` | Limits rows to the selected status value; shows all statuses when blank |
-| **Elevator Type** | `equipment_type` (installed.json.Device Type) | `hx-get="/table"` `hx-target="#table-body"` `hx-swap="innerHTML"` on `<select>` | Limits rows to the selected equipment type; shows all types when blank |
+| **Status** | `status` (license.csv.LICENSESTATUS) | `hx-get="/table"` `hx-target="#tableBody"` `hx-swap="innerHTML"` on `<select>` | Limits rows to the selected status value; shows all statuses when blank |
+| **Elevator Type** | `type` (installed.json.Device Type) | `hx-get="/table"` `hx-target="#tableBody"` `hx-swap="innerHTML"` on `<select>` | Limits rows to the selected equipment type; shows all types when blank |
 
 Both filters use `hx-trigger="change"` so the request fires immediately on selection with no submit button.
 
@@ -110,19 +110,19 @@ Both filters use `hx-trigger="change"` so the request fires immediately on selec
 
 Two columns are sortable: **License Expiration Date** and **Latest Inspection Date**. Clicking a column header toggles the sort direction (ascending → descending → ascending) without any custom JavaScript. The active sort column and direction are passed as query parameters; the server returns a freshly ordered HTML fragment.
 
-| Sortable column | `sort=` value | `dir=` values |
+| Sortable column | `sort=` value | `order=` values |
 |---|---|---|
-| License Expiration Date | `license_expiry_date` | `asc` / `desc` |
-| Latest Inspection Date | `last_inspection_date` | `asc` / `desc` |
+| License Expiration Date | `license_expiry` | `asc` / `desc` |
+| Latest Inspection Date | `latest_inspection` | `asc` / `desc` |
 
-Each sortable `<th>` carries `hx-get="/table?sort=<field>&dir=<next_dir>"`, `hx-target="#table-body"`, and `hx-swap="innerHTML"`. The server handles all ordering logic; the browser holds no sort state in JavaScript.
+Each sortable `<th>` carries `hx-get="/table?sort=<field>&order=<next_order>"`, `hx-target="#tableBody"`, and `hx-swap="outerHTML"`. The server handles all ordering logic; the browser holds no sort state in JavaScript.
 
 #### Server Contract
 
 - **Endpoint:** `GET /table`
-- **Query parameters:** `status` (optional), `elevator_type` (optional), `sort` (optional), `dir` (`asc` or `desc`, optional, default `asc`)
-- **Response:** An HTML fragment — a `<tbody>` block of `<tr>` rows — suitable for direct `innerHTML` swap by HTMX. The server returns **HTML, not JSON**; the browser receives ready-to-render markup.
-- All filtering and sorting logic runs on the server; the client carries no state beyond what is encoded in HTMX attributes and query parameters.
+- **Query parameters:** `status` (optional), `type` (optional), `q` (optional, search string), `sort` (optional), `order` (`asc` or `desc`, optional, default `asc`)
+- **Response:** An HTML fragment suitable for HTMX swap. For filter and search requests, returns a `<tbody>` block of `<tr>` rows (innerHTML swap into `#tableBody`). For sort requests, returns a complete `<table>` with updated sort button URLs (outerHTML swap of `#fleetTable`). The server returns **HTML, not JSON**; the browser receives ready-to-render markup.
+- All filtering, searching, and sorting logic runs on the server; the client carries no state beyond what is encoded in HTMX attributes and query parameters.
 
 
 ## Data Model
