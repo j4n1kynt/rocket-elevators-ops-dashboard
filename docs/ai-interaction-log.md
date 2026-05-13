@@ -391,4 +391,134 @@ To remain compliant with course constraints (no direct HTML edits, spec-driven w
 
 **What I would do differently next time**  
 When migrating from a static prototype to server-rendered interactivity, I would proactively audit which UI elements depend on client-side logic and plan equivalent server-rendered behavior earlier, instead of discovering missing functionality after removing JavaScript.
-``
+
+## AND-2 Task 3: Context Management — Using /compact to Maintain Output Quality
+
+**Goal:** Maintain response quality during a long, multi-file Task 3 implementation involving server logic, HTMX behavior, and spec alignment.
+
+**Interaction summary:**
+During Task 3, the conversation context grew to approximately 40% of the available window while iterating on server logic, HTMX interactivity, and dashboard semantics. At that point, responses began to lose precision and reference earlier decisions less reliably.
+
+**What worked:**
+- Using `/compact` preserved the essential state of the task (HTMX table working, server-rendered cards identified as missing, scope mismatch diagnosed).
+- The context reset reduced noise from earlier exploration and allowed focused reasoning on how to complete Task 3 without reintroducing JavaScript or breaking the spec-driven workflow.
+
+**What was unexpected:**
+- Response degradation became noticeable before reaching the context limit, reinforcing that context quality degrades gradually, not only at hard limits.
+
+**Design decision:**
+I deliberately used `/compact` to reset the conversation state once the architectural direction was clear. This ensured subsequent guidance focused only on unresolved issues (server-rendered cards and semantic alignment), rather than rehashing solved problems.
+
+**Lesson learned:**
+For long tasks involving multiple files and design decisions, proactive context management is necessary. Using `/compact` early enough improves solution quality and reduces iteration time.
+
+## AND-2 Task 3: Data Pipeline for Server-Rendered Dashboard
+
+**Goal:** Create a data preparation script (platform/prepare_data.py) that replicates the filtering logic from Module 1 Task 6c and produces elevator_fleet.csv as the authoritative source for all dashboard operations.
+
+**Interaction summary:**
+I asked Claude Code to design a Python data pipeline that:
+- Loads three source datasets (license.csv, inspection.csv, installed.json) with consistent string typing
+- Replicates the ACTIVE + BY REQUEST filtering from Module 1 Task 6c
+- Normalizes date formats (DD-MMM-YY → YYYY-MM-DD) for consistent sorting and display
+- Deduplicates inspection records to keep only the most recent per elevator
+- Joins datasets on ElevatingDevicesNumber and outputs a clean CSV
+
+**What worked:**
+- The script correctly filtered 43,002 records (42,665 ACTIVE + 337 BY REQUEST) from a larger source dataset
+- Date normalization using pd.to_datetime with explicit format strings handled format variation without data loss
+- The deduplication strategy (sort descending, drop_duplicates keep='first') correctly extracted the latest inspection per elevator
+- Output column naming aligned directly with template variable expectations in index.html
+
+**What was unexpected:**
+- The Unicode encoding issue (→ character in print statement) surfaced Windows PowerShell's cp1252 limitations; this required using plain ASCII (→ became ->) instead of assuming UTF-8 was available in terminal output
+- Despite the encoding issue, the data pipeline itself executed successfully and produced correct output
+
+**Design decision:**
+prepare_data.py became the single source of truth for data quality. All downstream components (Flask server, summary card metrics, table filtering) depend on this cleaned CSV rather than re-implementing filter logic in multiple places. This centralization prevents inconsistency and makes the filtering logic auditable in one location.
+
+**Lesson learned:**
+Data pipelines should be script-first, not ad hoc. Encoding issues are environmental, not logical errors; they don't invalidate the core logic. The pipeline's output shape directly influences what template variables and server-side logic become possible.
+
+---
+
+## AND-2 Task 3: HTMX Table Interactivity — Migration from JavaScript Prototype
+
+**Goal:** Replace the static JavaScript-driven table prototype with an HTMX-based, server-rendered approach for filtering, search, and sorting.
+
+**Interaction summary:**
+I worked with Claude Code to redesign the dashboard interactivity model:
+- Removed the entire JavaScript block from the static prototype (const data array, sortTable(), renderTable() functions)
+- Added HTMX attributes to search input, filter dropdowns, and sortable headers
+- Implemented a two-channel HTMX pattern: filters/search target #tableBody (innerHTML swap), sort buttons target #fleetTable (outerHTML swap)
+- Defined clear HX-Target header inspection logic in server-side code to route responses to the correct swap target
+
+**What worked:**
+- The HTMX directive syntax (hx-get, hx-target, hx-swap, hx-trigger, hx-include) was expressive enough to encode all filtering, search, and sort behavior without custom JavaScript
+- The two-swap pattern (innerHTML for filters, outerHTML for sort) correctly distinguished lightweight row-only updates from full-table replacements with updated button URLs
+- Search debouncing (hx-trigger="keyup changed delay:300ms") provided responsive UX without page reloads
+
+**What was unexpected:**
+- The HTMX approach required no custom JavaScript whatsoever, eliminating an entire class of client-side state management bugs
+- Unicode arrow characters (↑↓↕) in Python required careful handling but rendered correctly in browser HTML (no terminal encoding issues)
+
+**Design decision:**
+Approach A (server returns updated button URLs) was chosen over Approach B (client remembers sort state) because it keeps all state on the server and requires zero client-side logic. Each sort button click toggles the URL parameter, and the server recalculates the opposite direction. This trades a full table HTML return for complete statelessness on the client.
+
+**Lesson learned:**
+HTMX shifts interactivity from client-side logic to server-side response shape. The two different swap targets (innerHTML vs. outerHTML) let the server choose response granularity (rows only vs. full table) based on the type of update, reducing payload size and simplifying the client.
+
+---
+
+## AND-2 Task 3: Flask Server Architecture — HTML Fragments Over JSON
+
+**Goal:** Build a Flask backend (platform/server.py) that serves HTML fragments instead of JSON responses, enabling HTMX's innerHTML and outerHTML swapping.
+
+**Interaction summary:**
+I designed a Flask server with two endpoints:
+- GET / renders the dashboard shell with server-calculated summary card metrics
+- GET /table accepts filter, search, and sort parameters; applies them server-side; and returns either <tr> rows or a full <table> based on the HX-Target header
+
+**What worked:**
+- Returning Jinja2-rendered HTML fragments (not JSON) made HTMX swapping trivial; the browser receives ready-to-insert markup
+- Checking request.headers.get("HX-Target") allowed a single /table endpoint to serve two different response shapes
+- The is_overdue() helper and compute_metrics() function isolated business logic from routing, making calculations testable and reusable
+- Parsing dates server-side via pd.to_datetime ensured correct chronological sorting regardless of input format
+
+**What was unexpected:**
+- HTML fragment responses eliminated the need for a separate JSON API and JavaScript template rendering on the client
+- The server's full table generation (build_full_table()) required no client-side state; the next sort direction is embedded in the button URL on every response
+
+**Design decision:**
+Jinja2 templating was chosen over JSON because it keeps the rendering logic server-side. This maintains consistency: the server controls both the markup structure and the data it contains. No duplication of template logic across client and server.
+
+**Lesson learned:**
+When the client is Hypertext (HTML), serving HTML fragments is simpler and more consistent than serving JSON and rendering it on the client. HTMX's swap semantics reduce cognitive overhead: innerHTML is simpler than managing client-side state or diffing JSON updates.
+
+---
+
+## AND-2 Task 3: Dashboard Title and Scope Alignment
+
+**Goal:** Ensure the dashboard title and subtitle accurately reflect the operational subset (ACTIVE and BY REQUEST) rather than implying the full Ontario elevator registry.
+
+**Interaction summary:**
+During spec refinement, I updated the dashboard title and subtitle to clarify scope:
+- Title: "Fleet Overview" → "Operational Fleet Overview"
+- Subtitle: "Ontario elevator registry — HTMX-driven, server-rendered" → "Active and by-request licensed devices — server-rendered, HTMX-driven"
+
+This was informed by earlier license_analysis.ipynb verification that confirmed ACTIVE and BY REQUEST were the only operational statuses included in the dashboard.
+
+**What worked:**
+- Renaming the title made the operational subset immediately clear to users
+- Updating the subtitle removed the misleading reference to "full registry" which would have included CANCELLED_NOT_RENEWED and other non-operational statuses
+- The change was spec-driven, so regenerating index.html from the updated spec automatically applied the new text
+
+**What was unexpected:**
+- The subtitle change required no code modifications; only text edits to the specification and subsequent HTML regeneration
+- This reinforced that the spec-as-source-of-truth approach keeps UI text (not just layout) in sync with documented intent
+
+**Design decision:**
+Title accuracy was treated as part of specification correctness, not as a minor UI detail. By anchoring the title to the spec, future readers and maintainers immediately understand the dashboard's scope without needing to trace the data pipeline.
+
+**Lesson learned:**
+UI text like titles and subtitles should be specification-driven, just as layout and interactivity are. Clear, scoped titles reduce user confusion and improve documentation quality.
