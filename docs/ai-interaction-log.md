@@ -566,3 +566,104 @@ Schema inconsistencies across datasets (e.g., different naming and types for ele
 In ETL workflows, documenting reasoning and context-management decisions is as important as the final output. Explicitly tracking row counts and using /compact strategically prevents confusion when working with large, multi-step pipelines.
 
 ---
+
+## AND-2 Task 6: NLP Analysis — Subagent Research and Text Cleaning Implementation
+
+**Goal:**  
+Build an NLP analysis notebook (intelligence/nlp_analysis.ipynb) that performs incident narrative clustering using text cleaning, TF-IDF vectorization, and K-means clustering, grounded in a research-driven method selection process.
+
+**AI Techniques Used:**  
+- **Explore subagent** was used to conduct a comprehensive comparison of LDA vs TF-IDF + clustering across six dimensions (document length, interpretability, computational cost, hyperparameter sensitivity, unknown k behavior, and final recommendation).
+- **Claude Code** was used iteratively to fix encoding issues, resolve field name mismatches, handle None values, and integrate text cleaning logic into the notebook workflow.
+
+**Interaction Summary:**
+
+1. **Research Phase (Subagent):** Spun up an Explore agent to compare LDA and TF-IDF + clustering for short incident narratives (avg 12.6 words). The subagent produced a detailed analysis covering all six required dimensions, concluding that TF-IDF + K-means was superior for this use case due to short document length incompatibility with LDA's assumptions.
+
+2. **Notebook Structure:** Created the research findings markdown cell at the top of the notebook, documenting the comparison and explicit justification for method choice (3–5 sentences referencing document length and hyperparameter robustness).
+
+3. **Text Cleaning Implementation:** Added a complete text cleaning section (cells 5–8) before TF-IDF vectorization:
+   - NLTK setup cell with required downloads (stopwords, wordnet, pos_tagger)
+   - clean_text() function implementing: lowercasing, punctuation removal, tokenization, stopword filtering, and **lemmatization** (not stemming) using WordNetLemmatizer
+   - DataFrame creation and cleaning application with sample before/after display
+   - Updated TF-IDF vectorizer to use the cleaned narrative column
+
+4. **Debugging and Fixes:**
+   - Fixed encoding issues in research markdown (replaced fancy dashes with ASCII hyphens)
+   - Corrected field name from 'narrative' to 'Reported occurrence narrative' (matched actual JSON structure)
+   - Added None value handling using `(inc.get(...) or '')` pattern to prevent AttributeError during TF-IDF vectorization
+   - Maintained all existing parameters (max_features=3000, min_df=2, max_df=0.8, ngram_range=(1,2))
+
+**What worked:**  
+- The Explore subagent provided a well-reasoned, multi-dimensional comparison that justified the method choice clearly and concretely.
+- The research findings were documented as a graded deliverable before implementation, establishing clear justification for the approach.
+- Text cleaning implementation was simple and readable, using standard NLTK patterns without over-engineering.
+- Iterative debugging (field names, None handling, encoding) was straightforward once root causes were identified from error messages.
+- Preserving the clustering workflow unchanged meant the text cleaning step was additive, not disruptive.
+
+**What was unexpected:**  
+- Encoding issues in the notebook emerged from how PowerShell handled special characters (fancy dashes became corrupted UTF-8 sequences). This required replacing special characters with ASCII equivalents rather than assuming UTF-8 would render correctly throughout the pipeline.
+- The incident.json field naming ('Reported occurrence narrative' vs. assumed 'narrative') required explicit verification against the actual dataset structure. Initial assumptions about field names would have produced empty strings and silent failures.
+- Some incident records had None values for the narrative field, which TF-IDF couldn't process directly. The `or ''` fallback pattern prevented AttributeError without losing data integrity.
+
+**Design decision:**  
+Lemmatization was chosen over stemming because it normalizes words to meaningful base forms (e.g., "running" → "run") rather than truncating (e.g., "runn"). For short incident narratives (5–15 words on average), preserving semantic meaning is more important than aggressive reduction.
+
+Text cleaning was implemented as an **explicit preprocessing step** before vectorization, rather than relying on TF-IDF's built-in stop_words parameter. This made the cleaning logic auditable, repeatable, and transparent for future analysis or refinement.
+
+**Lesson learned:**  
+- **Subagent research is a graded deliverable.** Using Explore to conduct method comparison early establishes credible justification before implementation begins. This prevents post-hoc rationalization and surfaces trade-offs explicitly.
+- **Field name verification is non-negotiable.** Assumptions about dataset structure must be verified against actual schemas before writing extraction logic. Silent failures (empty strings from misnamed fields) are harder to debug than explicit errors.
+- **None handling in data pipelines must be deliberate.** Using fallback patterns (`or ''`) prevents downstream errors while maintaining data integrity. Different techniques (dropna(), or '', conversion to string) have different implications and should be chosen consciously.
+- **Encoding issues are environmental, not logical errors.** PowerShell's cp1252 limitations don't invalidate UTF-8 content; they require pragmatic workarounds (ASCII equivalents in markdown). This distinction helps avoid unnecessary rework.
+
+**What I'd change next time:**  
+- Scaffold the full notebook structure (research section, cleaning section, vectorization, clustering) before generating any code, to reduce iteration on insertion points and encoding.
+- Request field name verification from Explore when conducting initial dataset reconnaissance, rather than discovering mismatches during implementation.
+- Use explicit None checks and fallback patterns earlier in the notebook to surface data quality issues before they cascade to downstream cells.
+
+---
+
+## AND-2 Task 6: NLP Analysis — Context Management via /compact
+
+**Goal**  
+Perform NLP analysis on incident narratives to identify operational safety patterns using clustering, while maintaining output quality across multiple iterative steps within the same task.
+
+**Context management decision**  
+During Task 6, the analysis required multiple stages (data exploration, NLP method selection, text cleaning, vectorization, clustering, and interpretation). As the session progressed, the context window began to fill with intermediate outputs (statistics, TF‑IDF shapes, silhouette scores, cluster term lists), which risked degrading response quality.
+
+To ensure sufficient context for high‑quality reasoning while continuing work on the same task, `/compact` was deliberately used to reduce noise and preserve only the critical decisions and evidence needed to proceed.
+
+**What was preserved after /compact**
+- Dataset characteristics: ~2,446 incident reports with ~2,445 non‑null narratives.
+- Evidence that narratives are very short (average ~12.6 words), influencing method choice.
+- Chosen NLP approach: TF‑IDF vectorization combined with K‑Means clustering (not LDA).
+- Clustering configuration (TF‑IDF parameters, K selection via silhouette score).
+- Requirement to explicitly add a full text‑cleaning step (lowercasing, punctuation removal, stop‑word removal, lemmatization) before analysis.
+- Need for labeled clusters, visualization, and a concrete operational summary.
+
+**Why /compact was appropriate**  
+The task was not complete, and clearing context entirely would have required re‑establishing decisions already justified by data evidence. Using `/compact` allowed continuation of the same analytical task with a clean context window while preserving the most important assumptions, parameters, and evaluation requirements.
+
+**Lesson learned**  
+For multi‑stage NLP workflows, proactive context management is essential. Strategic use of `/compact` helps maintain analytical quality when working with iterative exploration and modeling steps, without losing alignment with task requirements or previously validated decisions.
+## AND-2 Task 6: NLP Analysis — Cluster/Summary Alignment Fix
+
+**Goal**  
+Ensure that the incident pattern summary accurately reflects the actual clustering results produced by the NLP pipeline, maintaining strict alignment between computed outputs and narrative interpretation.
+
+**AI techniques used**  
+- Used Claude Code in a strict evaluation role to review the notebook for consistency between clustering outputs and the final summary section.
+- Leveraged iterative AI-assisted inspection of cluster characteristics (top TF‑IDF terms and cluster sizes) to realign interpretation with computed results.
+
+**What worked**  
+A strict evaluator-style review immediately exposed a mismatch between the cluster statistics displayed in the notebook and the summary narrative describing incident patterns. Re-extracting cluster sizes and top terms directly from the clustering output eliminated assumptions and ensured the summary was fully data-driven.
+
+**What was unexpected**  
+A minor preprocessing change (adding an NLTK tokenization dependency) propagated through tokenization, TF‑IDF vectorization, and K‑Means clustering, completely reorganizing cluster assignments without producing runtime errors. The notebook structure and parameters remained unchanged, but the semantic meaning of clusters shifted significantly.
+
+**Design decision**  
+Rather than reverting preprocessing changes or forcing clusters to match an earlier interpretation, the summary was rewritten to describe the actual clustering results shown in the notebook. Clusters were grouped into four higher-level operational categories (falls & injuries, water & flooding, door system issues, and mechanical failures) based strictly on top terms and cluster sizes, ensuring that all reported counts summed exactly to the total number of incidents.
+
+**Lesson learned**  
+In NLP workflows, preprocessing choices have cascading effects that can silently alter downstream results. Narrative summaries must always be traceable to concrete model outputs, and any change to preprocessing requires revalidation of all interpretive sections. Treating the summary as a derived artifact—rather than a static explanation—prevents evaluation-blocking inconsistencies.
