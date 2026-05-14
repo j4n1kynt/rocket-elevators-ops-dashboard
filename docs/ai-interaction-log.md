@@ -522,3 +522,47 @@ Title accuracy was treated as part of specification correctness, not as a minor 
 
 **Lesson learned:**
 UI text like titles and subtitles should be specification-driven, just as layout and interactivity are. Clear, scoped titles reduce user confusion and improve documentation quality.
+
+---
+## AND-2 Task4: Claude Code Setup: Statusline Configuration with Custom jq Formatter
+
+**Task:** Configure the Claude Code statusline to display real-time context window usage, token counts, cache statistics, and session cost metrics.
+
+**Interaction summary:**
+I provided a custom jq formatting script that transforms Claude Code's session JSON data into a human-readable status line. The script extracts model name, context usage percentage, input/output tokens, cache read/write statistics, and cumulative session cost, then formats them as a single pipe-separated line. Used the statusline-setup agent to integrate this script into Claude Code's configuration.
+
+**What worked:**
+The jq script successfully formats all desired metrics in a concise, readable format. The script uses explicit null coalescing (`// default_value`) to gracefully handle missing fields, preventing errors when certain metrics are not yet available (e.g., before the first API call when context percentage is unknown). The statusline-setup agent discovered that configuration infrastructure already existed at a specific project location and applied two small improvements to handle edge cases better.
+
+**What didn't work or was unexpected:**
+Initial navigation required clarification—I had to provide the full file path because standard shell config files don't exist on Windows systems. The agent initially asked whether I was using WSL or wanted to manually define metrics, but once provided the jq script, it successfully integrated it into existing configuration.
+
+**Design decision:**
+jq was chosen for the formatter because it allows flexible field extraction and transformation while remaining portable across platforms. The script returns "?" for metrics that haven't been calculated yet (e.g., `?%` before the first message), making the statusline useful throughout the session lifecycle rather than only after API calls.
+
+**Lesson learned:**
+Claude Code's configuration is highly customizable—status display can be driven by structured data transformation scripts. Using explicit null checks and default values in formatters makes them robust to evolving session states, where some metrics may be unavailable or null at different points in the conversation.
+
+**What I'd change next time:**
+Include the full file path when requesting statusline configuration setup on Windows, rather than expecting the agent to locate standard shell config files that don't exist on that platform.
+---
+
+## AND-2 Task 5: ETL Pipeline — Dataset Merging and Integration
+
+**Goal:**  
+Build a unified ETL pipeline that merges license, installed, alteration, and inspection datasets into a single, consistent fleet dataset while handling schema mismatches and one-to-many relationships.
+
+**AI Techniques Used:**  
+- **/compact** was used between merge steps to reduce context size and preserve key decisions such as row counts, join keys, and filtering logic.
+- Claude Code was used interactively to validate merge strategies, resolve schema inconsistencies (column names and data types), and confirm handling of one-to-many relationships.
+
+**What worked:**  
+Breaking the pipeline into three explicit merge stages made it easier to reason about data loss and row multiplication. Using data-driven evidence (row counts and unique key analysis) helped justify decisions such as left joins and inspection deduplication.
+
+**What was unexpected:**  
+Schema inconsistencies across datasets (e.g., different naming and types for elevator identifiers) required explicit normalization. Additionally, inspection date parsing required careful handling to avoid silent errors when converting to datetime.
+
+**Lesson learned:**  
+In ETL workflows, documenting reasoning and context-management decisions is as important as the final output. Explicitly tracking row counts and using /compact strategically prevents confusion when working with large, multi-step pipelines.
+
+---
