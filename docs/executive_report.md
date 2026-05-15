@@ -68,6 +68,16 @@ Session cost was tracked using the custom status bar configured in `scripts/stat
 
 Per-task costs for Tasks 1–6 were not individually captured at session end. These two sessions define the actual observed range: **$0.2412 minimum** (Haiku 4.5) to **$3.5225 maximum** (Sonnet 4.6, Task 7).
 
+**Qualitative Cost Comparison Across Key Tasks:**
+
+While exact per-task costs were not captured, the relative complexity of each task provides a qualitative basis for understanding their approximate cost contribution within the observed range:
+
+- **Task 3 — Dynamic Dashboard (HTMX):** This was the highest-complexity implementation task. It spanned three interdependent files (`prepare_data.py`, `server.py`, `index.html`), required two `/compact` resets as context grew to ~40%, and involved iterative debugging of the HTMX two-swap pattern and server-rendered summary cards. Among Tasks 1–6, Task 3 likely represents the highest session cost due to multi-file code generation volume and iteration depth.
+
+- **Task 5 — ETL Pipeline (Dataset Merging):** Moderate complexity. The four-step merge pipeline required explicit join validation and row-count verification at each stage, but the logic was sequential and each cell was self-contained. The `/compact` reset between merge steps helped contain context growth. Estimated to be a mid-range cost session within the Haiku-tier runs.
+
+- **Task 6 — NLP Analysis (Incident Clustering):** High complexity relative to other Haiku sessions. The task combined an Explore subagent for method research, NLTK-based text cleaning implementation, TF-IDF vectorization, K-means clustering, and a summary rewrite after cluster reorganization. A second `/compact` reset was used. The use of the subagent isolated research context but added an independent cost contribution. Task 6 is likely the second-highest cost session after Task 3, within the Haiku-tier range.
+
 **What drove the cost difference:**
 
 The primary cost driver is model selection. Haiku 4.5 is Anthropic's most affordable model; Sonnet 4.6 (high effort) is significantly more expensive per token. The same volume of work costs materially more when the model changes. Secondary drivers are session scope (Task 7 reviewed every artifact across the monorepo) and output length (6-phase report generation).

@@ -175,5 +175,15 @@ def table():
     return make_response(rows_html)
 
 
+@app.errorhandler(404)
+def not_found(e):
+    return "<h1>404 — Page not found</h1>", 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    return "<h1>500 — Internal server error</h1>", 500
+
+
 if __name__ == "__main__":
     app.run(debug=True)
