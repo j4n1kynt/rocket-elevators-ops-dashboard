@@ -60,13 +60,16 @@ Session cost was tracked using the custom status bar configured in `scripts/stat
 | Session | Model | Verified Cost | Context at Capture | Notes |
 |---|---|---|---|---|
 | Lowest-cost session | Haiku 4.5 | **$0.2412** | 25% (49,183 / 200K tokens) near end of session | Status bar captured at session end — see screenshot below |
-| Task 7 — this session | Sonnet 4.6 (high effort) | **$3.5225** | 39% (78,534 / 200K tokens) near end of session | Status bar captured at session end — see screenshot below |
+| Task 7 session | Sonnet 4.6 (high effort) | **$3.5225** | 39% (78,534 / 200K tokens) near end of session | Status bar captured at session end — see screenshot below |
+| Audit-fix session | Sonnet 4.6 | **$5.6471** | 54% (107,245 / 200K tokens) near end of session | Status bar captured at session end — see screenshot below |
 
 ![Least expensive session — Haiku 4.5 status bar showing cost: $0.2412](images/less_expended_session.png)
 
-![Most expensive session — Sonnet 4.6 status bar showing cost: $3.5225](images/more_expended_session.png)
+![Task 7 session — Sonnet 4.6 status bar showing cost: $3.5225](images/more_expended_session.png)
 
-Per-task costs for Tasks 1–6 were not individually captured at session end. These two sessions define the actual observed range: **$0.2412 minimum** (Haiku 4.5) to **$3.5225 maximum** (Sonnet 4.6, Task 7).
+![Audit-fix session — Sonnet 4.6 status bar showing cost: $5.6471](images/audit_fix_session.png)
+
+These three sessions define the verified cost range: **$0.2412 minimum** (Haiku 4.5) to **$5.6471 maximum** (Sonnet 4.6, audit-fix session). Per-task costs for Tasks 1–6 were not individually captured at session end.
 
 **Qualitative Cost Comparison Across Key Tasks:**
 
