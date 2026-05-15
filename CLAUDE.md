@@ -11,21 +11,24 @@
 ## Directory Structure
 
 - `/data` — source datasets (read-only, never modify in-place)
-- `/platform` — Flask app, prepared dataset (`elevator_fleet.csv`), HTML templates
+- `/platform` — Flask app, `elevator_fleet.csv`, HTML templates
 - `/intelligence` — Jupyter notebooks (ETL, NLP, exploratory analysis)
-- `/docs` — technical spec, executive report, AI interaction logs
+- `/docs` — `dashboard_spec.md` is the single source of truth for the dashboard
 
 ## Commands
 
 ```bash
-python platform/prepare_data.py   # regenerate elevator_fleet.csv from /data sources
-python platform/server.py         # serve dashboard at http://localhost:5000
+py -3 platform/prepare_data.py   # regenerate elevator_fleet.csv from /data sources
+py -3 platform/server.py         # serve dashboard at http://localhost:5000
 ```
 
 ## Conventions
 
+- **Spec-driven:** `platform/index.html` may only reflect content explicitly defined in `docs/dashboard_spec.md`. Update the spec first, then the HTML — never the reverse.
 - Flask over FastAPI — HTMX's HTML-fragment pattern fits Flask's template rendering directly.
-- HTMX endpoints return HTML fragments, not JSON. Filter/search swaps `#tableBody` (innerHTML); sort swaps `#fleetTable` (outerHTML) to refresh button URLs.
+- HTMX two-channel swap: filter/search → `#tableBody` (innerHTML); sort → `#fleetTable` (outerHTML) to refresh sort-button URLs. No custom JavaScript anywhere.
 - `elevator_fleet.csv` is the only dataset the server reads; `prepare_data.py` is the only file that writes it.
-- Inspections are one-to-many per elevator — always keep only the most recent record.
-- Summary card metrics are computed once at `GET /` page load; they do not respond to HTMX filter or sort changes.
+- Data pipeline filters to ACTIVE + BY REQUEST licenses only. Join key across all datasets: `ElevatingDevicesNumber`.
+- Inspections are one-to-many — always keep only the most recent record per elevator.
+- Summary card metrics are computed once at `GET /` page load; they do not respond to filter or sort changes.
+- `GET /table` returns HTML only. Response shape is driven by `HX-Target` header: `tableBody` → `<tr>` rows; `fleetTable` → full `<table>` with updated sort-button URLs.
