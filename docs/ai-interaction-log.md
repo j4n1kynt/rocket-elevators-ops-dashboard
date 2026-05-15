@@ -667,3 +667,64 @@ Rather than reverting preprocessing changes or forcing clusters to match an earl
 
 **Lesson learned**  
 In NLP workflows, preprocessing choices have cascading effects that can silently alter downstream results. Narrative summaries must always be traceable to concrete model outputs, and any change to preprocessing requires revalidation of all interpretive sections. Treating the summary as a derived artifact—rather than a static explanation—prevents evaluation-blocking inconsistencies.
+
+---
+
+## AND-2 Task 7: Executive Report — 6-Phase Structured Report Production
+
+**Goal**  
+Produce a complete executive report and presentation for AND-2 Task 7, integrating findings from the ETL pipeline (Task 5) and NLP analysis (Task 6) into a single, evidence-based document with verified cost data, actionable recommendations, and a timed presentation script.
+
+**AI techniques used**  
+- **6-phase structured prompt** — The report task was decomposed into explicit phases: pre-work validation, outline and content plan, report writing, validation checklist, presentation script, and final review. Each phase produced a verifiable artifact before the next began.
+- **Evaluator-style validation** — Phase 4 used a 14-criterion checklist to simulate a grader review before finalizing the report, catching issues (generic language, placeholder text) before submission.
+- **Cross-session context continuity** — The task spanned multiple sessions; `/compact` was used to preserve critical decisions while discarding resolved exploration, and the session summary allowed seamless continuation without re-establishing context.
+
+**Interaction summary**  
+The report was built in two distinct stages. In the first stage, a 6-phase prompt produced the full report and presentation as chat output, synthesizing verified statistics from `intelligence/etl_pipeline.ipynb` and `intelligence/nlp_analysis.ipynb` (52,031 rows, 2,446 incidents, 4 hazard categories, 51 high-alteration elevators). In the second stage, existing documents (`docs/executive_report.md` and `intelligence/executive_report_task7.ipynb`) contained fabricated cost numbers that had never been captured from the real status bar. These were identified, replaced with verified data extracted from status bar screenshots, and cross-validated to ensure both documents were consistent.
+
+**What worked**  
+- The 6-phase structure prevented scope creep: each phase had a defined output and a clear entry condition. This made it immediately visible when a phase was complete and what the next step required.  
+- The pre-work validation phase (Phase 1) surfaced that cost data for Tasks 1–6 had never been individually captured. Acknowledging this gap explicitly — rather than estimating — kept the report factually defensible.  
+- Evaluator-style checklists (Phase 4) caught issues not visible during writing: recommendations that referenced data correctly but lacked a concrete action verb, and a visualization reference that pointed to the right notebook but not the specific cell.  
+- Status bar screenshots (`less_expended_session.png`, `more_expended_session.png`) provided exact verified values ($0.2412 and $3.5225) that replaced all fabricated cost figures across both documents simultaneously.
+
+**What was unexpected**  
+- Both `docs/executive_report.md` and `intelligence/executive_report_task7.ipynb` already contained a cost table with fabricated numbers (~$1.50, ~$1.80, ~$2.20 per task, totaling ~$7.90) that had never been verified against any real measurement. These figures appeared plausible but were entirely invented. Identifying and replacing them required reading every cost-related cell in both documents before making any edits.  
+- Markdown table formatting broke silently: row content was split across multiple lines during a prior edit, which rendered correctly in raw text but broke the table display entirely in markdown viewers. The fix was a full section rewrite rather than a targeted cell edit.  
+- The actual cost difference between the two sessions was larger than expected: $0.2412 (Haiku 4.5) vs. $3.5225 (Sonnet 4.6) — a 14x multiplier driven almost entirely by model selection, not session length or task complexity.
+
+**Design decision**  
+Cost reporting was restricted to exactly two verified data points — the minimum and maximum — with no interpolation for Tasks 1–6. This was a deliberate choice to keep the report factually honest rather than statistically convenient. Any per-task estimate would have required labeling it as estimated, which would have undermined the report's credibility on the one dimension where real evidence existed.
+
+Images were embedded directly in `docs/executive_report.md` (not just referenced) so that the visual evidence appears inline with the cost table rather than requiring the reader to locate a separate file. Both screenshots were copied to `docs/images/` to keep all report assets co-located with the document.
+
+**Lesson learned**  
+A document that looks complete can still contain fabricated data. Plausible-looking numbers that are never traced to a source measurement are indistinguishable from real ones until explicitly checked. For any section that cites metrics — especially cost, performance, or counts — tracing each value to its source before writing is more efficient than correcting fabricated values after the document exists.
+
+Model selection is the dominant cost variable in AI-assisted development workflows. The 14x cost difference between Haiku 4.5 and Sonnet 4.6 for comparable session scopes demonstrates that task-model matching (using the cheapest model sufficient for the task) has more cost impact than any context management technique. `/compact` and subagent delegation reduce secondary cost drivers but cannot compensate for an unnecessary model upgrade.
+
+**What I'd change next time**  
+- Capture the exact session cost from the status bar at the end of each task session, not just when prompted. A one-line note with the final cost value at session close would have made the cost section trivial to populate.  
+- Run a fabrication check on any document section that contains numeric claims before finalizing. Ask explicitly: "Is each number in this section traceable to a real measurement or a verified source output?"  
+- For multi-document reports (markdown + notebook), maintain a single authoritative cost table in one file and reference it from the other, rather than duplicating the same values across both documents independently.
+
+---
+
+## AND-2 Task 7: Cost Data Integrity — Replacing Fabricated Numbers with Verified Evidence
+
+**Goal**  
+Replace all fabricated cost estimates in `docs/executive_report.md` and `intelligence/executive_report_task7.ipynb` with the two verified data points extracted from actual status bar screenshots.
+
+**AI techniques used**  
+- **Cross-document consistency enforcement** — All 5 cost-related cells in the notebook (cell-3, cell-5, cell-7, cell-9, cell-11) and the corresponding section in the markdown file were updated in a single coordinated pass to eliminate the risk of partial updates leaving the two documents out of sync.
+- **Screenshot-as-evidence** — Status bar screenshots (`less_expended_session.png`, `more_expended_session.png`) were used as the authoritative source for cost values and context percentages, with exact figures read from the image rather than recalled from memory.
+
+**What worked**  
+Updating all 5 notebook cells in parallel (using multiple `NotebookEdit` calls in a single pass) ensured that the placeholder `"Highest (in progress)"` was eliminated everywhere simultaneously. Sequential cell-by-cell updates would have created windows where the two documents were temporarily inconsistent.
+
+**What was unexpected**  
+The status bar screenshots revealed that the previously assumed final cost ($2.52) was incorrect. The actual captured value was $3.5225 for the Sonnet 4.6 session — a difference significant enough to matter in a cost analysis. Reading the value from the screenshot rather than relying on memory prevented this discrepancy from persisting into the final report.
+
+**Lesson learned**  
+Screenshots are more reliable than memory for exact cost values. When the status bar captures a value like `$3.5225`, that precision matters — rounding to `$3.52` or misremembering as `$2.52` produces a factually wrong cost table. The correct workflow is: take the screenshot at session end, read the exact value from the image, then write it into the document.
