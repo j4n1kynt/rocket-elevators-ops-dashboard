@@ -257,3 +257,172 @@ In the Latest Inspection Date column, any value that qualifies as overdue (more 
 ## Scope
 
 This specification describes the initial dashboard as requested by the operations manager. It is a single page focused on fleet overview and elevator lookup. The dashboard uses three core datasets: license.csv, inspection.csv, and installed.json. Future additions, such as detailed reporting, alteration tracking, incident analysis, or additional pages, are outside the scope of this version.
+
+---
+
+## AND-103 Task 1: Interaction Specification
+
+---
+
+### Interaction 1: Elevator Detail Panel
+
+#### Outcomes
+The user can click on any elevator row in the table and instantly view a complete operational profile of that elevator in a side panel. The panel consolidates inspection history, incident count, alteration count, and current operational status into a single view, eliminating the need to cross-reference multiple sources.
+
+#### Scope Boundaries
+- Includes: inspection history, incident count, alteration count, current status.
+- Excludes: editing data, performing actions (read-only view).
+- The panel only displays data for the selected elevator; it does not modify the dataset.
+
+#### Constraints
+- Must load without full page reload (HTMX interaction).
+- Must not block table interaction.
+- Must handle missing data (e.g., no incidents or inspections).
+- Must maintain performance (fast load under typical dataset size).
+
+#### Prior Decisions
+- Data is sourced from the unified dataset created in Task 5.
+- Inspection data is already deduplicated (latest inspection per elevator).
+- HTMX will be used for UI updates without JavaScript logic.
+
+#### Task Breakdown
+- Add click handler to table rows using `hx-get`.
+- Create endpoint `/elevator/<id>` returning HTML fragment.
+- Build side panel container in the UI.
+- Populate panel with:
+  - Elevator ID
+  - Location
+  - Status
+  - Inspection history
+  - Incident count
+  - Alteration count
+- Define panel layout:
+  - Header section: Elevator ID and Status (prominent at top)
+  - Location section: Full address/building name
+  - Inspection history section: Table format with Date and Outcome columns, sorted descending by date (most recent first)
+  - Incident count section: Single numeric value
+  - Alteration count section: Single numeric value
+- Define panel behavior:
+  - Opens on row click
+  - Updates when a different row is clicked
+  - Closes via close button or clicking outside
+- Handle edge cases:
+  - If search/filter removes selected elevator → panel closes automatically
+  - If elevator has no records → show "No data available"
+
+#### Verification Criteria
+- Clicking a row opens the panel with correct data.
+- Switching rows updates the panel correctly.
+- Panel can be closed reliably.
+- No page reload occurs.
+- Edge cases (empty data, filtered-out selection) are handled gracefully.
+- **Interaction Conflicts:**
+  - **Filtered removal:** If a search query or filter change removes the currently selected elevator from the visible table, the detail panel closes automatically.
+  - **Sort visibility:** If sorting changes the row order but the selected elevator remains visible in the filtered/searched dataset, the panel remains open and continues to display the elevator's data.
+  - **Rapid interactions:** If multiple interactions occur in quick succession (e.g., filter + search + sort), only the latest request is processed and reflected; intermediate states are not displayed.
+
+---
+
+### Interaction 2: Filter and Search Interaction
+
+#### Outcomes
+The user can filter and search elevators in real time using dropdowns and a search input. The table updates dynamically as the user types, enabling fast discovery of specific elevators by ID or location.
+
+#### Scope Boundaries
+- Includes: filtering by status and type, searching by elevator ID and location.
+- Excludes: advanced search (regex, fuzzy matching beyond basic contains).
+- Interacts only with the table and detail panel state.
+
+#### Constraints
+- Must use debounced search (minimum 300–500ms delay).
+- Must not trigger a request on every keystroke.
+- Must be responsive even with large datasets.
+- Must combine filters AND search.
+
+#### Prior Decisions
+- Dropdown filters already exist (Module 2).
+- HTMX handles dynamic updates.
+- Server endpoint `/table` supports query parameters.
+
+#### Task Breakdown
+- Add search input with:
+  - `hx-get="/table"`
+  - `hx-trigger="keyup changed delay:500ms"`
+- Update backend to support:
+  - search by elevator ID
+  - search by location (case-insensitive)
+- Combine filters logic:
+  - status filter
+  - type filter
+  - search query
+- Define interaction with detail panel:
+  - If selected elevator no longer appears → close detail panel
+- Update all table-related UI elements (not full page)
+- Define search matching behavior:
+  - Matching is **case-insensitive** across all search fields.
+  - Matching uses **partial match** (contains): if the search query appears anywhere within the field value, the record matches.
+  - Search applies to **both** Elevator ID and Location fields.
+  - If both fields match the search query, the record appears **once** (no duplicate rows; no prioritization between fields).
+  - Empty search string shows all records (no restrictions).
+
+#### Verification Criteria
+- Typing in search updates table dynamically.
+- Filters and search work together correctly.
+- Clearing search restores previous filter state.
+- No unnecessary server calls (debounce works).
+- Detail panel reacts correctly to filtered search results.
+- **Interaction Conflicts:**
+  - **Filtered removal:** If a search query or filter hides the currently selected elevator in the detail panel, the detail panel closes automatically.
+  - **Search + filter combination:** Applying search and filters in any order produces consistent results; the order of interaction does not affect which records appear.
+  - **Rapid search/filter changes:** If multiple search or filter changes occur in quick succession, only the latest request state is reflected; intermediate requests that occur during the debounce delay are discarded.
+
+---
+
+### Interaction 3: Sort Behavior
+
+#### Outcomes
+The user can sort elevators by specific columns (e.g., expiry date, inspection date) to prioritize operational decisions. Sorting toggles direction and works consistently with filters and search.
+
+#### Scope Boundaries
+- Includes: sorting by predefined columns only.
+- Excludes: multi-column sorting or custom sorting logic.
+- Applies only to visible dataset (after filtering/search).
+
+#### Constraints
+- Must preserve filter and search state.
+- Must not reload full page.
+- Must use server-side sorting.
+
+#### Prior Decisions
+- Sorting already implemented using HTMX.
+- Backend sorting uses pandas.
+- Two-column sorting capability exists.
+
+#### Task Breakdown
+- Define default sort:
+  - License expiry (ascending)
+- Define toggle behavior:
+  - First click → ascending
+  - Second click → descending
+  - Subsequent clicks → toggle between ascending and descending
+- Ensure sorting retains:
+  - current filters
+  - current search input
+- Update table using `hx-swap="outerHTML"`
+
+- Edge cases:
+  - Sorting while detail panel open → panel remains if elevator still visible
+  - Sorting + filtering combination must not break state
+
+#### Verification Criteria
+- Sorting toggles correctly on repeated clicks.
+- Sorting respects active filters and search.
+- Table updates without page reload.
+- Correct column ordering validated.
+- Panel state behaves consistently during sorting.
+- **Interaction Conflicts:**
+  - **Sorted visibility:** If sorting changes the row order but the selected elevator remains in the filtered/searched dataset, the detail panel stays open and continues to display the elevator's data.
+  - **Filtered removal during sort:** If sorting is applied and the selected elevator is outside the filtered dataset, the detail panel closes (same as filter/search removal).
+  - **Multiple rapid sort clicks:** If the user clicks a sort header multiple times in rapid succession, only the final sort state is displayed; intermediate states are not processed or shown.
+
+---
