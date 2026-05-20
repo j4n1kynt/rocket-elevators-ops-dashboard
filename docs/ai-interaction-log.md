@@ -786,3 +786,34 @@ Fields were selected strictly from verified dataset columns. Derived fields (`lo
 
 **Lesson learned:**
 Data model documentation is most reliable when it is written after schema verification, not before. Documenting join keys, type mismatches, and one-to-many relationships explicitly in the specification prevents downstream implementation surprises and provides a traceable record of deliberate design decisions.
+
+## AND-103 Task 1: Interaction Specification (SDD)
+
+**Prompt used**
+"Help me create and refine an Interaction Specification for my existing dashboard using the six SDD elements. 
+The goal is to define detail panel, filter/search, and sorting behavior, including edge cases and interaction conflicts. 
+Then improve the specification to make it precise and unambiguous without rewriting the structure."
+
+**What worked**
+Using a structured prompt that clearly defined constraints and scope allowed the specification to be built iteratively and remain aligned with the actual dashboard behavior. The process made it easier to identify missing details, particularly in interaction conflicts and UI structure.
+
+**What didn’t work / issues**
+The initial version of the specification was conceptually correct but not precise enough for implementation. Some behaviors (like search matching and detail panel structure) were implicitly defined rather than explicitly specified, requiring an additional refinement step.
+
+**What I would change next time**
+I would write the first version of the specification with more explicit structural detail, especially for UI layout and edge cases, to reduce the need for iterative refinement. This task reinforced the importance of precision in spec-driven development.
+
+## AND-103 Task 2: Server Tests and Detail Endpoint (TDD)
+
+**Prompt used**
+"Generate pytest tests for existing endpoints (/, /table) and then extend the test suite with tests for a new /elevator endpoint before implementing it. 
+After tests are written, implement the endpoint to satisfy the tests using data from merged and inspection datasets."
+
+**What worked**
+Using clear, structured prompts enabled the creation of a comprehensive test suite that validated filtering, sorting, and search behavior. Writing tests before implementing the endpoint clarified requirements and ensured the implementation was guided by expected outcomes rather than assumptions.
+
+**What didn’t work / issues**
+Some environment-related issues occurred (Flask installation, pytest setup), and initial assumptions about HTML parsing needed refinement to handle both fragment and full-table responses. However, these issues helped improve test robustness.
+
+**What I would change next time**
+I would verify environment setup and dependencies earlier before running tests. I would also define expected response formats more explicitly when writing tests to avoid ambiguity. This task confirmed that TDD improves development clarity and reduces debugging effort.
