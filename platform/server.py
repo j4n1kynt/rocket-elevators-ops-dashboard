@@ -229,6 +229,7 @@ def elevator_detail(elev_id):
         inspections=insp,
         incident_count=0,
         alteration_count=alt_count,
+        is_overdue=is_overdue,
     )
 
 

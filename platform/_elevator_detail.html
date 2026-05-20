@@ -46,7 +46,8 @@
       <tbody class="divide-y divide-slate-50">
         {% for row in inspections %}
         <tr>
-          <td class="py-1.5 text-slate-600 whitespace-nowrap">{{ row["Latest_INSPECTION_Date"] or '—' }}</td>
+          {# §4.5 — same overdue rule as the table: blank or > 1 year → red text #}
+          <td class="py-1.5 whitespace-nowrap {{ 'text-red-600 font-medium' if is_overdue(row['Latest_INSPECTION_Date']) else 'text-slate-600' }}">{{ row["Latest_INSPECTION_Date"] or '—' }}</td>
           <td class="py-1.5 text-slate-700">{{ row["InspectionOutcome"] or '—' }}</td>
         </tr>
         {% endfor %}

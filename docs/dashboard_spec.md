@@ -243,7 +243,23 @@ In the detail table, the LICENSESTATUS value is displayed as a small colored bad
 
 In the Latest Inspection Date column, any value that qualifies as overdue (more than one year old, or blank) is displayed in red text. This is consistent with the red accent used for the Overdue Inspections summary card and reinforces the urgency without adding additional UI elements.
 
-### 4.6 Visual Hierarchy
+### 4.6 Inspection Outcome Visualization
+
+Inspection outcomes are displayed using distinct visual indicators to convey pass/fail status at a glance:
+
+| Outcome value | Visual indicator | Usage |
+|---|---|---|
+| Passed | Green background or text | Indicates successful inspection |
+| Fail | Red background or text | Indicates failed inspection |
+| Follow up | Yellow/amber background or text | Indicates inspection requires follow-up |
+
+These indicators must be applied consistently in:
+- The detail panel (inspection history table)
+- The detail table (if inspection outcome column is visible)
+
+The outcome values displayed must match the actual values present in the inspection.csv dataset.
+
+### 4.7 Visual Hierarchy
 
 - Card metric values are the largest text element on the page (large, bold).
 - Card labels are small, uppercase, and muted — secondary to the value.
