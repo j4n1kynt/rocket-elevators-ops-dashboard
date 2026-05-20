@@ -25,6 +25,28 @@ app  = Flask(__name__, template_folder=str(HERE))
 # Load once at startup; NaN -> empty string so templates get simple falsy checks
 df_fleet = pd.read_csv(HERE / "elevator_fleet.csv", dtype=str).fillna("")
 
+DATA = HERE.parent / "data"
+
+df_merged = pd.read_csv(
+    DATA / "merged_elevator_data.csv",
+    dtype=str,
+    usecols=["ElevatingDevicesNumber", "LocationoftheElevatingDevice",
+             "LICENSESTATUS", "originating service request number"],
+).fillna("")
+
+_df_insp_raw = pd.read_csv(
+    DATA / "inspection.csv",
+    dtype=str,
+    usecols=["ElevatingDevicesNumber", "Latest_INSPECTION_Date", "InspectionOutcome"],
+).fillna("")
+
+# Normalize inspection dates to ISO format (YYYY-MM-DD) to ensure:
+# - consistent display in detail panel
+# - reliable sorting in endpoint response
+_dates = pd.to_datetime(_df_insp_raw["Latest_INSPECTION_Date"], errors="coerce")
+_df_insp_raw["Latest_INSPECTION_Date"] = _dates.dt.strftime("%Y-%m-%d").where(_dates.notna(), "")
+df_inspections = _df_insp_raw
+
 TODAY        = date.today()
 ONE_YEAR_AGO = TODAY - timedelta(days=365)
 
@@ -173,6 +195,41 @@ def table():
         return make_response(build_full_table(rows_html, sort, order))
 
     return make_response(rows_html)
+
+
+@app.route("/elevator/<elev_id>")
+def elevator_detail(elev_id):
+    rows = df_merged[df_merged["ElevatingDevicesNumber"] == elev_id]
+    if rows.empty:
+        return "<h1>404 — Elevator not found</h1>", 404
+
+    first = rows.iloc[0]
+    alt_count = (
+        rows["originating service request number"]
+        .replace("", pd.NA).dropna().nunique()
+    )
+
+    insp = (
+        df_inspections[df_inspections["ElevatingDevicesNumber"] == elev_id]
+        [["Latest_INSPECTION_Date", "InspectionOutcome"]]
+        .sort_values(
+            by="Latest_INSPECTION_Date",
+            ascending=False,
+            na_position="last"
+        )
+        .drop_duplicates()
+        .to_dict("records")
+    )
+    # TODO: integrate incident count from incident dataset
+    return render_template(
+        "_elevator_detail.html",
+        elevator_id=elev_id,
+        location=first["LocationoftheElevatingDevice"],
+        status=first["LICENSESTATUS"],
+        inspections=insp,
+        incident_count=0,
+        alteration_count=alt_count,
+    )
 
 
 @app.errorhandler(404)
