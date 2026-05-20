@@ -1,6 +1,9 @@
 {% if rows %}
 {% for row in rows %}
-<tr class="hover:bg-slate-50 transition-colors">
+<tr class="hover:bg-slate-50 transition-colors cursor-pointer"
+    hx-get="/elevator/{{ row['Elevator ID'] }}"
+    hx-target="#elevatorPanel"
+    hx-swap="innerHTML">
 
   <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ row['Elevator ID'] }}</td>
 

@@ -801,6 +801,8 @@ Using a structured prompt that clearly defined constraints and scope allowed the
 The initial version of the specification was conceptually correct but not precise enough for implementation. Some behaviors (like search matching and detail panel structure) were implicitly defined rather than explicitly specified, requiring an additional refinement step.
 
 **What I would change next time**
+I initially mixed implementation details (HTMX attributes) into the specification. 
+I corrected this by focusing on observable behavior rather than implementation, aligning the spec with SDD principles.
 I would write the first version of the specification with more explicit structural detail, especially for UI layout and edge cases, to reduce the need for iterative refinement. This task reinforced the importance of precision in spec-driven development.
 
 ## AND-103 Task 2: Server Tests and Detail Endpoint (TDD)
@@ -817,3 +819,41 @@ Some environment-related issues occurred (Flask installation, pytest setup), and
 
 **What I would change next time**
 I would verify environment setup and dependencies earlier before running tests. I would also define expected response formats more explicitly when writing tests to avoid ambiguity. This task confirmed that TDD improves development clarity and reduces debugging effort.
+
+## AND-103 Task 3: Interaction Specification Audit and Refinement (SDD)
+
+**Prompt used**
+"Act as a strict spec auditor and identify all sections in my dashboard specification that violate the SDD principle of describing WHAT (behavior) instead of HOW (implementation), including references to HTMX, endpoints, and backend logic. Provide corrections for each violation."
+
+**What worked**
+The audit clearly identified places where the specification unintentionally mixed implementation details with behavior definitions. It specifically highlighted the misuse of HTMX attributes, endpoint references, and backend logic descriptions inside interaction sections. 
+
+This helped isolate a key issue: although the specification was structurally complete (all six SDD elements were present), it was not fully aligned with SDD principles because it prescribed HOW the system should work instead of describing observable behavior.
+
+**What didn’t work / issues**
+The initial specification incorrectly included implementation-level details such as HTMX attributes (e.g., hx-get, hx-swap), endpoint names, and backend concepts (e.g., “update backend”), particularly in Task Breakdown and Prior Decisions sections. This reduced the generality of the spec and tied it to a specific implementation approach.
+
+Additionally, some verification criteria referred to internal mechanics (e.g., “server calls”) instead of user-observable outcomes, making them less appropriate as SDD validation points.
+
+**What I would change next time**
+I would ensure from the initial drafting phase that all interaction descriptions are written in terms of observable system behavior rather than implementation details. Specifically, I would avoid referencing tools, frameworks, endpoints, or code-level constructs and instead describe how the user experiences the system.
+
+This task reinforced that a high-quality SDD spec must be technology-agnostic and focused entirely on outcomes, constraints, and verifiable behavior. Implementation details should be deferred to the development phase, not embedded in the specification.
+
+## AND-103 Task 3: Over-implementation and Spec Alignment
+
+**Prompt used**
+"Implement the elevator detail panel interaction using HTMX, based on the interaction specification."
+
+**What worked**
+The detail panel was successfully implemented and correctly integrated with the backend endpoint. The interaction worked as expected: selecting a row displayed the elevator’s information dynamically without a full page reload.
+
+**What didn’t work / issues**
+The implementation introduced unnecessary complexity beyond what the specification required. This included adding explicit state tracking (selected_id), out-of-band updates, and an additional endpoint to control panel behavior. 
+
+While these solutions worked technically, they were not required by the specification and made the system more complex than necessary. Additionally, I initially considered explicitly defining state tracking behavior in the specification itself.
+
+However, I realized that including this kind of detail would introduce implementation concerns into the spec, violating the SDD principle of separating WHAT (behavior) from HOW (implementation).
+
+**What I would change next time**
+I would strictly follow the specification as a boundary and implement only the minimum behavior required. Instead of introducing state tracking or additional mechanisms, I would rely on the behavior already defined in the spec—specifically, that the panel closes when the selected elevator is no longer visible.

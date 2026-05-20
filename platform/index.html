@@ -37,16 +37,18 @@
     </nav>
   </aside>
 
-  <!-- Main content area -->
-  <main class="flex-1 overflow-y-auto">
+  <!-- Main content area — flex-col so the top bar stays fixed and the body scrolls independently -->
+  <main class="flex-1 flex flex-col overflow-hidden">
 
-    <!-- Top bar -->
-    <div class="px-8 py-5 border-b border-slate-200 bg-white">
+    <!-- Top bar — shrink-0 keeps it fixed height while the row below scrolls -->
+    <div class="px-8 py-5 border-b border-slate-200 bg-white shrink-0">
       <h1 class="text-lg font-semibold text-slate-800">Operational Fleet Overview</h1>
       <p class="text-sm text-slate-500 mt-0.5">Active and by-request licensed devices — server-rendered, HTMX-driven</p>
     </div>
 
-    <div class="px-8 py-6">
+    <!-- Two-column row: scrollable content on the left, detail panel on the right -->
+    <div class="flex flex-1 min-h-0 overflow-hidden">
+    <div class="flex-1 overflow-y-auto px-8 py-6">
 
       <!-- Summary cards — §4.3: large bold value, small muted label, accent colors per state -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
@@ -244,6 +246,17 @@
 
       </div>
     </div>
+
+      <!--
+        Detail panel — spec §Interaction 1:
+        Appears on the right; empty:hidden keeps it invisible until HTMX injects content.
+        Clicking a row swaps the elevator detail HTML into this element (innerHTML).
+        Close button inside the panel clears it back to empty, hiding it again.
+      -->
+      <div id="elevatorPanel"
+           class="w-96 border-l border-slate-200 bg-white overflow-y-auto shrink-0 empty:hidden"></div>
+
+    </div><!-- end two-column row -->
   </main>
 
   <!-- No custom JavaScript. All interactivity is HTMX-driven via GET /table. -->
