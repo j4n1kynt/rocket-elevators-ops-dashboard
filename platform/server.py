@@ -47,6 +47,10 @@ _dates = pd.to_datetime(_df_insp_raw["Latest_INSPECTION_Date"], errors="coerce")
 _df_insp_raw["Latest_INSPECTION_Date"] = _dates.dt.strftime("%Y-%m-%d").where(_dates.notna(), "")
 df_inspections = _df_insp_raw
 
+_df_inc = pd.read_json(DATA / "incident.json")
+_df_inc["elevating devices number"] = _df_inc["elevating devices number"].astype(str)
+df_incidents = _df_inc
+
 TODAY        = date.today()
 ONE_YEAR_AGO = TODAY - timedelta(days=365)
 
@@ -206,8 +210,11 @@ def table():
     return make_response(rows_html + cards_oob)
 
 
-@app.route("/elevator/<elev_id>")
+@app.route("/elevator/<elev_id>", methods=["GET", "DELETE"])
 def elevator_detail(elev_id):
+    if request.method == "DELETE":
+        return make_response("")
+
     rows = df_merged[df_merged["ElevatingDevicesNumber"] == elev_id]
     if rows.empty:
         return "<h1>404 — Elevator not found</h1>", 404
@@ -229,14 +236,17 @@ def elevator_detail(elev_id):
         .drop_duplicates()
         .to_dict("records")
     )
-    # TODO: integrate incident count from incident dataset
+    inc_count = int(
+        df_incidents[df_incidents["elevating devices number"] == elev_id]
+        ["Incident Number"].nunique()
+    )
     return render_template(
         "_elevator_detail.html",
         elevator_id=elev_id,
         location=first["LocationoftheElevatingDevice"],
         status=first["LICENSESTATUS"],
         inspections=insp,
-        incident_count=0,
+        incident_count=inc_count,
         alteration_count=alt_count,
         is_overdue=is_overdue,
     )

@@ -936,3 +936,20 @@ Initially, loading indicators were considered for implementation without being d
 
 **What I would change next time**
 I would ensure that all UI feedback behaviors are explicitly defined in the specification before implementation begins. This task reinforced that even small UX features must follow the same spec-first discipline as larger features.
+
+## AND-103 Task 3: Final Refinement and Minimal Fixes
+
+**Prompt used**
+"Plan minimal changes to resolve evaluation-critical gaps without breaking existing functionality."
+
+**What worked**
+Using Plan Mode helped isolate only the critical issues that affected evaluation, without introducing unnecessary changes. The incident count was implemented using the correct dataset, and a clean HTMX-based close control was added using the existing endpoint.
+
+This approach ensured that all functionality remained stable while addressing the final gaps required for full compliance.
+
+**What didn’t work / issues**
+An earlier plan focused on cosmetic improvements rather than the actual evaluation blockers. This required refining the planning process to strictly target critical gaps.
+
+**What I would change next time**
+I would explicitly separate cosmetic improvements from evaluation-critical issues earlier in the process. This task reinforced the importance of prioritizing correctness and completeness over visual polish when preparing for evaluation.
+``

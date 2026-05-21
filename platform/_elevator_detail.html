@@ -1,5 +1,12 @@
 <div class="p-5">
 
+  <div class="flex justify-end mb-2">
+    <button hx-delete="/elevator/{{ elevator_id }}"
+            hx-target="#elevatorPanel"
+            hx-swap="innerHTML"
+            class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
+  </div>
+
   <!-- Header: Elevator ID + Status badge (spec Panel layout §1) -->
   <div class="mb-4">
     <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Elevator</p>
