@@ -952,4 +952,63 @@ An earlier plan focused on cosmetic improvements rather than the actual evaluati
 
 **What I would change next time**
 I would explicitly separate cosmetic improvements from evaluation-critical issues earlier in the process. This task reinforced the importance of prioritizing correctness and completeness over visual polish when preparing for evaluation.
-``
+
+## AND-103 Task 4: Data Exploration Using Subagent (order.csv)
+
+**Prompt used**
+"Use a subagent to explore the dataset data/order.csv. List columns, row count, join keys with inspection.csv, and analyze the distribution of the RISKSCORE column."
+
+**What worked**
+Using a subagent allowed isolating dataset exploration from the main reasoning session. This made it possible to analyze the structure of order.csv in detail without polluting the main context with raw exploratory output.
+
+The subagent provided key insights:
+- Identified the column structure, including RISKSCORE, DIRECTIVE, and compliance-related fields
+- Confirmed the one-to-many relationship between orders and inspections
+- Revealed that RISKSCORE has a wide distribution and a significant number of null values (~25%)
+- Highlighted the presence of temporal fields (DateofIssue) necessary for preventing data leakage
+
+This information directly informed decisions in the SDD interview, especially during the Constraints phase, where leakage risks were evaluated.
+
+**What didn’t work / issues**
+Initially, it was unclear whether RISKSCORE could be used safely as a feature. Without the subagent analysis, it would have been easy to assume it was valid. The dataset structure revealed ambiguity about when the score is computed, requiring a conservative approach in the specification.
+
+**What I would change next time**
+I would use a subagent earlier in similar tasks involving unfamiliar datasets. This interaction showed that separating data exploration from design reasoning improves clarity and leads to more accurate, evidence-based decisions when defining features.
+
+![Subagent exploration of order.csv — structured output showing columns, row count, RISKSCORE distribution, and sample rows](images/SubAgent_Exploration_Task4.png)
+
+![Subagent exploration of order.csv — continued output showing join key analysis and sample rows detail](images/SubAgent_Exploration_Task4_2.png)
+
+## AND-103 Task 4: SDD Interview and Feature Engineering Specification
+
+**Prompt used**
+"Act as an SDD interviewer for AND-103 Task 4 and guide me through defining a feature engineering specification using the six SDD elements. Ask structured questions and wait for my answers before proceeding."
+
+**What worked**
+The Task 4 interaction followed a structured three-phase process that ensured all decisions were grounded in data and aligned with SDD principles.
+
+**Phase 1 — Data Discovery**
+A subagent was used to explore order.csv, which was the most complex and least understood dataset. This allowed us to identify key columns such as RISKSCORE, understand the one-to-many relationship with inspections, and detect early risks of data leakage. This step ensured that the specification was based on actual data characteristics rather than assumptions.
+
+**Phase 2 — SDD Interview**
+A structured interview was conducted covering the six SDD elements in sequence:
+
+- Outcomes defined the prediction goal, target variable, and unit of analysis before any feature design.
+- Scope boundaries established which datasets were included and excluded, preventing scope creep.
+- Constraints focused on data leakage, evaluating each potentially risky column (e.g., RISKSCORE, StatusofInspectionOrder) individually and defining strict temporal rules.
+- Prior decisions ensured consistency with earlier tasks, such as the use of ElevatingDevicesNumber as the join key.
+- Task breakdown translated decisions into an ordered, executable pipeline with clearly defined feature logic.
+- Verification criteria defined how correctness would be validated, including row counts, schema checks, and leakage assertions.
+
+The interview was intentionally sequential, meaning that earlier answers constrained later decisions. No implementation or spec writing occurred during this phase — only decisions were made and clarified.
+
+**Phase 3 — Spec Generation**
+After all decisions were finalized, the specification was generated. Because all design choices had already been explicitly defined, the spec writing process was deterministic and did not require introducing new assumptions. Each part of the specification can be traced back to a specific decision made during the interview.
+
+**What didn’t work / issues**
+Initially, there was a risk of including features such as RISKSCORE or StatusofInspectionOrder without evaluating their temporal validity. Without the interview structure, these features could have introduced data leakage into the pipeline.
+
+**What I would change next time**
+I would always perform structured dataset exploration before defining features and use an interview-driven approach for complex specifications. This task reinforced that separating feature usefulness from feature validity (especially with respect to leakage) is critical in machine learning pipelines.
+
+This interaction demonstrated that SDD-based interviews are highly effective for designing complex pipelines, as they enforce explicit decisions and eliminate hidden assumptions before implementation.
