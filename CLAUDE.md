@@ -30,5 +30,5 @@ py -3 platform/server.py         # serve dashboard at http://localhost:5000
 - `elevator_fleet.csv` is the only dataset the server reads; `prepare_data.py` is the only file that writes it.
 - Data pipeline filters to ACTIVE + BY REQUEST licenses only. Join key across all datasets: `ElevatingDevicesNumber`.
 - Inspections are one-to-many — always keep only the most recent record per elevator.
-- Summary card metrics are computed once at `GET /` page load; they do not respond to filter or sort changes.
-- `GET /table` returns HTML only. Response shape is driven by `HX-Target` header: `tableBody` → `<tr>` rows; `fleetTable` → full `<table>` with updated sort-button URLs.
+- Summary card metrics are computed once at `GET /` page load (initial full-fleet values); when filters or search update the table, cards are recomputed via out-of-band swaps to reflect the filtered dataset.
+- `GET /table` returns HTML only. Response shape: `tableBody` → `<tr>` rows + OOB card snippets; `fleetTable` → full `<table>` + OOB card snippets. OOB snippets update the 4 summary card values to reflect the filtered dataset.

@@ -8,6 +8,10 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"
           integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
           crossorigin="anonymous"></script>
+  <style>
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+  </style>
 </head>
 <body class="flex h-screen bg-slate-100 overflow-hidden">
 
@@ -47,7 +51,7 @@
     </div>
 
     <!-- Two-column row: scrollable content on the left, detail panel on the right -->
-    <div class="flex flex-1 min-h-0 overflow-hidden">
+    <div class="flex flex-1 min-h-0 overflow-hidden relative">
     <div class="flex-1 overflow-y-auto px-8 py-6">
 
       <!-- Summary cards — §4.3: large bold value, small muted label, accent colors per state -->
@@ -56,35 +60,35 @@
         <!-- Card 1: Total Elevators — neutral, no accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Total Elevators</p>
-          <p class="text-4xl font-bold text-slate-800">{{ total_elevators }}</p>
+          <p id="card-total" class="text-4xl font-bold text-slate-800">{{ total_elevators }}</p>
           <p class="text-xs text-slate-400 mt-2">Unique devices in license.csv</p>
         </div>
 
         <!-- Card 2: Active Elevators — green accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Active Elevators</p>
-          <p class="text-4xl font-bold text-green-600">{{ active_elevators }}</p>
+          <p id="card-active" class="text-4xl font-bold text-green-600">{{ active_elevators }}</p>
           <p class="text-xs text-slate-400 mt-2">LICENSESTATUS = ACTIVE</p>
         </div>
 
         <!-- Card 3: Overdue Inspections — red accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Overdue Inspections</p>
-          <p class="text-4xl font-bold text-red-600">{{ overdue_inspections }}</p>
+          <p id="card-overdue" class="text-4xl font-bold text-red-600">{{ overdue_inspections }}</p>
           <p class="text-xs text-slate-400 mt-2">Latest inspection &gt; 1 year ago or missing</p>
         </div>
 
         <!-- Card 4: Licenses Expiring — amber accent (§4.3) -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Licenses Expiring in 30 Days</p>
-          <p class="text-4xl font-bold text-amber-600">{{ expiring_soon }}</p>
+          <p id="card-expiring" class="text-4xl font-bold text-amber-600">{{ expiring_soon }}</p>
           <p class="text-xs text-slate-400 mt-2">LICENSEEXPIRYDATE within next 30 days</p>
         </div>
 
       </div>
 
       <!-- Detail table -->
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm" hx-indicator="#table-indicator">
 
         <!--
           Controls form — all named inputs are included in every HTMX request via hx-include="#controls".
@@ -147,6 +151,15 @@
             <option value="Special Installation">Special Installation</option>
             <option value="Temporary Elevator">Temporary Elevator</option>
           </select>
+
+          <div id="table-indicator"
+               class="htmx-indicator ml-auto flex items-center gap-1.5 text-xs text-slate-400 pointer-events-none">
+            <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Loading…
+          </div>
 
         </form>
 
@@ -253,8 +266,15 @@
         Clicking a row swaps the elevator detail HTML into this element (innerHTML).
         Close button inside the panel clears it back to empty, hiding it again.
       -->
+      <div id="panel-indicator"
+           class="htmx-indicator absolute right-0 top-0 h-full w-96 flex items-center justify-center pointer-events-none">
+        <svg class="animate-spin w-8 h-8 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
       <div id="elevatorPanel"
-           class="w-96 border-l border-slate-200 bg-white overflow-y-auto shrink-0 empty:hidden"></div>
+           class="w-96 border-l border-slate-200 bg-white overflow-y-auto shrink-0 empty:hidden relative z-10"></div>
 
     </div><!-- end two-column row -->
   </main>

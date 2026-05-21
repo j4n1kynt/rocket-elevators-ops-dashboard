@@ -189,12 +189,21 @@ def table():
     # 4. Render rows via template (reused by both response paths) --------------
     rows_html = render_template("_table_rows.html", rows=rows)
 
-    # 5. Decide response shape based on HTMX target header --------------------
+    # 5. Compute filtered metrics and build OOB card snippet -------------------
+    m = compute_metrics(df)
+    cards_oob = (
+        f'\n<p id="card-total"   hx-swap-oob="innerHTML">{m["total_elevators"]}</p>'
+        f'\n<p id="card-active"  hx-swap-oob="innerHTML">{m["active_elevators"]}</p>'
+        f'\n<p id="card-overdue" hx-swap-oob="innerHTML">{m["overdue_inspections"]}</p>'
+        f'\n<p id="card-expiring" hx-swap-oob="innerHTML">{m["expiring_soon"]}</p>'
+    )
+
+    # 6. Decide response shape based on HTMX target header --------------------
     # Sort buttons target #fleetTable (outerHTML); filters/search target #tableBody (innerHTML).
     if request.headers.get("HX-Target") == "fleetTable":
-        return make_response(build_full_table(rows_html, sort, order))
+        return make_response(build_full_table(rows_html, sort, order) + cards_oob)
 
-    return make_response(rows_html)
+    return make_response(rows_html + cards_oob)
 
 
 @app.route("/elevator/<elev_id>")

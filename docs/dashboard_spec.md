@@ -61,7 +61,7 @@ Four metric cards appear at the top of the dashboard in a horizontal row.
 
 ### Metric Computation
 
-Summary card values are computed once per page load. Each metric reflects the full fleet state at load time; cards do not respond to filter, search, or sort changes.
+Summary card values are updated whenever the table updates. Each metric reflects the currently filtered and searched dataset. On initial page load, all cards reflect the full fleet. When a filter or search is active, all four cards recompute to match the visible rows. Sorting does not change which rows are visible; cards still update to remain consistent.
 
 | Card | Calculation |
 |---|---|
@@ -121,7 +121,25 @@ Clicking a column header updates both the table row order and the column header 
 
 - The table reflects the combined result of all active filters, search query, and sort state simultaneously.
 - All filtering, searching, and sorting logic runs on the server; the client carries no application state.
-- Table updates are partial — only the affected portion of the page refreshes; the page header, summary cards, and sidebar are unaffected.
+- Table updates are partial. The page header and sidebar are never affected. Summary cards update alongside the table in a single request using out-of-band swaps; no separate request is needed.
+
+#### Loading Feedback
+
+The dashboard provides visual feedback whenever it is waiting for data from the server.
+
+**Where it appears:**
+- The table area shows a loading indicator whenever a filter, search, or sort update is in progress.
+- The detail panel shows a loading indicator while the elevator's data is being retrieved.
+
+**When it appears:**
+- The indicator becomes visible as soon as the user performs any action that triggers a data update: selecting a filter value, typing in the search box, clicking a sort header, or clicking an elevator row.
+
+**When it disappears:**
+- The indicator is hidden as soon as the updated content is fully displayed in the table or detail panel.
+
+**Behavior constraints:**
+- The loading indicator does not block the rest of the page. The sidebar, page header, and summary cards remain fully visible while data is loading.
+- The user's ability to interact with other controls is not affected by the loading state.
 
 
 ## Data Model

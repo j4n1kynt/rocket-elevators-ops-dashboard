@@ -857,3 +857,82 @@ However, I realized that including this kind of detail would introduce implement
 
 **What I would change next time**
 I would strictly follow the specification as a boundary and implement only the minimum behavior required. Instead of introducing state tracking or additional mechanisms, I would rely on the behavior already defined in the spec—specifically, that the panel closes when the selected elevator is no longer visible.
+
+## AND-103 Task 3: Inspection Outcome Visualization (Spec-driven implementation)
+
+**Prompt used**
+"Implement inspection outcome visual indicators and overdue highlighting strictly following the behavior defined in docs/dashboard_spec.md."
+
+**What worked**
+The implementation correctly followed the specification by applying visual indicators to inspection outcomes using the actual dataset values. The logic was implemented consistently across both the table and the detail panel, ensuring a unified user experience.
+
+Instead of relying on exact matches for outcomes, the implementation used substring matching (e.g., "Follow up" in outcome) to handle real-world variations such as "Follow up Major". This allowed the system to remain robust without modifying backend data or introducing unnecessary complexity.
+
+**What didn’t work / issues**
+The initial approach considered applying direct equality checks for outcome values, which would not have been sufficient due to the variability in the dataset. This highlighted a gap between idealized behavior and real data conditions.
+
+**What I would change next time**
+I would inspect the dataset earlier before defining display logic, ensuring that edge cases like value variations are considered upfront. This would make the specification and implementation more aligned from the beginning.
+
+This task reinforced the importance of implementing behavior strictly from the specification while adapting to real-world data variability in a way that does not violate SDD principles.
+
+## AND-103 Task 3: Debounced Search Validation
+
+**Prompt used**
+"Implement debounced search behavior for the elevator table according to the interaction specification."
+
+**What worked**
+The system already had a fully functional debounced search implementation using HTMX. Upon review, it met all requirements from the specification, including delayed updates, combination with filters, and dynamic table rendering without page reload.
+
+**What didn’t work / issues**
+Initially, I assumed that the feature still needed to be implemented. However, after reviewing the existing code and comparing it against the specification, I realized that no changes were required. This highlighted the importance of validating current functionality before attempting to modify or extend the system.
+
+**What I would change next time**
+Before implementing a feature, I would first verify whether the existing system already satisfies the specification. This prevents unnecessary changes and avoids the risk of over-engineering or introducing regressions.
+
+
+## AND-103 Task 3: Plan Mode for OOB Updates
+
+**Prompt used**
+"Create an implementation plan for updating summary cards using out-of-band swaps based on the interaction specification."
+
+**What worked**
+Using Plan Mode helped break down a complex feature before implementation. The plan clearly identified how to reuse existing backend logic and extend the /table endpoint to return both table rows and summary card updates using out-of-band swaps.
+
+This prevented over-engineering and ensured that the implementation remained aligned with the specification.
+
+**What didn’t work / issues**
+Initially, there was a risk of introducing unnecessary complexity, such as additional state tracking or separate endpoints. However, reviewing the plan before implementation helped identify and avoid these issues.
+
+**What I would change next time**
+I would use Plan Mode earlier for multi-component features. This experience showed that planning before coding reduces errors and ensures alignment with the specification, especially for interactions that affect multiple parts of the UI.
+
+## AND-103 Task 3: Plan Mode and OOB Implementation
+
+**Prompt used**
+"Generate an implementation plan for updating summary cards using out-of-band swaps based on the interaction specification."
+
+**What worked**
+Using Plan Mode allowed me to design the implementation before making any code changes. The plan clearly defined how to extend the existing /table endpoint to return both table rows and summary card updates in a single response using HTMX out-of-band swaps.
+
+This approach prevented over-engineering and ensured that the implementation remained minimal and aligned with the specification. Reusing the existing compute_metrics() function further simplified the backend logic and ensured consistency.
+
+**What didn’t work / issues**
+Initially, the specification did not include dynamic updates for summary cards, which caused a conflict with the Task 3 requirements. This required updating the specification first before implementing the feature.
+
+**What I would change next time**
+I would ensure that all required behaviors are explicitly defined in the specification before entering implementation. This task reinforced the importance of using the spec as a single source of truth and using Plan Mode to handle more complex features that affect multiple UI components.
+
+## AND-103 Task 3: Loading Feedback (Spec-driven extension)
+
+**Prompt used**
+"Add a new SDD-compliant section to the specification defining loading feedback behavior, then implement it."
+
+**What worked**
+Updating the specification before implementation ensured that loading feedback behavior was clearly defined in terms of observable user experience. This allowed for a straightforward implementation using HTMX without introducing ambiguity or additional complexity.
+
+**What didn’t work / issues**
+Initially, loading indicators were considered for implementation without being defined in the specification, which would have violated SDD principles. This required pausing implementation and updating the spec first.
+
+**What I would change next time**
+I would ensure that all UI feedback behaviors are explicitly defined in the specification before implementation begins. This task reinforced that even small UX features must follow the same spec-first discipline as larger features.
