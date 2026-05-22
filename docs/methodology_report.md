@@ -107,12 +107,12 @@ All models were evaluated on a time-based holdout split: training on inspections
 | Model | Accuracy | F1 macro (all features) | F1 macro (SelectKBest k=8) | ROC-AUC (all features) | ROC-AUC (SelectKBest k=8) |
 |---|---|---|---|---|---|
 | Baseline | 0.8096 | — | — | 0.5000 | 0.5000 |
-| Logistic Regression | 0.8398 | 0.5058 | 0.5004 | 0.6771 | 0.6753 |
+| Logistic Regression | 0.8398 | 0.5058 | 0.5040 | 0.6771 | 0.7166 |
 | Random Forest | **0.8865** | **0.5187** | 0.5096 | **0.7705** | 0.7196 |
 | Gradient Boosting | 0.8463 | 0.5092 | 0.4896 | 0.7456 | 0.7148 |
 
 **Best model:** Random Forest with all 17 features.  
-**Primary metric:** F1 macro = **0.5187** (+0.022 over baseline F1 macro of ~0.4963).
+**Primary metric:** F1 macro = **0.5187** (+0.022 over baseline F1 macro of 0.4964).
 
 F1 macro was chosen as the primary metric because it averages performance equally across both classes. A majority-class predictor achieves 80.96% accuracy but scores 0 for class-0 F1 — F1 macro penalizes this by including both classes in the average. ROC-AUC is reported as a supplementary metric (RF: 0.7705, +0.2705 over baseline of 0.50) and confirms the same selection.
 
