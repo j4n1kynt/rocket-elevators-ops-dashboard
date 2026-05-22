@@ -1158,9 +1158,136 @@ Add validation: row count, class distribution (warn if >95%), schema check.
 The pipeline passed all critical tests validating row consistency, feature correctness, schema compliance, and data leakage prevention. This confirmed that the implementation correctly follows the feature engineering specification.
 
 **What didn’t work / issues**
-One test (test_no_future_orders_used) failed due to an issue in the test itself. The test attempted to parse DateofIssue using pd.to_datetime without handling mixed formats, causing a parsing error before reaching its assertion logic. Additionally, the test contained only an 'assert True' placeholder, meaning it would not have detected any leakage issues even if it executed successfully.
+One test (test_no_future_orders_used) failed due to an issue in the test itself. The test attempted to parse DateofIssue using pd.to_datetime without handling mixed formats, causing a parsing error before reaching its assertion logic. Additionally, the test contained only an ‘assert True’ placeholder, meaning it would not have detected any leakage issues even if it executed successfully.
 
 **What I would change next time**
 I would review test implementations more carefully before trusting their results. This experience reinforced that not all test failures indicate issues in the code under test, and distinguishing between implementation errors and test defects is an important skill in TDD workflows.
+
+---
+
+## AND-103 Task 6: Plan Mode for ML Pipeline Audit
+
+**Date:** 2026-05-22
+
+**Prompt used**
+"Fix everything to make the ML pipeline notebook committable based on these task requirements [10 criteria including Pipeline class, time-based split, baseline, SelectKBest, best model report]."
+
+**What worked**
+Using Plan Mode before touching the notebook forced an explicit enumeration of every audit-blocking issue before any edit was made. Four distinct problems were identified upfront: blank feature names in the best-model justification, a missing printed baseline ROC-AUC, metric inconsistency in two interpretation cells, and a missing `## Data Loading` section header. Having this list prevented partial fixes — each problem was addressed deliberately rather than discovered mid-edit.
+
+The plan also exposed a deeper inconsistency: the notebook used ROC-AUC as the primary metric in several cells while the task specification requires F1 macro. Catching this before implementation meant the fix could be applied consistently across all six affected locations in a single pass.
+
+**What didn’t work / issues**
+Four `NotebookEdit` calls issued simultaneously failed with "File has been modified since read" errors because all four targeted the same notebook file. The fix was to re-read the notebook after each edit before issuing the next one — parallel edits to a single notebook file are not supported.
+
+**What I would change next time**
+I would read the notebook once, plan all edits, then issue them sequentially (not in parallel) from the start. Attempting parallel edits to a single `.ipynb` file is a reliable way to lose all changes and restart from scratch.
+
+**Lesson learned**
+Plan Mode is most valuable for audit tasks where the number of issues is unknown. Listing every gap before fixing any of them prevents the common failure mode of fixing visible issues while missing structural ones that sit one layer deeper.
+
+---
+
+## AND-103 Task 6: Primary Metric Alignment — F1 Macro vs ROC-AUC
+
+**Date:** 2026-05-22
+
+**Goal**
+Align the entire ML pipeline notebook and methodology report around a single, consistent primary evaluation metric matching the task specification.
+
+**Interaction summary**
+The initial notebook used ROC-AUC as the primary metric in the Target Variable Analysis cell, the Baseline Model cell, and the Best Model justification. The task specification requires F1 macro. After identifying the inconsistency, I asked Claude Code to update every location that stated or implied the primary metric, rather than just the most visible one.
+
+**What worked**
+Treating metric alignment as a cross-file audit — rather than a single-cell fix — produced consistent results. Six locations were updated in a single planned pass: the Target Variable Analysis markdown, the Baseline Model markdown, the LR interpretation cell, the RF interpretation cell, the Best Model markdown, and the methodology report results section. Each location now explicitly states "F1 macro is the primary evaluation metric" and positions ROC-AUC as supplementary.
+
+The rationale for F1 macro was also written explicitly: under 80/20 class imbalance, a majority-class predictor reaches 80.96% accuracy but scores 0 for class-0 F1 — accuracy hides this failure completely. F1 macro penalizes it by including class-0 F1 in the average.
+
+**What didn’t work / issues**
+The GB interpretation cell was not fully aligned in the same pass — it still compared RF vs GB by ROC-AUC rather than F1 macro. This was identified in a subsequent audit. A complete metric alignment requires reviewing every model interpretation cell independently, not just the cells that explicitly declare the primary metric.
+
+**What I would change next time**
+I would define the primary metric in a single markdown cell at the top of the notebook and reference it explicitly in each model section, rather than repeating the definition in each interpretation cell independently. A single source of truth for the metric choice is harder to miss than distributed declarations.
+
+**Lesson learned**
+Metric consistency is a cross-cutting concern in ML notebooks. Changing the primary metric requires auditing narrative cells, printed outputs, comparison tables, and the best-model justification as a coordinated set — not just the cell where the metric is first named.
+
+---
+
+## AND-103 Task 6: Baseline Comparator Design — DummyClassifier over Hardcoded Values
+
+**Date:** 2026-05-22
+
+**Goal**
+Produce a traceable, reproducible baseline that an evaluator can verify by re-running the notebook, rather than citing a hardcoded constant.
+
+**Interaction summary**
+The initial notebook computed a majority-class accuracy (0.8096) from the full dataset but stated the baseline ROC-AUC as 0.50 without any code to demonstrate it. I asked Claude Code to replace the asserted constant with a `DummyClassifier(strategy=’most_frequent’)` fitted on the training set and evaluated on the test set, so all three baseline values (accuracy, F1 macro, ROC-AUC) would be printed from a single traceable source.
+
+**What worked**
+The DummyClassifier approach produced all three baseline values from actual test-set predictions. `baseline_f1_macro = 0.4964` confirmed that the majority-class predictor achieves near-zero class-0 F1 (0.993 class-1, 0.000 class-0 → 0.4964 macro average), making the F1 macro baseline more meaningful than accuracy alone. `baseline_roc_auc = 0.5000` confirmed mathematically what was asserted — constant probability scores produce a diagonal ROC curve — but now with code evidence rather than a comment.
+
+Using `DummyClassifier` also forced the baseline to be evaluated on the same test split as the trained models, ensuring a fair comparison. A full-dataset majority-class accuracy would have been a slightly different number.
+
+**What didn’t work / issues**
+The DummyClassifier cell was inserted after the train/test split cell but had no stored output after insertion. The notebook needed to be re-run in full to populate the output. Until re-run, an evaluator reading the notebook would see an empty output cell where the baseline numbers should appear.
+
+**What I would change next time**
+I would always re-run the entire notebook after inserting any new cell to ensure all outputs are stored before committing. A notebook with empty output cells looks incomplete regardless of whether the code is correct.
+
+**Lesson learned**
+Baseline values should always be computed from the same split as the trained models. A DummyClassifier evaluated on the test set is a stricter and more honest baseline than a full-dataset majority-class proportion. The difference is small numerically but significant for reproducibility.
+
+---
+
+## AND-103 Task 6: Time-Based Split Design and Boundary Assertion
+
+**Date:** 2026-05-22
+
+**Goal**
+Implement a temporally valid train/test split that reflects real-world prediction conditions and includes a programmatic leakage check.
+
+**Interaction summary**
+The split sorts all rows by `Latest_INSPECTION_Date` and cuts at the 80th percentile row — no random shuffling. I asked Claude Code to add an explicit assertion verifying that no training date is later than any test date, and to explain the boundary condition where the same date (2015-12-14) appears as both `max(train)` and `min(test)`.
+
+**What worked**
+The assertion `assert train_df[date_col].max() <= test_df[date_col].min()` provides a hard stop if the split ever violates temporal order. Using `<=` (not `<`) is correct because the boundary date 2015-12-14 appears in both sets — this is a row-count artifact of an 80/20 cut on a chronologically sorted dataset, not a data leak. The markdown cell explaining this distinction prevents a future reader from incorrectly flagging a false positive.
+
+A markdown cell describing the split rationale was also added: the split simulates real prediction conditions — the model is trained on historical data and evaluated on inspections it could not have seen during training.
+
+**What didn’t work / issues**
+The assertion cell initially used strict `<` which caused it to fail immediately because the boundary date is shared. Changing to `<=` required understanding why the boundary date appears in both sets — the row-based 80/20 cut does not guarantee a clean date boundary.
+
+**What I would change next time**
+For time-based splits I would always print both `max(train_date)` and `min(test_date)` and the assertion in adjacent cells so the relationship is visible without re-running the notebook. This makes the boundary condition self-documenting.
+
+**Lesson learned**
+A row-based percentage cut on a sorted dataset does not produce a clean date boundary — the same date can appear on both sides if multiple rows share that date. The assertion that validates the split must use `<=` in this case, not `<`. This distinction is easy to get wrong and worth documenting explicitly in the notebook.
+
+---
+
+## AND-103 Task 6: Feature Selection Analysis — SelectKBest and the Case for All Features
+
+**Date:** 2026-05-22
+
+**Goal**
+Apply `SelectKBest` feature selection to all three model pipelines and use the results to justify the final feature set for the best model.
+
+**Interaction summary**
+Feature selection was implemented using `SelectKBest(mutual_info_classif, k=8)` — k set to 50% of the 17 available features (rounded to integer). All three models were evaluated with and without feature selection. The results showed that feature selection decreased F1 macro for every model. I asked Claude Code to use this finding as the justification for retaining all 17 features in the final model.
+
+**What worked**
+The side-by-side comparison table made the feature selection outcome unambiguous: RF all features F1 macro 0.5187 vs RF SelectKBest 0.5096, GB all features 0.5092 vs GB SelectKBest 0.4896, LR all features 0.5058 vs LR SelectKBest 0.5040. Every model performed better with all features. This made the justification concrete: feature selection was not omitted — it was tried and found to hurt performance.
+
+Printing the selected feature names (e.g., `prior_order_count` replacing `insp_type_Followup` on one run) also surfaced that `mutual_info_classif` is non-deterministic without a `random_state` — the same k=8 selection can produce different feature sets across runs.
+
+**What didn’t work / issues**
+The non-determinism of `mutual_info_classif` caused the selected feature list to differ between runs, creating a discrepancy between the feature names in the best-model justification cell and the printed output of the feature selection cell. The working decision was not to set `random_state` (which `mutual_info_classif` does not support) but to acknowledge the non-determinism explicitly in the best-model justification.
+
+**What I would change next time**
+I would set `random_state` on the `SelectKBest` estimator if the scorer supports it, or use a scorer that is deterministic by default, to make the selected feature list stable across re-runs. Non-deterministic feature selection makes the notebook harder to reproduce and introduces unnecessary variability in results tables.
+
+**Lesson learned**
+Feature selection is not always beneficial. When the dropped features carry real signal that the scoring criterion underestimates — as `mutual_info_classif` did with the order-related features — removing them hurts performance. The correct conclusion from a feature selection experiment is not always "use the selected subset"; sometimes it is "all features are necessary and the selection criterion is insufficient for this dataset."
 
 
