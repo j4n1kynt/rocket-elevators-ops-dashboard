@@ -62,27 +62,31 @@ def test_first_inspection_has_zero_history():
 ##No future data
 def test_no_future_orders_used():
     df_orders = pd.read_csv("data/order.csv")
-    df_orders["DateofIssue"] = pd.to_datetime(df_orders["DateofIssue"], errors="coerce")
+    order_dates = pd.to_datetime(df_orders["DateofIssue"], errors="coerce")
+    df_orders = df_orders[order_dates.notna()].copy()
+    df_orders["DateofIssue"] = order_dates[order_dates.notna()]
 
     df_features = pd.read_csv("data/feature_matrix.csv")
     df_features["Latest_INSPECTION_Date"] = pd.to_datetime(df_features["Latest_INSPECTION_Date"])
 
-    # Sample rows (no necesitas todo el dataset)
-    sample = df_features.sample(10, random_state=42)
+    sample = df_features.sample(20, random_state=42)
 
     for _, row in sample.iterrows():
         elevator_id = row["ElevatingDevicesNumber"]
         inspection_date = row["Latest_INSPECTION_Date"]
+        recorded_count = int(row["prior_order_count"])
 
-        # Orders for this elevator AFTER inspection date
-        future_orders = df_orders[
-            (df_orders["ElevatingDevicesNumber"] == elevator_id) &
-            (df_orders["DateofIssue"] >= inspection_date)
-        ]
+        elevator_orders = df_orders[df_orders["ElevatingDevicesNumber"] == elevator_id]
+        future_orders = elevator_orders[elevator_orders["DateofIssue"] >= inspection_date]
+        prior_orders  = elevator_orders[elevator_orders["DateofIssue"] < inspection_date]
 
-        # This should not exist IF pipeline is correct
-        # (feature matrix must not be influenced by these)
-        assert True  # placeholder → se validará indirectamente en pipeline
+        # When future orders exist, the feature must count only prior orders
+        if len(future_orders) > 0:
+            assert recorded_count == len(prior_orders), (
+                f"Elevator {elevator_id} on {inspection_date}: "
+                f"has {len(future_orders)} future order(s) that must be excluded; "
+                f"expected prior_order_count={len(prior_orders)}, got {recorded_count}"
+            )
 
 
 ## §6.1 — Row count matches inspection base (zero-tolerance)
