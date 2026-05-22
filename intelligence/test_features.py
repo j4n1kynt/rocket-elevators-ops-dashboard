@@ -62,7 +62,7 @@ def test_first_inspection_has_zero_history():
 ##No future data
 def test_no_future_orders_used():
     df_orders = pd.read_csv("data/order.csv")
-    df_orders["DateofIssue"] = pd.to_datetime(df_orders["DateofIssue"])
+    df_orders["DateofIssue"] = pd.to_datetime(df_orders["DateofIssue"], errors="coerce")
 
     df_features = pd.read_csv("data/feature_matrix.csv")
     df_features["Latest_INSPECTION_Date"] = pd.to_datetime(df_features["Latest_INSPECTION_Date"])
@@ -203,6 +203,7 @@ def test_schema_contract():
         "prior_pass_rate",
         "days_since_last_inspection",
         "prior_inspection_frequency",
+        "last_inspection_outcome",
         "prior_order_count",
         "max_prior_riskscore",
         "mean_prior_riskscore",
@@ -210,6 +211,9 @@ def test_schema_contract():
         "prior_unresolved_order_count",
         "distinct_directive_count",
         "device_type_encoded",
+        "insp_type_Followup",
+        "insp_type_Other",
+        "insp_type_Periodic",
     }
 
     df_features = pd.read_csv("data/feature_matrix.csv", nrows=1)
