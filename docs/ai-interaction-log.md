@@ -1012,3 +1012,155 @@ Initially, there was a risk of including features such as RISKSCORE or StatusofI
 I would always perform structured dataset exploration before defining features and use an interview-driven approach for complex specifications. This task reinforced that separating feature usefulness from feature validity (especially with respect to leakage) is critical in machine learning pipelines.
 
 This interaction demonstrated that SDD-based interviews are highly effective for designing complex pipelines, as they enforce explicit decisions and eliminate hidden assumptions before implementation.
+
+## AND-103 Task 5: Plan Mode for Feature Engineering Pipeline
+
+**Prompt used**
+"Plan the implementation of the feature engineering pipeline based strictly on docs/feature_engineering_spec.md. Tests are already written in intelligence/test_features.py and currently failing. The pipeline must generate data/feature_matrix.csv. Produce a step-by-step plan covering the 9 stages."
+
+**What worked**
+Plan Mode surfaced a critical conflict before a single line of pipeline code was written: the existing test file read from `data/feature_matrix.csv`, while the spec's Stage 9 explicitly named `intelligence/features/inspection_features.csv`. Without the planning phase, the pipeline would have been implemented against the spec path, the tests would have continued to fail, and the root cause would not have been obvious.
+
+The subagent exploration in Phase 1 of Plan Mode provided a complete picture of the current state — the test file content, the absence of any pipeline implementation, and the actual column names in the source datasets. This meant the plan could reference exact file paths, column names, and edge cases rather than relying on assumptions.
+
+Using `AskUserQuestion` to resolve two ambiguities (output path, test coverage scope) before writing the plan eliminated the two most likely sources of rework. Both questions were answered in under a minute, and neither required revisiting after implementation began.
+
+The two-phase structure (Phase A: expand tests; Phase B: implement pipeline) enforced the TDD discipline explicitly. Writing the 6 missing tests before the notebook existed meant that every pipeline decision had a prior validation target.
+
+**What didn't work / issues**
+The path conflict between the spec and the test file should not have existed. The test file was written before the spec was finalized, and the spec's output path was never reconciled with what the tests expected. This is a process gap: in a spec-driven workflow, tests that validate spec outputs should reference spec-defined paths, not independently chosen ones.
+
+Additionally, the third pre-existing test (`test_no_future_orders_used`) was a placeholder using `assert True` and contained a date parsing bug that caused it to fail before reaching any assertion. Plan Mode did not catch this because it requires reading test logic, not just file presence.
+
+**What I would change next time**
+I would define the output path in the spec before writing any test file, and I would verify that test file paths match spec-defined paths as part of the planning audit. A one-line path constant at the top of the test file referencing the spec's output path would prevent this class of conflict entirely.
+
+I would also review test assertion logic (not just file existence) during the exploration phase, so that placeholder or broken tests are flagged in the plan before they surface as unexpected failures after the pipeline runs.
+
+---
+
+### Plan Mode Output
+
+The following is the full plan document produced by Plan Mode before any implementation began.
+
+```markdown
+# Plan: AND-103 Task 5 — Feature Engineering Pipeline (TDD)
+
+## Context
+
+`docs/feature_engineering_spec.md` defines a 9-stage ML feature engineering pipeline. The terminal
+deliverable is `data/feature_matrix.csv` — a fully numerical feature table for a scikit-learn binary
+classifier predicting elevator inspection outcomes.
+
+`intelligence/test_features.py` already has 3 tests (all currently failing — output file does not
+exist). The plan expands test coverage to match spec §6.1–§6.5, then implements the 9-stage pipeline
+in a Jupyter notebook.
+
+**Output path:** `data/feature_matrix.csv` (per existing tests — tests define behavior in TDD).
+
+---
+
+## Phase A — Expand Test Coverage (before any pipeline code)
+
+**File:** `intelligence/test_features.py`
+
+Add 6 new tests after the 3 existing ones. All read from `data/feature_matrix.csv`.
+
+| Test | Spec criterion |
+|------|---------------|
+| `test_row_count_matches_inspection_base()` | §6.1 — zero-tolerance row count |
+| `test_no_duplicate_rows()` | §6.2 — no duplicate (ElevatingDevicesNumber, Latest_INSPECTION_Date) |
+| `test_both_target_classes_present()` | §6.3 — both 0 and 1 in `target`; warning if one class > 95% |
+| `test_leakage_inspection_features()` | §6.4 — all prior inspection dates < inspection date |
+| `test_leakage_order_features()` | §6.4 — max DateofIssue < inspection date for each sampled row |
+| `test_schema_contract()` | §6.5 — exactly the required columns, no extras |
+
+**Important for §6.1:** The expected row count is computed independently by reading `data/inspection.csv`,
+excluding null/empty `InspectionOutcome` rows, and counting unique `(ElevatingDevicesNumber,
+Latest_INSPECTION_Date)` pairs.
+
+Run `pytest intelligence/test_features.py -v` after Phase A — all 9 tests must fail with "file not
+found" or assertion errors (no import errors).
+
+---
+
+## Phase B — Implement Pipeline (9 stages)
+
+**File:** `intelligence/feature_engineering_pipeline.ipynb` (NEW — greenfield, per spec §4.5)
+
+The notebook runs top-to-bottom and ends by writing `data/feature_matrix.csv`.
+
+### Stage 1 — Load raw data
+Load `inspection.csv`, `order.csv`, `merged_elevator_data.csv` with exact usecols lists.
+
+### Stage 2 — Normalize dates
+Convert `Latest_INSPECTION_Date`, `DateofIssue`, `ComplianceDate` to ISO `YYYY-MM-DD` strings
+using `pd.to_datetime(..., errors='coerce')`.
+
+### Stage 3 — Build base table
+1. Exclude rows where `InspectionOutcome` is empty/null
+2. Exclude rows with unparseable inspection dates
+3. Sort and deduplicate — keep first per (ElevatingDevicesNumber, Latest_INSPECTION_Date)
+4. Encode target: contains 'pass' (case-insensitive) → 0; else → 1
+
+### Stage 4 — Prior-inspection features
+Cross-join base × inspection history on ElevatingDevicesNumber, filter `history_date < current_date`.
+Features: prior_inspection_count, prior_pass_count, prior_fail_count, prior_pass_rate,
+days_since_last_inspection, prior_inspection_frequency.
+Edge case: first inspection → counts=0, time features=NaN.
+
+### Stage 5 — Prior-order features
+Cross-join base × orders, filter `DateofIssue < current_inspection_date`.
+Features: prior_order_count, max_prior_riskscore, mean_prior_riskscore,
+prior_overdue_order_count, prior_unresolved_order_count, distinct_directive_count.
+Edge case: no prior orders → counts=0, stats=NaN.
+
+### Stage 6 — Join static attributes
+Left join `merged_elevator_data.csv` on ElevatingDevicesNumber. Retain `Device Type` only.
+
+### Stage 7 — Encode Device Type
+Label-encode → `device_type_encoded` integer. pd.Categorical.codes (-1 for NaN).
+
+### Stage 8 — Drop excluded columns
+Keep only the schema columns. Drop InspectionOutcome, Device Type, intermediate columns.
+
+### Stage 9 — Save output
+`df_final.to_csv(DATA / "feature_matrix.csv", index=False, encoding="utf-8")`
+Add validation: row count, class distribution (warn if >95%), schema check.
+
+---
+
+## Files modified
+
+| File | Change |
+|------|--------|
+| `intelligence/test_features.py` | Add 6 new tests (§6.1–§6.5) |
+| `intelligence/feature_engineering_pipeline.ipynb` | NEW — 9-stage pipeline notebook |
+
+`data/feature_matrix.csv` is generated (not committed — it is a build artifact).
+
+---
+
+## Verification
+
+1. After Phase A: `pytest intelligence/test_features.py -v` — all 9 tests fail (file not found)
+2. After Phase B: Run all notebook cells — no exceptions; `data/feature_matrix.csv` created
+3. `pytest intelligence/test_features.py -v` — all 9 tests pass
+4. Manual check: 16 column headers, non-zero rows, both 0 and 1 in `target`
+```
+
+## AND-103 Task 5: Handling a Faulty Test in TDD Workflow
+
+**Prompt used**
+"Run all tests for the feature engineering pipeline and identify failures."
+
+**What worked**
+The pipeline passed all critical tests validating row consistency, feature correctness, schema compliance, and data leakage prevention. This confirmed that the implementation correctly follows the feature engineering specification.
+
+**What didn’t work / issues**
+One test (test_no_future_orders_used) failed due to an issue in the test itself. The test attempted to parse DateofIssue using pd.to_datetime without handling mixed formats, causing a parsing error before reaching its assertion logic. Additionally, the test contained only an 'assert True' placeholder, meaning it would not have detected any leakage issues even if it executed successfully.
+
+**What I would change next time**
+I would review test implementations more carefully before trusting their results. This experience reinforced that not all test failures indicate issues in the code under test, and distinguishing between implementation errors and test defects is an important skill in TDD workflows.
+
+
