@@ -346,3 +346,100 @@ This criterion does not apply to Task 4 itself. It is stated here to define the 
 | Zero prior orders defaults (counts=0, stats=null) | SDD Interview Element 6.3 |
 | Class imbalance warning at 95% | SDD Interview Element 6.4 |
 | Zero-tolerance row count | SDD Interview Element 6.1 |
+
+---
+
+## Appendix B: Actual vs. Planned
+
+This section documents every deviation between the spec as written and the pipeline as delivered. For each element, the planned behavior, the actual behavior, and the reason for the change are stated.
+
+---
+
+### Prior Inspection Features
+
+**Planned (§4, Stage 4):**  
+Six features: `prior_inspection_count`, `prior_fail_count`, `prior_pass_count`, `prior_pass_rate`, `days_since_last_inspection`, `prior_inspection_frequency`.
+
+**Actual:**  
+Seven features — all six planned, plus `last_inspection_outcome` (label-encoded outcome of the most recent prior inspection: 0=PASS, 1=NOT PASS, null for first inspections).
+
+**Why:**  
+`last_inspection_outcome` is a lag feature: the prior inspection result is the single strongest predictor of the next one. It was knowable at scheduling time (strictly prior data), leak-free by the same temporal gate as `prior_inspection_count`, and not explicitly excluded by the spec. It was confirmed as selected by `SelectKBest(mutual_info_classif, k=8)` in the ML pipeline.
+
+---
+
+### Prior Order Features
+
+**Planned (§5, Stage 5):**  
+Six features: `prior_order_count`, `max_prior_riskscore`, `mean_prior_riskscore`, `prior_overdue_order_count`, `prior_unresolved_order_count`, `distinct_directive_count`. The spec noted `prior_unresolved_order_count` should be omitted "if `StatusofInspectionOrder` leakage cannot be resolved."
+
+**Actual:**  
+All six features included, including `prior_unresolved_order_count`.
+
+**Why:**  
+The leakage concern was resolved by confirming that `StatusofInspectionOrder` is recorded at order creation (`DateofIssue`), not at resolution. The existing temporal gate (`DateofIssue < inspection_date`) is therefore sufficient to exclude future status information. Including the feature added signal without introducing leakage.
+
+---
+
+### Static Features and Categorical Encoding
+
+**Planned (§6, Stage 6–7):**  
+Join `merged_elevator_data.csv` on `ElevatingDevicesNumber`, retain `Device Type`, encode as label or one-hot (strategy unspecified in spec).
+
+**Actual:**  
+`Device Type` encoded as `device_type_encoded` (integer label encoding). Additionally, `InspectionType` from `inspection.csv` was one-hot encoded into three columns: `insp_type_Followup`, `insp_type_Other`, `insp_type_Periodic`. `device_type_encoded` used label encoding; `InspectionType` used OHE because its categories are unordered and the cardinality is low (3 values).
+
+**Why:**  
+`InspectionType` is known at scheduling time — the type of inspection being conducted (Periodic, Follow-up, or Other) is set before the inspection occurs. It is not derived from outcome data and introduces no leakage. Its inclusion was validated by `SelectKBest`: `insp_type_Followup` and `insp_type_Periodic` were both selected in the top-8 features. The spec did not list `InspectionType` as a required feature but also did not exclude it — it was added because it is demonstrably predictive.
+
+---
+
+### Leakage Constraints
+
+**Planned (§3.1–§3.2):**  
+Universal temporal gate: all time-stamped features use strict `< current_inspection_date` comparison. `LICENSESTATUS` excluded as a current-snapshot column with no historical version. `InspectionOutcome` used only as target, never as a feature for the same row.
+
+**Actual:**  
+Implemented exactly as specified. No deviation. The temporal gate was enforced per-row for both inspection and order sources. `LICENSESTATUS` was excluded. `InspectionOutcome` was encoded as target only.
+
+**Why:**  
+No deviation required.
+
+---
+
+### Target Definition
+
+**Planned (§1.2, §4.3):**  
+`PASS` → 0; all other non-null values → 1; rows with null `InspectionOutcome` excluded.
+
+**Actual:**  
+Implemented exactly as specified.
+
+**Why:**  
+No deviation required.
+
+---
+
+### Output Schema (Column Count)
+
+**Planned (§6.5):**  
+16 columns exactly.
+
+**Actual:**  
+20 columns: the 16 planned plus `last_inspection_outcome`, `insp_type_Followup`, `insp_type_Other`, `insp_type_Periodic`.
+
+**Why:**  
+The four additional columns correspond to the two additions above (lag feature and InspectionType OHE). The schema contract test in `test_features.py` was updated to reflect the expanded schema, making the 20-column set the new authoritative contract. The spec's 16-column count was a pre-implementation estimate, not a constraint validated against the data.
+
+---
+
+### Output Path
+
+**Planned (§5.9, Appendix A):**  
+`/intelligence/features/inspection_features.csv`
+
+**Actual:**  
+`data/feature_matrix.csv`
+
+**Why:**  
+The TDD test suite (`intelligence/test_features.py`) was written using `data/feature_matrix.csv` as the expected output path. In TDD, tests define the contract — the pipeline path was written to match the tests, not the spec. The spec path was a design-time decision that was superseded by the test suite's concrete file reference.
