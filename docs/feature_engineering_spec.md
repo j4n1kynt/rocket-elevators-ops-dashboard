@@ -253,7 +253,7 @@ Remove the following from the output before saving:
 Save the final feature table to:
 
 ```
-/intelligence/features/inspection_features.csv
+data/feature_matrix.csv
 ```
 
 - Format: CSV
@@ -312,7 +312,7 @@ The output CSV must contain exactly the following columns, in any order:
 | `max_prior_riskscore` | float or null | |
 | `mean_prior_riskscore` | float or null | |
 | `prior_overdue_order_count` | int | |
-| `prior_unresolved_order_count` | int | Omit if `StatusofInspectionOrder` leakage cannot be resolved |
+| `prior_unresolved_order_count` | int | Included — leakage resolved: status is recorded at `DateofIssue`, temporal gate is sufficient (see Appendix B) |
 | `distinct_directive_count` | int | |
 | `device_type_encoded` | int or one-hot columns | Result of Stage 7 encoding |
 
@@ -341,7 +341,7 @@ This criterion does not apply to Task 4 itself. It is stated here to define the 
 | `ElevatingDevicesNumber` as join key | SDD Interview Element 4.1 |
 | Pipeline self-normalizes dates | SDD Interview Element 4.2 |
 | Null outcomes excluded | SDD Interview Element 4.3 |
-| Output path: `/intelligence/features/inspection_features.csv` | SDD Interview Element 5.5 |
+| Output path: `data/feature_matrix.csv` | TDD contract — test suite defined this path; see Appendix B |
 | First-inspection defaults (counts=0, times=null) | SDD Interview Element 6.2 |
 | Zero prior orders defaults (counts=0, stats=null) | SDD Interview Element 6.3 |
 | Class imbalance warning at 95% | SDD Interview Element 6.4 |
