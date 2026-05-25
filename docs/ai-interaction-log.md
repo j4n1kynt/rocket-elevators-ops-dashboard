@@ -1290,4 +1290,19 @@ I would set `random_state` on the `SelectKBest` estimator if the scorer supports
 **Lesson learned**
 Feature selection is not always beneficial. When the dropped features carry real signal that the scoring criterion underestimates — as `mutual_info_classif` did with the order-related features — removing them hurts performance. The correct conclusion from a feature selection experiment is not always "use the selected subset"; sometimes it is "all features are necessary and the selection criterion is insufficient for this dataset."
 
+## AND-104 Task 1: CLAUDE.md Audit and Platform Conventions Skill
 
+**Context:**  
+CLAUDE.md had grown to include both cross-cutting architectural rules and implementation-specific platform conventions (Flask, HTMX patterns, API contracts). This mixed context caused all rules to load in every session, regardless of whether the work was on ML, ETL, backend, or documentation. The task required restructuring these rules into three categories — Always relevant (CLAUDE.md), Skill (platform-conventions), and Hook (pre-commit) — to establish proper context control in Claude Code.
+
+**Decision:**  
+Platform-specific rules (Flask over FastAPI, HTMX two-channel swap, no custom JavaScript, summary card OOB recomputation, GET /table response contract, and platform data handling rules) were extracted into `.claude/skills/platform-conventions/SKILL.md` because they only apply when editing files in the `platform/` directory. Loading these rules in ML, ETL, or documentation workflows introduced unnecessary token usage and reduced relevance.
+
+These rules were classified as a Skill because they represent scoped work tied specifically to platform development, rather than cross-cutting concerns. Using the `paths: platform/**` configuration allows Claude to auto-load the skill only when relevant, eliminating the need for manual invocation while maintaining precise context.
+
+The `/data` protection rule ("Never modify /data in place") was classified as a Hook rather than Always relevant because written rules rely on human compliance. A pre-commit hook enforces this constraint automatically at commit time, preventing accidental modification of source datasets. A pre-commit approach was chosen over CI because it catches violations locally before changes enter the repository, providing immediate feedback and preserving data integrity earlier in the workflow.
+
+CLAUDE.md was simplified to four cross-cutting conventions that apply across all layers of the project (spec-driven workflow, data filtering, join keys, and inspection aggregation). This transforms CLAUDE.md into a lean, always-loaded reference focused only on global principles.
+
+**Outcome:**  
+CLAUDE.md now loads 4 rules per session instead of 12, reducing unnecessary context and improving response relevance. Platform conventions are loaded on demand only when working in `platform/`, providing highly focused guidance for backend and frontend implementation without polluting ML or analysis tasks. Data integrity is strengthened by transitioning the `/data` rule from a passive convention to an enforceable mechanism via hooks. The audit document (`docs/claude_md_audit.md`) serves as a clear and auditable record of how rules were categorized, ensuring that the system remains maintainable and extensible as the project evolves.

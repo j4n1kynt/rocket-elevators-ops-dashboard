@@ -25,10 +25,8 @@ py -3 platform/server.py         # serve dashboard at http://localhost:5000
 ## Conventions
 
 - **Spec-driven:** `platform/index.html` may only reflect content explicitly defined in `docs/dashboard_spec.md`. Update the spec first, then the HTML — never the reverse.
-- Flask over FastAPI — HTMX's HTML-fragment pattern fits Flask's template rendering directly.
-- HTMX two-channel swap: filter/search → `#tableBody` (innerHTML); sort → `#fleetTable` (outerHTML) to refresh sort-button URLs. No custom JavaScript anywhere.
 - `elevator_fleet.csv` is the only dataset the server reads; `prepare_data.py` is the only file that writes it.
 - Data pipeline filters to ACTIVE + BY REQUEST licenses only. Join key across all datasets: `ElevatingDevicesNumber`.
 - Inspections are one-to-many — always keep only the most recent record per elevator.
-- Summary card metrics are computed once at `GET /` page load (initial full-fleet values); when filters or search update the table, cards are recomputed via out-of-band swaps to reflect the filtered dataset.
-- `GET /table` returns HTML only. Response shape: `tableBody` → `<tr>` rows + OOB card snippets; `fleetTable` → full `<table>` + OOB card snippets. OOB snippets update the 4 summary card values to reflect the filtered dataset.
+
+> Platform-specific conventions (Flask, HTMX patterns, API contracts) live in `.claude/skills/platform-conventions/SKILL.md` and load automatically when working in `platform/`.

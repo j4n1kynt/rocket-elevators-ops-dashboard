@@ -1,0 +1,135 @@
+---
+description: Platform implementation conventions for the operations dashboard. Use when editing platform/server.py, platform/index.html, or any HTMX template. Covers Flask patterns, HTMX two-channel swap, no-JS constraint, and GET /table response contracts.
+paths: platform/**
+user-invocable: false
+---
+
+# Platform Conventions
+
+## Description
+
+Use this skill when editing files in the `platform/` directory, including:
+- Flask backend code (`platform/server.py`)
+- Jinja2 templates (`platform/index.html`)
+- HTMX interactions and attributes
+
+This skill defines platform-specific implementation conventions for the operations dashboard.
+
+---
+
+## Technology Stack
+
+### Framework Choice
+
+- Flask over FastAPI  
+  HTMX's HTML-fragment pattern integrates directly with Flask's server-side rendering model, making it simpler to return HTML responses and apply transformations without additional API layers.
+
+---
+
+## Frontend Interaction Patterns
+
+### HTMX Two-Channel Swap Pattern
+
+- **Filter/search updates:**  
+  Swap `#tableBody` using `innerHTML` → only table rows update
+
+- **Sort updates:**  
+  Swap `#fleetTable` using `outerHTML` → entire table re-renders
+
+- **Why `outerHTML` for sorting:**  
+  Re-rendering the full table ensures sort button URLs and indicators are updated correctly
+
+---
+
+### No Custom JavaScript
+
+- All interactivity is handled via HTMX (server-driven updates)
+- No `.js` files allowed in `platform/`
+- No inline `<script>` tags
+- Client → HTMX request → server → HTML response → DOM swap
+
+---
+
+## API & Response Contracts
+
+### `/table` Endpoint
+
+- Returns **HTML fragments only** (not JSON)
+- The response must strictly match HTMX swap targets defined in the frontend
+
+#### Response shape by HX-Target:
+
+**`HX-Target: tableBody`** → `innerHTML` swap (filter/search updates)
+```html
+<tr>
+  <td>EL-00123</td>
+  <td>123 Main St, Toronto</td>
+  ...
+</tr>
+<!-- repeated for each matching elevator -->
+
+<!-- OOB snippets ride along in the same response -->
+<div id="card-total" hx-swap-oob="innerHTML">847</div>
+<div id="card-active" hx-swap-oob="innerHTML">779 (92%)</div>
+<div id="card-overdue" hx-swap-oob="innerHTML">34</div>
+<div id="card-expiring" hx-swap-oob="innerHTML">12</div>
+```
+
+**`HX-Target: fleetTable`** → `outerHTML` swap (sort updates)
+```html
+<table id="fleetTable">
+  <thead>
+    <tr>
+      <!-- sort buttons include updated href with new ?sort=&order= params -->
+      <th><a href="/table?sort=expiry&order=desc">License Expiry ↑</a></th>
+      ...
+    </tr>
+  </thead>
+  <tbody>
+    <tr>...</tr>
+    <!-- all rows in new sorted order -->
+  </tbody>
+</table>
+
+<!-- OOB snippets ride along in the same response -->
+<div id="card-total" hx-swap-oob="innerHTML">847</div>
+<div id="card-active" hx-swap-oob="innerHTML">779 (92%)</div>
+<div id="card-overdue" hx-swap-oob="innerHTML">34</div>
+<div id="card-expiring" hx-swap-oob="innerHTML">12</div>
+```
+
+---
+
+### Out-of-Band (OOB) Updates
+
+- Responses include OOB fragments that update summary cards
+- No separate API call is required for updating metrics
+- Ensures UI consistency between table and summary cards
+
+---
+
+## Summary Card Metrics
+
+- Computed once at initial `GET /` page load (full dataset)
+- Recomputed on:
+  - filter
+  - search
+  - sort
+- Updated via HTMX OOB swaps to reflect current visible dataset
+
+---
+
+## Scope
+
+Apply this skill when working on:
+
+- `platform/server.py`
+- `platform/index.html`
+- HTMX attributes and request handling
+- API responses and HTML fragment rendering
+
+Do **NOT** apply this skill to:
+
+- `/intelligence` → notebooks and ML pipeline
+- `/data` → ETL and dataset processing
+- `/docs` → specifications and reports
