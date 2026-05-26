@@ -117,6 +117,23 @@ Returns a paginated list of all elevators in the fleet. Supports filtering by `s
 }
 ```
 
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `total` | integer | Total matching records |
+| `page` | integer | Current page |
+| `limit` | integer | Page size |
+| `results` | array | Array of elevator objects |
+| `elevator_id` | string | Numeric string |
+| `location` | string | Full address |
+| `license_number` | string | `EDLIC-XXXXXX` or plain numeric |
+| `status` | string (enum) | `ACTIVE` \| `BY REQUEST` |
+| `elevator_type` | string \| null | Null when absent in source data |
+| `license_expiration_date` | date (YYYY-MM-DD) | |
+| `latest_inspection_date` | date (YYYY-MM-DD) \| null | |
+| `latest_inspection_outcome` | string \| null | |
+
 **Error responses:**
 
 | Code | Condition | Body |
@@ -167,6 +184,19 @@ Returns the full profile of a single elevator by its ID.
   "latest_inspection_outcome": null
 }
 ```
+
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `elevator_id` | string | Numeric string |
+| `location` | string | Full address |
+| `license_number` | string | `EDLIC-XXXXXX` or plain numeric |
+| `status` | string (enum) | `ACTIVE` \| `BY REQUEST` |
+| `elevator_type` | string \| null | Null when absent in source data |
+| `license_expiration_date` | date (YYYY-MM-DD) | |
+| `latest_inspection_date` | date (YYYY-MM-DD) \| null | |
+| `latest_inspection_outcome` | string \| null | |
 
 **Error responses:**
 
@@ -232,11 +262,26 @@ Returns the full inspection history for a single elevator, sorted by inspection 
 }
 ```
 
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `elevator_id` | string | Echoed from path parameter |
+| `total` | integer | Total inspection records for this elevator |
+| `page` | integer | Current page |
+| `limit` | integer | Page size |
+| `inspections` | array | Array of inspection objects |
+| `inspection_number` | integer | |
+| `inspection_type` | string | e.g. `ED-Periodic Inspection` |
+| `inspection_date` | date (YYYY-MM-DD) | Normalized from raw `M/D/YYYY` source |
+| `outcome` | string | e.g. `Passed`, `Follow up` |
+
 **Error responses:**
 
 | Code | Condition | Body |
 |---|---|---|
 | `400` | `id` is non-numeric | `{"error": "Invalid elevator ID format. ID must be numeric."}` |
+| `400` | `limit` exceeds 200 | `{"error": "limit must not exceed 200"}` |
 | `404` | No elevator found for the given ID | `{"error": "Elevator not found.", "elevator_id": "99999"}` |
 
 ---
@@ -246,7 +291,7 @@ Returns the full inspection history for a single elevator, sorted by inspection 
 **Description:**  
 Returns the ML-generated risk assessment for a single elevator. Risk score and level are derived from a predictive model trained on inspection history, license status, and equipment type.
 
-> ⚠️ **Dependency:** This endpoint requires `predictions.csv`, which does not yet exist. Until the ML pipeline delivers this file, the endpoint returns `503 Service Unavailable`. The response contract below is final and must not change when the data becomes available.
+> **Dependency:** This endpoint requires `predictions.csv`, which does not yet exist. Until the ML pipeline delivers this file, the endpoint returns `503 Service Unavailable`. The response contract below is final and must not change when the data becomes available.
 
 **Data source:** `predictions.csv` (future — joined by `elevator_id`)
 
@@ -305,7 +350,7 @@ Returns the ML-generated risk assessment for a single elevator. Risk score and l
 
 ### `GET /api/elevators/{id}`
 - Returns 200 with correct field values for a known elevator ID
-- Returns `null` for `elevator_type` when no `installed.json` match exists
+- Returns `null` for `elevator_type` when the field is absent in `elevator_fleet.csv`
 - Returns `null` for `latest_inspection_date` and `latest_inspection_outcome` for elevators with no inspection record
 - Returns 404 for an ID that does not exist in `elevator_fleet.csv`
 - Returns 400 for a non-numeric ID (e.g., `/api/elevators/abc`)
