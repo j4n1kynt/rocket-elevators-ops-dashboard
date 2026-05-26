@@ -1306,3 +1306,57 @@ CLAUDE.md was simplified to four cross-cutting conventions that apply across all
 
 **Outcome:**  
 CLAUDE.md now loads 4 rules per session instead of 12, reducing unnecessary context and improving response relevance. Platform conventions are loaded on demand only when working in `platform/`, providing highly focused guidance for backend and frontend implementation without polluting ML or analysis tasks. Data integrity is strengthened by transitioning the `/data` rule from a passive convention to an enforceable mechanism via hooks. The audit document (`docs/claude_md_audit.md`) serves as a clear and auditable record of how rules were categorized, ensuring that the system remains maintainable and extensible as the project evolves.
+
+## AND-104 Task 2A: Dataset Schema Extraction
+
+**Context:**  
+Designing the API specification directly introduced a risk of inventing fields or misrepresenting the data structure. The elevator dataset is split across `elevator_fleet.csv` and `inspection.csv`, with inconsistencies such as ID type mismatch and different date formats.
+
+**Prompt used:**  
+"Act as a data engineer preparing inputs for an API specification. Extract the REAL schema from the project's CSV files..."
+
+**Decision:**  
+Instead of generating the API specification directly, the process was split into two stages. A dedicated schema extraction step was introduced to establish a reliable, data-driven foundation before defining endpoints. This ensured all API design decisions were grounded in actual dataset structure rather than assumptions.
+
+**What the output got right:**  
+The extraction correctly identified all columns in both files and surfaced critical design constraints:
+
+- Primary key type mismatch (`Elevator ID` string vs `ElevatingDevicesNumber` int)
+- Three nullable fields
+- Date format inconsistency (`YYYY-MM-DD` vs `M/D/YYYY`)
+- Dataset scale difference (43k vs 143k rows), justifying separation of inspection history
+
+These insights directly influenced API structure and normalization rules.
+
+**What didn't work / issues:**  
+The PowerShell `Group-Object` call merged multiple column analyses into a single output block. While values remained accurate, interpretation required manual separation.
+
+**What I would change next time:**  
+Run separate PowerShell commands per column group to improve clarity, and explicitly compute null counts instead of relying on blank string detection.
+
+## AND-104 Task 2B: REST API Specification
+
+**Context:**  
+With a validated dataset schema, the objective was to generate a complete API specification aligned with business requirements and the six SDD elements. The key challenge was ensuring all response structures accurately reflected real data without introducing inconsistencies.
+
+**Prompt used:**  
+"Act as a senior backend engineer writing a REST API specification from a validated dataset schema..."
+
+**Decision:**  
+A constrained prompt approach was used to generate the API specification based strictly on the extracted schema. The prompt enforced the use of only validated fields (`Use in API = Yes`) and required alignment with SDD elements. This ensured the resulting API contract was both accurate (data-driven) and comprehensive (meeting business needs).
+
+The `/risk` endpoint was deliberately designed as a contract-first specification with a forward dependency on `predictions.csv`, allowing integration work to proceed before the ML pipeline is available.
+
+**What the output got right:**  
+- All endpoints were defined with realistic JSON responses using actual dataset values  
+- Error handling included correct status codes (400, 404, 503)  
+- A full field mapping appendix was generated, ensuring traceability from API fields to source columns  
+- The `/risk` endpoint correctly defines behavior (503) before data availability  
+
+No fields were invented, and all responses align with the schema.
+
+**What didn't work / issues:**  
+Error response structures are inconsistent across endpoints. Some responses include only an `"error"` field, while others include additional context such as `"elevator_id"`, resulting in a lack of a unified error contract.
+
+**What I would change next time:**  
+Define a standardized error response envelope (e.g., `code`, `message`, `details`) before writing endpoint specifications, ensuring consistency across all error responses.

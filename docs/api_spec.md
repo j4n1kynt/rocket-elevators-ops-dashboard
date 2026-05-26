@@ -1,0 +1,354 @@
+# Rocket Elevators — REST API Specification
+
+**Module:** AND-104  
+**Version:** 1.0  
+**Base URL:** `/api`  
+**Format:** JSON only — no HTML responses at any endpoint  
+
+---
+
+## 1. Outcomes
+
+This API exposes the Ontario elevator fleet dataset as a queryable JSON service. It enables programmatic access to:
+
+- Fleet-wide elevator listings with filtering and search
+- Individual elevator profiles including license and inspection status
+- Full inspection history per elevator
+- Risk assessment per elevator (pending ML pipeline)
+
+Consumers of this API should be able to build operational dashboards, compliance reports, and predictive maintenance tools without directly querying the underlying CSV datasets.
+
+---
+
+## 2. Scope Boundaries
+
+**Included:**
+- Read-only endpoints (`GET` only — no mutations)
+- Data from `elevator_fleet.csv` (fleet and license data)
+- Data from `inspection.csv` (inspection history)
+- Response contract for `/risk` endpoint (data dependency not yet fulfilled)
+
+**Excluded:**
+- Write operations (POST, PUT, PATCH, DELETE)
+- Authentication and authorization (out of scope for this version)
+- Alteration history (`altered.json`)
+- Incident records (`incident.json`)
+- Order tracking (`order.csv`)
+- Pagination cursor strategy (offset/limit only for this version)
+
+---
+
+## 3. Constraints & Assumptions
+
+- **Data source:** All responses are derived from `elevator_fleet.csv` (primary) and `inspection.csv` (inspection history). No other datasets are queried.
+- **Date normalization:** All dates in responses are ISO 8601 (`YYYY-MM-DD`). Raw `M/D/YYYY` values from `inspection.csv` are normalized server-side before serialization.
+- **Nullable fields:** `latest_inspection_date`, `latest_inspection_outcome`, and `elevator_type` may be `null` in any response. Consumers must handle `null` explicitly.
+- **Primary key type:** `elevator_id` is a numeric string (e.g., `"10054"`). The join key `ElevatingDevicesNumber` in `inspection.csv` is an integer. The server resolves this type mismatch internally; all API responses use string IDs.
+- **Status values:** Only two values exist in the current dataset: `"ACTIVE"` and `"BY REQUEST"`. The API does not filter by status by default — all records are returned unless a filter is applied.
+- **Inspection ordering:** `/inspections` responses are always sorted by `inspection_date` descending (most recent first).
+- **Risk endpoint:** `/risk` response structure is fully specified. The underlying `predictions.csv` does not yet exist. Until it is available, the endpoint returns `503 Service Unavailable`.
+
+---
+
+## 4. Prior Decisions
+
+| Decision | Rationale |
+|---|---|
+| `elevator_id` exposed as string | Source data uses numeric strings; converting to int risks leading-zero loss and breaks join logic with `inspection.csv` |
+| `license_number` not normalized | Two formats coexist in the data (`EDLIC-XXXXXX` and plain numeric). Normalization is deferred until source data is corrected. |
+| Inspection history as a separate endpoint | `inspection.csv` has 143,181 rows (one-to-many per elevator). Embedding full history in the fleet response would make payloads unacceptably large. |
+| `/risk` defined but not implemented | API contract must be stable before ML pipeline delivers `predictions.csv`. Consumers can begin integration work using the spec. |
+| No city/region field in responses | No separate city/region field exists in the source data. `location` is a full address string only. |
+| Fields with `Use in API = No` omitted | `InspectionLocation`, `InspectionCustomer`, `originatingservicerequestnumber`, `Earliest_INSPECTION_Date` are excluded from all responses per schema audit. |
+
+---
+
+## 5. Task Breakdown
+
+---
+
+### `GET /api/elevators`
+
+**Description:**  
+Returns a paginated list of all elevators in the fleet. Supports filtering by `status` and `elevator_type`, and text search across `elevator_id` and `location`.
+
+**Data source:** `elevator_fleet.csv`
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `status` | string | No | Filter by license status. Accepted: `ACTIVE`, `BY REQUEST` |
+| `elevator_type` | string | No | Filter by equipment type (exact match, case-insensitive) |
+| `q` | string | No | Search term matched against `elevator_id` and `location` (partial, case-insensitive) |
+| `sort` | string | No | Sort column. Accepted: `license_expiration_date`, `latest_inspection_date`. Default: `license_expiration_date` |
+| `order` | string | No | Sort direction. Accepted: `asc`, `desc`. Default: `asc` |
+| `page` | int | No | Page number (1-based). Default: `1` |
+| `limit` | int | No | Records per page. Default: `50`. Max: `200` |
+
+**Response — 200 OK:**
+```json
+{
+  "total": 43002,
+  "page": 1,
+  "limit": 50,
+  "results": [
+    {
+      "elevator_id": "10",
+      "location": "111 WELLESLEY ST W  TORONTO M7A 1A2 ON CA",
+      "license_number": "EDLIC-000010",
+      "status": "ACTIVE",
+      "elevator_type": "Passenger Elevator",
+      "license_expiration_date": "2017-04-28",
+      "latest_inspection_date": "2015-03-27",
+      "latest_inspection_outcome": "All Orders Resolved"
+    },
+    {
+      "elevator_id": "10047",
+      "location": "162 PEMBROKE ST W  PEMBROKE K8A 5M8 ON CA",
+      "license_number": "EDLIC-010047",
+      "status": "BY REQUEST",
+      "elevator_type": "Freight Elevator",
+      "license_expiration_date": "2008-03-15",
+      "latest_inspection_date": null,
+      "latest_inspection_outcome": null
+    }
+  ]
+}
+```
+
+**Error responses:**
+
+| Code | Condition | Body |
+|---|---|---|
+| `400` | Invalid `status` value | `{"error": "Invalid status value. Accepted: ACTIVE, BY REQUEST"}` |
+| `400` | Invalid `sort` column | `{"error": "Invalid sort column. Accepted: license_expiration_date, latest_inspection_date"}` |
+| `400` | `limit` exceeds 200 | `{"error": "limit must not exceed 200"}` |
+
+---
+
+### `GET /api/elevators/{id}`
+
+**Description:**  
+Returns the full profile of a single elevator by its ID.
+
+**Data source:** `elevator_fleet.csv`
+
+**Path parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | string | Elevator ID (numeric string, e.g., `"10054"`) |
+
+**Response — 200 OK:**
+```json
+{
+  "elevator_id": "10054",
+  "location": "541 SUSSEX DR  OTTAWA K1N 6Z6 ON CA",
+  "license_number": "EDLIC-010054",
+  "status": "BY REQUEST",
+  "elevator_type": "Passenger Elevator",
+  "license_expiration_date": "2005-10-01",
+  "latest_inspection_date": "2016-12-28",
+  "latest_inspection_outcome": "Unable to Inspect"
+}
+```
+
+**Nullable example — elevator with no inspection record:**
+```json
+{
+  "elevator_id": "10047",
+  "location": "162 PEMBROKE ST W  PEMBROKE K8A 5M8 ON CA",
+  "license_number": "EDLIC-010047",
+  "status": "BY REQUEST",
+  "elevator_type": "Freight Elevator",
+  "license_expiration_date": "2008-03-15",
+  "latest_inspection_date": null,
+  "latest_inspection_outcome": null
+}
+```
+
+**Error responses:**
+
+| Code | Condition | Body |
+|---|---|---|
+| `400` | `id` is non-numeric | `{"error": "Invalid elevator ID format. ID must be numeric."}` |
+| `404` | No elevator found for the given ID | `{"error": "Elevator not found.", "elevator_id": "99999"}` |
+
+---
+
+### `GET /api/elevators/{id}/inspections`
+
+**Description:**  
+Returns the full inspection history for a single elevator, sorted by inspection date descending. One object per inspection event. Dates normalized to ISO 8601.
+
+**Data source:** `inspection.csv` (filtered by `ElevatingDevicesNumber` = `id`, sorted by `Latest_INSPECTION_Date` descending)
+
+**Path parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | string | Elevator ID (numeric string) |
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `page` | int | No | Page number (1-based). Default: `1` |
+| `limit` | int | No | Records per page. Default: `50`. Max: `200` |
+
+**Response — 200 OK:**
+```json
+{
+  "elevator_id": "9948",
+  "total": 4,
+  "page": 1,
+  "limit": 50,
+  "inspections": [
+    {
+      "inspection_number": 3157237,
+      "inspection_type": "ED-Followup Inspection",
+      "inspection_date": "2011-01-10",
+      "outcome": "Passed"
+    },
+    {
+      "inspection_number": 3098441,
+      "inspection_type": "ED-Periodic Inspection",
+      "inspection_date": "2010-04-15",
+      "outcome": "Follow up"
+    }
+  ]
+}
+```
+
+**Empty history — elevator exists but has no inspection records:**
+```json
+{
+  "elevator_id": "10047",
+  "total": 0,
+  "page": 1,
+  "limit": 50,
+  "inspections": []
+}
+```
+
+**Error responses:**
+
+| Code | Condition | Body |
+|---|---|---|
+| `400` | `id` is non-numeric | `{"error": "Invalid elevator ID format. ID must be numeric."}` |
+| `404` | No elevator found for the given ID | `{"error": "Elevator not found.", "elevator_id": "99999"}` |
+
+---
+
+### `GET /api/elevators/{id}/risk`
+
+**Description:**  
+Returns the ML-generated risk assessment for a single elevator. Risk score and level are derived from a predictive model trained on inspection history, license status, and equipment type.
+
+> ⚠️ **Dependency:** This endpoint requires `predictions.csv`, which does not yet exist. Until the ML pipeline delivers this file, the endpoint returns `503 Service Unavailable`. The response contract below is final and must not change when the data becomes available.
+
+**Data source:** `predictions.csv` (future — joined by `elevator_id`)
+
+**Path parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | string | Elevator ID (numeric string) |
+
+**Response — 200 OK (future state):**
+```json
+{
+  "elevator_id": "10054",
+  "risk_score": 0.87,
+  "risk_level": "HIGH",
+  "predicted_failure_date": "2026-09-14",
+  "confidence": 0.76,
+  "model_version": "1.0.0",
+  "generated_at": "2026-05-26"
+}
+```
+
+**Field definitions:**
+
+| Field | Type | Description |
+|---|---|---|
+| `elevator_id` | string | Elevator identifier |
+| `risk_score` | float [0.0–1.0] | Continuous risk probability. Higher = greater risk. |
+| `risk_level` | string (enum) | Categorical risk bucket: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `predicted_failure_date` | date (YYYY-MM-DD) \| null | Predicted date of compliance failure or breakdown. `null` if model cannot project. |
+| `confidence` | float [0.0–1.0] | Model confidence in the prediction. |
+| `model_version` | string | Version identifier of the ML model that generated the score. |
+| `generated_at` | date (YYYY-MM-DD) | Date the prediction was last computed. |
+
+**Error responses:**
+
+| Code | Condition | Body |
+|---|---|---|
+| `400` | `id` is non-numeric | `{"error": "Invalid elevator ID format. ID must be numeric."}` |
+| `404` | No elevator found for the given ID | `{"error": "Elevator not found.", "elevator_id": "99999"}` |
+| `503` | `predictions.csv` not yet available | `{"error": "Risk data unavailable. Predictions pipeline not yet deployed.", "endpoint": "/api/elevators/{id}/risk"}` |
+
+---
+
+## 6. Verification Criteria
+
+### `GET /api/elevators`
+- Returns 200 with `results` array and correct `total` count
+- `status=ACTIVE` returns only ACTIVE records; `status=BY REQUEST` returns only BY REQUEST records
+- `elevator_type` filter is case-insensitive and exact-match
+- `q` search matches partial strings in both `elevator_id` and `location`
+- `sort=latest_inspection_date&order=desc` returns records with most recent inspection date first; nulls sorted last
+- Records with no inspection date return `latest_inspection_date: null` and `latest_inspection_outcome: null`
+- `limit=201` returns 400
+- Invalid `status` value returns 400 with descriptive message
+
+### `GET /api/elevators/{id}`
+- Returns 200 with correct field values for a known elevator ID
+- Returns `null` for `elevator_type` when no `installed.json` match exists
+- Returns `null` for `latest_inspection_date` and `latest_inspection_outcome` for elevators with no inspection record
+- Returns 404 for an ID that does not exist in `elevator_fleet.csv`
+- Returns 400 for a non-numeric ID (e.g., `/api/elevators/abc`)
+- `license_expiration_date` is always in `YYYY-MM-DD` format
+
+### `GET /api/elevators/{id}/inspections`
+- Returns 200 with `inspections` array sorted descending by `inspection_date`
+- `inspection_date` is always in `YYYY-MM-DD` format regardless of raw source format
+- Returns empty `inspections: []` (not 404) when elevator exists but has no inspection records
+- Returns 404 when the elevator ID itself does not exist
+- Pagination works correctly: `page=2&limit=10` returns the correct slice
+- Returns 400 for non-numeric ID
+
+### `GET /api/elevators/{id}/risk`
+- Returns 503 before `predictions.csv` is deployed
+- Returns 200 with all defined fields once data is available
+- `risk_score` is a float between 0.0 and 1.0
+- `risk_level` is one of `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
+- `predicted_failure_date` may be `null`
+- Returns 404 for unknown elevator ID
+- Returns 400 for non-numeric ID
+
+---
+
+## Appendix: Field Name Mapping
+
+| API field (snake_case) | Source column | Dataset |
+|---|---|---|
+| `elevator_id` | `Elevator ID` | `elevator_fleet.csv` |
+| `location` | `Location` | `elevator_fleet.csv` |
+| `license_number` | `License Number` | `elevator_fleet.csv` |
+| `status` | `Status` | `elevator_fleet.csv` |
+| `elevator_type` | `Elevator Type` | `elevator_fleet.csv` |
+| `license_expiration_date` | `License Expiration Date` | `elevator_fleet.csv` |
+| `latest_inspection_date` | `Latest Inspection Date` | `elevator_fleet.csv` |
+| `latest_inspection_outcome` | `Latest Inspection Outcome` | `elevator_fleet.csv` |
+| `inspection_number` | `InspectionNumber` | `inspection.csv` |
+| `inspection_type` | `InspectionType` | `inspection.csv` |
+| `inspection_date` | `Latest_INSPECTION_Date` (normalized) | `inspection.csv` |
+| `outcome` | `InspectionOutcome` | `inspection.csv` |
+| `risk_score` | *(future)* | `predictions.csv` |
+| `risk_level` | *(future)* | `predictions.csv` |
+| `predicted_failure_date` | *(future)* | `predictions.csv` |
+| `confidence` | *(future)* | `predictions.csv` |
+| `model_version` | *(future)* | `predictions.csv` |
+| `generated_at` | *(future)* | `predictions.csv` |
