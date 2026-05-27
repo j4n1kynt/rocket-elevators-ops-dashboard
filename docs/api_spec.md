@@ -47,6 +47,7 @@ Consumers of this API should be able to build operational dashboards, compliance
 - **Status values:** Only two values exist in the current dataset: `"ACTIVE"` and `"BY REQUEST"`. The API does not filter by status by default — all records are returned unless a filter is applied.
 - **Inspection ordering:** `/inspections` responses are always sorted by `inspection_date` descending (most recent first).
 - **Risk endpoint:** `/risk` response structure is fully specified. The underlying `predictions.csv` does not yet exist. Until it is available, the endpoint returns `503 Service Unavailable`.
+- **`predictions.csv` schema (PENDING — do not implement until defined):** The column names and order for `predictions.csv` are not yet defined. The ML pipeline task has not been reached. Before that file is delivered, the expected column schema must be documented in this section and in the Appendix field mapping below. The server reads columns by position; an undocumented schema creates a silent data corruption risk with no parse error to catch it.
 
 ---
 
@@ -391,9 +392,9 @@ Returns the ML-generated risk assessment for a single elevator. Risk score and l
 | `inspection_type` | `InspectionType` | `inspection.csv` |
 | `inspection_date` | `Latest_INSPECTION_Date` (normalized) | `inspection.csv` |
 | `outcome` | `InspectionOutcome` | `inspection.csv` |
-| `risk_score` | *(future)* | `predictions.csv` |
-| `risk_level` | *(future)* | `predictions.csv` |
-| `predicted_failure_date` | *(future)* | `predictions.csv` |
-| `confidence` | *(future)* | `predictions.csv` |
-| `model_version` | *(future)* | `predictions.csv` |
-| `generated_at` | *(future)* | `predictions.csv` |
+| `risk_score` | *(TBD — see §3 pending constraint)* | `predictions.csv` |
+| `risk_level` | *(TBD — see §3 pending constraint)* | `predictions.csv` |
+| `predicted_failure_date` | *(TBD — see §3 pending constraint)* | `predictions.csv` |
+| `confidence` | *(TBD — see §3 pending constraint)* | `predictions.csv` |
+| `model_version` | *(TBD — see §3 pending constraint)* | `predictions.csv` |
+| `generated_at` | *(TBD — see §3 pending constraint)* | `predictions.csv` |
