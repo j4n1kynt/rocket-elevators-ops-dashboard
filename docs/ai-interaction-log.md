@@ -1412,7 +1412,7 @@ The `go.mod` file was missing entirely — a compilation blocker that should hav
 **What I would change next time:**  
 Include `go.mod` initialization as a mandatory first deliverable in any Go project design prompt, before handlers or models. Also run a file listing (`ls platform/api/`) as the first step of any implementation audit to catch missing infrastructure files before reviewing logic.
 
-## AND-104 Task 4: Go API QA Audit and Fixes
+## AND-104 Task 3: Go API QA Audit and Fixes
 
 **Date:** 2026-05-27
 
