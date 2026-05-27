@@ -1360,3 +1360,54 @@ Error response structures are inconsistent across endpoints. Some responses incl
 
 **What I would change next time:**  
 Define a standardized error response envelope (e.g., `code`, `message`, `details`) before writing endpoint specifications, ensuring consistency across all error responses.
+
+## AND-104 Task 3A: Go API Design from Spec
+
+**Context:**  
+The Go API needed to implement all four endpoints defined in `docs/api_spec.md` using only the standard library. A role-based prompt was used to generate Go structs, handler signatures, endpoint pseudocode, and a data layer strategy before touching the existing `platform/api/` files.
+
+**Prompt used:**  
+"Act as a Go backend engineer. From the provided api_spec.md, generate: Go structs for all response models, function signatures for all handlers, pseudocode for each endpoint, and a data layer design. Use only standard Go (net/http). JSON must match the spec exactly."
+
+**Decision:**  
+Role-based prompting anchored the output in a specific engineering context and enforced spec adherence by explicitly prohibiting field invention. The design was generated first, then compared against the existing files — rather than editing the existing files blindly — to expose gaps before any code changes.
+
+**What the output got right:**  
+- All Go structs matched spec field names, types, and nullability exactly (`*string` for nullable fields, `int` for `inspection_number`, `float64` for risk scores)  
+- The startup-load pattern (data loaded once at startup, read-only at request time) was correctly identified  
+- `normalizeDate` using `time.Parse("1/2/2006", raw)` correctly handled inspection.csv's M/D/YYYY format  
+- The 503-before-404 check order on `/risk` matched the spec's defined error precedence  
+- Defensive copy (`make + copy`) before sorting was included in the inspection handler design
+
+**What didn't work / issues:**  
+The existing `platform/api/` files had not been reviewed before generating the design. When compared, gaps were found: wrong source file (`merged_elevator_data.csv` instead of `elevator_fleet.csv`), only 3 of 8 columns mapped, no `Inspection`, `ElevatorInspectionsResponse`, `RiskResponse`, or `ErrorResponse` types, missing `GetElevatorByID`, `GetElevatorInspections`, and `GetElevatorRisk` handlers, and no `go.mod`.
+
+**What I would change next time:**  
+Read the existing implementation files before generating a design. This would shift the output from "generate from scratch" to "identify gaps against the spec," reducing redundant work and making the audit step explicit from the start.
+
+## AND-104 Task 3B: Spec-First Correction Cycle
+
+**Context:**  
+The audit of `platform/api/` against the evaluation criteria revealed three issues beyond the missing types and handlers: a concurrency risk in `GetElevatorInspections` (shared slice mutation under sort), an undocumented `predictions.csv` column schema assumption, and a working directory dependency for CSV path resolution. Each required a different fix document — not all belonged in the same place.
+
+**Prompt used:**  
+"Those changes are documented on the api_spec? If not, we have to change first the api_spec and then fix each behavior. Always following SDD patterns."
+
+**Decision:**  
+The three issues were routed to their correct documents before any code was touched:  
+- `predictions.csv` column schema → `docs/api_spec.md` §3 (PENDING constraint blocking premature implementation)  
+- Working directory dependency → `CLAUDE.md` Commands section (operational, not contract)  
+- Concurrency / defensive copy → direct code fix (pure implementation detail, not a contract concern)
+
+This enforced the spec-first rule: no code change is made for a behavioral issue unless the spec already defines or acknowledges that behavior.
+
+**What the output got right:**  
+- The PENDING constraint in §3 correctly blocks implementation of `LoadPredictionsCSV` column mapping until the ML pipeline task is reached  
+- The `*(TBD — see §3 pending constraint)*` markers in the Appendix create a traceable link back to the blocking note  
+- The `CLAUDE.md` go run command documents the working directory assumption where it belongs — in the operational runbook, not the API contract
+
+**What didn't work / issues:**  
+The `go.mod` file was missing entirely — a compilation blocker that should have been part of the initial design output. It was only discovered during the evaluation criteria audit (`go build succeeds` criterion), not during design. Similarly, the `mian.go` filename typo was present from the start and not flagged until the final audit pass.
+
+**What I would change next time:**  
+Include `go.mod` initialization as a mandatory first deliverable in any Go project design prompt, before handlers or models. Also run a file listing (`ls platform/api/`) as the first step of any implementation audit to catch missing infrastructure files before reviewing logic.
