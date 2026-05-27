@@ -8,11 +8,12 @@ read -r hook_input
 # Extract file path from the hook input
 file_path=$(echo "$hook_input" | jq -r '.tool_input.file_path // empty')
 
-# Check if the file is in the /data directory
+# Normalize backslashes to forward slashes (Windows path compatibility)
+file_path="${file_path//\\//}"
+
+# Block if path starts with data/ (forward or backslash already normalized)
 if [[ "$file_path" == data/* ]]; then
-  # Block the operation
   exit 2
 fi
 
-# Allow the operation
 exit 0

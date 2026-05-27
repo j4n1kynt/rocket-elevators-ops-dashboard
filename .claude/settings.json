@@ -56,6 +56,20 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "name": "Task Completion Awareness",
+            "description": "Notify on task completion",
+            "type": "command",
+            "command": "notify-send",
+            "args": ["Claude Code", "Task completed"],
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
