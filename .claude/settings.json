@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "name": "File Protection",
+        "description": "Block modifications to /data directory to prevent corruption of source datasets",
+        "target": "data/",
+        "action": "deny"
+      },
+      {
+        "name": "Query Parameter Validation",
+        "description": "Prevent invalid query parameter patterns (e.g., negative limit) in API handlers",
+        "target": "platform/api/**/*.go",
+        "pattern": "limit\\s*[<:]\\s*0|negative.*limit",
+        "action": "warn"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "name": "Go Formatting",
+        "description": "Automatically format Go files after modifications",
+        "target": "**/*.go",
+        "command": "gofmt -w {{file}}"
+      }
+    ],
+    "Stop": [
+      {
+        "name": "Task Completion Awareness",
+        "description": "Notify on task completion",
+        "action": "notify"
+      }
+    ]
+  }
+}

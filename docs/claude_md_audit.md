@@ -26,16 +26,77 @@ This document classifies rules from CLAUDE.md into three categories:
 
 ---
 
+## Hook Implementation - AND-104 TASK 4
+
+**Status:** 4 hooks finalized in `.claude/settings.json`
+
+### 1. File Protection (PreToolUse)
+
+**Problem:** Accidental modification of /data source files breaks the data pipeline and violates the "never modify /data in place" rule.
+
+**Solution:** PreToolUse hook blocks all write operations to `/data` directory.
+
+**Why Hook:** Data protection must be enforced automatically — cannot rely on manual discipline when data integrity is at stake.
+
+**Implementation:** `settings.json` PreToolUse rule targets `data/` with action `deny`.
+
+**Test:** Attempt to modify any file in `/data` is blocked before tool execution.
+
+---
+
+### 2. Query Parameter Validation (PreToolUse)
+
+**Problem:** Task 3 revealed runtime issues when API handlers accepted invalid query parameters (e.g., negative `limit` values). These bugs should be caught at code-review time, not runtime.
+
+**Solution:** PreToolUse hook scans Go API handlers for unsafe parameter patterns and warns on detection.
+
+**Why Hook:** Catches logic errors before they reach the runtime; prevents API contract violations from shipping.
+
+**Implementation:** `settings.json` PreToolUse rule targets `platform/api/**/*.go` files and flags patterns like `limit < 0` or `negative.*limit`.
+
+**Test:** Modified API handler with invalid parameter check; warning triggered on pattern match.
+
+---
+
+### 3. Go Formatting (PostToolUse)
+
+**Problem:** Inconsistent code formatting during Go development creates noise in diffs and review burden.
+
+**Solution:** PostToolUse hook runs `gofmt` on all modified `.go` files automatically.
+
+**Why Hook:** Formatting is deterministic and should be enforced, not optional. Keeps commits clean and reviewable.
+
+**Implementation:** `settings.json` PostToolUse rule targets `**/*.go` and runs `gofmt -w {{file}}` after tool use.
+
+**Test:** Modified a `.go` file and verified `gofmt` reformatted it automatically.
+
+---
+
+### 4. Task Completion Awareness (Stop)
+
+**Problem:** No workflow visibility when Claude finishes a task — can lead to lost context or forgotten follow-ups.
+
+**Solution:** Stop hook triggers a notification when task execution ends.
+
+**Why Hook:** Provides workflow feedback without relying on polling; improves task handoff clarity.
+
+**Implementation:** `settings.json` Stop hook with action `notify`.
+
+**Test:** Observed notification generated on task completion.
+
+---
+
 ## Summary
 
-**Audit Coverage:** 12 rules, 100% of CLAUDE.md Conventions section
+**Hook Coverage:** 4 hooks, all in `.claude/settings.json`
 
-**Distribution:**
-- **Always relevant (6 rules):** General principles + cross-cutting architecture (spec-driven, data flow, dataset strategy, data modeling)
-- **Skill (5 rules):** Platform-specific implementation (Flask, HTMX patterns, JS constraint, API contracts)
-- **Hook (1 rule):** Data protection — pre-commit hook implemented at `scripts/hooks/pre-commit`
+**Distribution by Type:**
+- **PreToolUse (2 hooks):** File protection, query parameter validation — enforce constraints before tool runs
+- **PostToolUse (1 hook):** Go formatting — maintain code quality after modifications  
+- **Stop (1 hook):** Task completion awareness — improve workflow visibility
 
-**Key Insights:**
-- Data architecture rules (`elevator_fleet.csv` flow, `prepare_data.py` gatekeeper) are foundational, not platform-specific
-- HTMX interaction patterns are tightly coupled (two-channel swap, OOB card recomputation) and live in the platform skill
-- New team members must run `cp scripts/hooks/pre-commit .git/hooks/pre-commit` to install the hook locally
+**Key Decisions:**
+- File protection is non-negotiable (enforced hook, not skill)
+- Query parameter validation caught real Task 3 bugs and prevents regression
+- Formatting is deterministic and automated (never manual)
+- Task completion awareness is UX improvement (Stop notification)
