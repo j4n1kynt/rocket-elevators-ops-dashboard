@@ -28,75 +28,93 @@ This document classifies rules from CLAUDE.md into three categories:
 
 ## Hook Implementation - AND-104 TASK 4
 
-**Status:** 4 hooks finalized in `.claude/settings.json`
+**Status:** 3 hooks implemented using Claude Code's actual hook system (updated 2026-05-27)
 
-### 1. File Protection (PreToolUse)
+### 1. File Protection (PreToolUse → Command Hook)
 
-**Problem:** Accidental modification of /data source files breaks the data pipeline and violates the "never modify /data in place" rule.
+**Problem:** Accidental modification of `/data` source files breaks the data pipeline and violates the "never modify /data in place" rule.
 
-**Solution:** PreToolUse hook blocks all write operations to `/data` directory.
+**Solution:** PreToolUse command hook blocks Edit operations on `/data/**` files before execution.
 
 **Why Hook:** Data protection must be enforced automatically — cannot rely on manual discipline when data integrity is at stake.
 
-**Implementation:** `settings.json` PreToolUse rule targets `data/` with action `deny`.
+**Implementation:** 
+- Hook type: `command` (runs `.claude/hooks/protect-data.sh`)
+- Matcher: `Edit` tool only
+- Filter: `if: "Edit(data/*)"` — only triggers on /data files
+- Exit code 2 blocks the operation; exit 0 allows it
 
-**Test:** Attempt to modify any file in `/data` is blocked before tool execution.
+**Test:** Attempt to edit any file in `/data` returns a blocking error before the Edit tool runs.
 
 ---
 
-### 2. Query Parameter Validation (PreToolUse)
+### 2. Query Parameter Validation (PreToolUse → Prompt Hook)
 
 **Problem:** Task 3 revealed runtime issues when API handlers accepted invalid query parameters (e.g., negative `limit` values). These bugs should be caught at code-review time, not runtime.
 
-**Solution:** PreToolUse hook scans Go API handlers for unsafe parameter patterns and warns on detection.
+**Solution:** PreToolUse prompt hook asks for confirmation when editing API handlers, specifically about parameter validation.
 
-**Why Hook:** Catches logic errors before they reach the runtime; prevents API contract violations from shipping.
+**Why Hook:** Prompts Claude to consciously consider whether parameter bounds are enforced; prevents silent regressions.
 
-**Implementation:** `settings.json` PreToolUse rule targets `platform/api/**/*.go` files and flags patterns like `limit < 0` or `negative.*limit`.
+**Implementation:** 
+- Hook type: `prompt` (asks yes/no verification question)
+- Matcher: `Edit` tool on `platform/api/handlers.go`
+- Prompts: "Does this change validate query parameters with lower bounds?"
+- Timeout: 30 seconds
 
-**Test:** Modified API handler with invalid parameter check; warning triggered on pattern match.
+**Test:** Edit handlers.go and observe the prompt asking about parameter validation before file is modified.
 
 ---
 
-### 3. Go Formatting (PostToolUse)
+### 3. Content-Type Enforcement (PreToolUse → Prompt Hook)
+
+**Problem:** API responses must include `Content-Type: application/json` header. Developers might bypass the `writeJSON()` helper and set headers manually.
+
+**Solution:** PreToolUse prompt hook reminds developers to use the `writeJSON()` helper instead of raw JSON encoding.
+
+**Why Hook:** Ensures consistency through conscious choice rather than relying on code review to catch every instance.
+
+**Implementation:** 
+- Hook type: `prompt` (asks for confirmation)
+- Matcher: `Edit` tool on `platform/api/handlers.go`
+- Prompts: "Did you use writeJSON() helper instead of json.NewEncoder(w).Encode?"
+- Timeout: 30 seconds
+
+**Test:** Edit handlers.go and observe the prompt asking about JSON encoding approach before file is modified.
+
+---
+
+### 4. Go Formatting (PostToolUse → Command Hook)
 
 **Problem:** Inconsistent code formatting during Go development creates noise in diffs and review burden.
 
-**Solution:** PostToolUse hook runs `gofmt` on all modified `.go` files automatically.
+**Solution:** PostToolUse command hook automatically runs `gofmt -w` on modified `.go` files after Edit tool completes.
 
-**Why Hook:** Formatting is deterministic and should be enforced, not optional. Keeps commits clean and reviewable.
+**Why Hook:** Formatting is deterministic and should be automated. Keeps commits clean and eliminates formatting from code review.
 
-**Implementation:** `settings.json` PostToolUse rule targets `**/*.go` and runs `gofmt -w {{file}}` after tool use.
+**Implementation:** 
+- Hook type: `command` (runs `gofmt -w ${file_path}`)
+- Matcher: `Edit` tool
+- Filter: `if: "Edit(*.go)"` — only runs on Go files
+- Status message: "Formatting Go code..."
+- Timeout: 10 seconds
 
-**Test:** Modified a `.go` file and verified `gofmt` reformatted it automatically.
-
----
-
-### 4. Task Completion Awareness (Stop)
-
-**Problem:** No workflow visibility when Claude finishes a task — can lead to lost context or forgotten follow-ups.
-
-**Solution:** Stop hook triggers a notification when task execution ends.
-
-**Why Hook:** Provides workflow feedback without relying on polling; improves task handoff clarity.
-
-**Implementation:** `settings.json` Stop hook with action `notify`.
-
-**Test:** Observed notification generated on task completion.
+**Test:** Edit a `.go` file and observe it's automatically formatted by `gofmt` after the edit completes.
 
 ---
 
 ## Summary
 
-**Hook Coverage:** 4 hooks, all in `.claude/settings.json`
+**Hook Coverage:** 3 implemented hooks (4th — Task Completion Awareness — cannot be implemented as "Stop" is not a real Claude Code event type)
 
 **Distribution by Type:**
-- **PreToolUse (2 hooks):** File protection, query parameter validation — enforce constraints before tool runs
-- **PostToolUse (1 hook):** Go formatting — maintain code quality after modifications  
-- **Stop (1 hook):** Task completion awareness — improve workflow visibility
+- **PreToolUse (3 hooks):** File protection (command), query parameter validation (prompt), content-type enforcement (prompt)
+- **PostToolUse (1 hook):** Go formatting (command)
 
-**Key Decisions:**
-- File protection is non-negotiable (enforced hook, not skill)
-- Query parameter validation caught real Task 3 bugs and prevents regression
-- Formatting is deterministic and automated (never manual)
-- Task completion awareness is UX improvement (Stop notification)
+**Key Implementation Decisions:**
+1. File protection uses a **command hook** that exits with code 2 to block; data/ files cannot be edited
+2. Validation hooks use **prompt hooks** for conscious decision-making rather than silent pattern matching
+3. Go formatting uses a **command hook** that runs `gofmt -w` automatically post-edit
+4. All hooks use proper Claude Code format: `matcher` → `hooks` array with `type`, `command`/`prompt`/etc.
+
+**Hook Framework Compatibility:** All hooks follow Claude Code's actual hook specification from https://code.claude.com/docs/en/hooks

@@ -2,32 +2,59 @@
   "hooks": {
     "PreToolUse": [
       {
-        "name": "File Protection",
-        "description": "Block modifications to /data directory to prevent corruption of source datasets",
-        "target": "data/",
-        "action": "deny"
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "name": "File Protection",
+            "description": "Block modifications to /data directory to prevent corruption of source datasets",
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/protect-data.sh",
+            "args": [],
+            "timeout": 5,
+            "if": "Edit(data/*)"
+          }
+        ]
       },
       {
-        "name": "Query Parameter Validation",
-        "description": "Prevent invalid query parameter patterns (e.g., negative limit) in API handlers",
-        "target": "platform/api/**/*.go",
-        "pattern": "limit\\s*[<:]\\s*0|negative.*limit",
-        "action": "warn"
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "name": "Query Parameter Validation",
+            "description": "Warn when editing Go API handlers that may have unsafe query parameter handling",
+            "type": "prompt",
+            "prompt": "You're about to edit an API handler file. Does this change validate query parameters (limit, page) with lower bounds (e.g., limit >= 1)? If editing handlers.go or similar, confirm parameter validation is present. $ARGUMENTS",
+            "if": "Edit(platform/api/handlers.go)"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "name": "Content-Type Enforcement",
+            "description": "Warn if adding raw JSON encoding instead of using writeJSON() helper",
+            "type": "prompt",
+            "prompt": "Are you adding a new API response handler in this Go file? If so, please use the writeJSON() helper function to set Content-Type: application/json automatically. Do not call json.NewEncoder(w).Encode directly. Confirm you'll use writeJSON(). $ARGUMENTS",
+            "if": "Edit(platform/api/handlers.go)"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "name": "Go Formatting",
-        "description": "Automatically format Go files after modifications",
-        "target": "**/*.go",
-        "command": "gofmt -w {{file}}"
-      }
-    ],
-    "Stop": [
-      {
-        "name": "Task Completion Awareness",
-        "description": "Notify on task completion",
-        "action": "notify"
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "name": "Go Formatting",
+            "description": "Automatically format Go files after modifications using gofmt",
+            "type": "command",
+            "command": "gofmt",
+            "args": ["-w", "${file_path}"],
+            "timeout": 10,
+            "if": "Edit(*.go)",
+            "statusMessage": "Formatting Go code..."
+          }
+        ]
       }
     ]
   }
