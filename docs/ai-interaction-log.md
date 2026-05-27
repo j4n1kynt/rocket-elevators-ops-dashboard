@@ -1452,3 +1452,44 @@ The API implementation is now consistent with the defined contract and free from
 - Introduce automated test coverage (table-driven tests) to validate error paths and edge cases without manual inspection.  
 - Add header validation checks during CSV loading to prevent silent schema mismatches.  
 - Correct minor maintainability issues (e.g., filename typo in `main.go`) to improve code clarity and project hygiene.
+
+---
+
+## AND-104 Task 4: Hook Implementation and Audit Consistency
+
+**Context:**  
+The initial audit and hooks implementation were inconsistent. The `docs/claude_md_audit.md` described hook behaviors that did not match the actual configuration in `.claude/settings.json`. Additionally, one hook (JSON Response Enforcement) was referenced but not implemented. This created ambiguity about which workflow rules were actually enforced versus theoretical.
+
+**Decision:**  
+A structured approach was used to resolve these inconsistencies by first finalizing the set of hooks before making any changes. Four hooks were explicitly defined:
+
+- Formatting (PostToolUse → gofmt)
+- File Protection (PreToolUse → block `/data`)
+- Task Completion Awareness (Stop → notify)
+- Query Parameter Validation (PreToolUse → prevent unsafe inputs)
+
+Rather than redesigning the system, the decision was to align all artifacts (settings.json and audit document) strictly to these finalized definitions. 
+
+The Query Parameter Validation hook was added based on real friction observed during Task 3, where negative `limit` values introduced runtime errors. This justified its inclusion as a deterministic enforcement rule rather than a documented convention.
+
+**Outcome:**  
+The `.claude/settings.json` was updated to include all four hooks with correct structure and semantics. The audit document was rewritten to fully align with the implementation, removing discrepancies and clearly documenting each hook's purpose, justification, and testing approach.
+
+The system now has consistent enforcement of workflow rules, with no ambiguity between documented behavior and actual execution.
+
+**What worked well:**
+- Finalizing decisions before implementation prevented scope creep and unnecessary redesign.
+- Grounding hooks in real development friction (Task 3 API bugs) resulted in meaningful and enforceable rules.
+- Aligning configuration and documentation in a single pass eliminated the risk of future drift.
+
+**Issues encountered:**
+- Initial mismatch between documented and implemented hooks created confusion.
+- Lack of explicit hook definitions led to inconsistent interpretation of enforcement rules.
+- Minor file naming issue (`mian.go`) was not detected earlier.
+
+**Improvements for future iterations:**
+- Externalize decision-making into a temporary design artifact before implementation.
+- Define constraints earlier in the audit phase to reduce ambiguity during execution.
+- Ensure documentation reflects actual system behavior, not intended behavior.
+
+---
