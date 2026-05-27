@@ -1411,3 +1411,44 @@ The `go.mod` file was missing entirely — a compilation blocker that should hav
 
 **What I would change next time:**  
 Include `go.mod` initialization as a mandatory first deliverable in any Go project design prompt, before handlers or models. Also run a file listing (`ls platform/api/`) as the first step of any implementation audit to catch missing infrastructure files before reviewing logic.
+
+## AND-104 Task 4: Go API QA Audit and Fixes
+
+**Date:** 2026-05-27
+
+**Context:**  
+After implementing the Go API based on the specification, a validation phase was required to ensure all endpoints behaved correctly and aligned with the defined API contracts. Since runtime execution was not yet available, the QA process was conducted through static code analysis across `handlers.go`, `models.go`, `data.go`, and `main.go`, combined with validation against `docs/api_spec.md`.
+
+**Decision:**  
+A structured QA audit approach was used instead of ad-hoc review. The API specification served as the single source of truth, and each endpoint was evaluated against its defined behavior, response structure, and error handling rules. Before confirming any issue, the underlying CSV schema was manually verified to avoid false positives (e.g., column mapping concerns).
+
+Rather than refactoring large sections of code, fixes were applied as minimal, targeted patches to isolate changes and preserve the existing structure. This ensured that corrections addressed specific issues without introducing regression risks.
+
+**What worked:**  
+- The API specification was sufficiently detailed (field naming, nullability, error contracts), enabling precise validation.  
+- CSV verification prevented a false-positive issue, confirming that column indexing logic was correct.  
+- The existing code structure (models, data loading, handlers separation) allowed efficient traceability and debugging.  
+- Fixes were applied surgically, each addressing a single responsibility without side effects.
+
+**What didn't work / issues:**  
+- A panic-level bug caused by negative `limit` values, due to missing lower-bound validation.  
+- 503 vs 404 precedence in `/risk` endpoint created ambiguity due to lack of specification clarity.  
+- Incorrect descending sort behavior (`order=DESC` fallback to ascending).  
+- Inconsistent interpolation of the `endpoint` field in the `/risk` error response.  
+- Minor oversight: `main.go` file named incorrectly as `mian.go`.
+
+**Outcome:**  
+The QA process produced a structured audit result with:
+- 2 critical errors (server stability)
+- 3 warnings (contract inconsistencies)
+- 23 validated correct behaviors
+
+All critical issues were resolved through minimal, targeted updates to `handlers.go`, restoring alignment with the API specification and ensuring safe request handling.
+
+The API implementation is now consistent with the defined contract and free from known runtime-breaking conditions under expected inputs.
+
+**What I would change next time:**  
+- Extend the API specification to define lower bounds for numeric query parameters (e.g., `limit` minimum), reducing ambiguity during implementation.  
+- Introduce automated test coverage (table-driven tests) to validate error paths and edge cases without manual inspection.  
+- Add header validation checks during CSV loading to prevent silent schema mismatches.  
+- Correct minor maintainability issues (e.g., filename typo in `main.go`) to improve code clarity and project hygiene.

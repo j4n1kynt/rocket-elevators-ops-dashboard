@@ -37,6 +37,7 @@ func GetElevators(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	order = strings.ToLower(order) // normalize before default so "DESC" works
 	if sortBy == "" {
 		sortBy = "license_expiration_date"
 	}
@@ -50,6 +51,10 @@ func GetElevators(w http.ResponseWriter, r *http.Request) {
 	}
 	if statusFilter != "" && statusFilter != "ACTIVE" && statusFilter != "BY REQUEST" {
 		writeJSON(w, 400, ErrorResponse{Error: "Invalid status value. Accepted: ACTIVE, BY REQUEST"})
+		return
+	}
+	if limit < 1 {
+		writeJSON(w, 400, ErrorResponse{Error: "limit must be at least 1"})
 		return
 	}
 	if limit > 200 {
@@ -168,6 +173,10 @@ func GetElevatorInspections(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if limit < 1 {
+		writeJSON(w, 400, ErrorResponse{Error: "limit must be at least 1"})
+		return
+	}
 	if limit > 200 {
 		writeJSON(w, 400, ErrorResponse{Error: "limit must not exceed 200"})
 		return
@@ -212,16 +221,17 @@ func GetElevatorRisk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !predictionsAvailable {
-		writeJSON(w, 503, ErrorResponse{
-			Error:    "Risk data unavailable. Predictions pipeline not yet deployed.",
-			Endpoint: "/api/elevators/" + id + "/risk",
-		})
+	// 404 must be checked before 503: unknown IDs are a client error regardless of pipeline state.
+	if _, ok := elevatorIdx[id]; !ok {
+		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
 		return
 	}
 
-	if _, ok := elevatorIdx[id]; !ok {
-		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
+	if !predictionsAvailable {
+		writeJSON(w, 503, ErrorResponse{
+			Error:    "Risk data unavailable. Predictions pipeline not yet deployed.",
+			Endpoint: "/api/elevators/{id}/risk", // literal template per spec §5
+		})
 		return
 	}
 
