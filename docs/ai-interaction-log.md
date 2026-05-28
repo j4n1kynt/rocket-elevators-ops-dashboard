@@ -1555,3 +1555,43 @@ The `/elevator/<id>` detail panel now sources elevator data and inspection histo
 The field mapping step (remapping `inspection_date` → `Latest_INSPECTION_Date`) would be unnecessary if the template had been written using the API field names from the start. Aligning template variable names to API schema during initial implementation avoids an extra transformation layer at integration time.
 
 ---
+
+## AND-104 Task 5: Extension Mechanism Selection — Validators as Subagents
+
+**Date:** 2026-05-28
+
+**Decision:**
+Both `api-validator` and `csv-validator` were implemented as subagents rather than as hooks, skills, or CLAUDE.md conventions.
+
+The alternatives were ruled out for concrete reasons:
+
+- **Hook**: hooks are reactive — they fire in response to a tool use event (Edit, Bash, Stop). A validator that needs to read files, run Python, compare schemas, and produce a structured report cannot be expressed as a hook. Hooks also cannot be invoked on demand by the user.
+- **Skill**: a skill is a thin invocation wrapper — it delegates to an agent or provides prompt context. Skills don't have their own tools, model, or context window. A validator that needs to execute Bash commands, parse 143k-row CSVs, and reason across multiple datasets requires independent execution — that is a subagent, not a skill.
+- **CLAUDE.md convention**: a passive rule stating "validate CSVs before deploying" relies on human compliance and provides no enforcement. It also doesn't produce a structured report or catch specific issues automatically.
+
+A subagent is the right mechanism when the task requires: (1) autonomous tool use across multiple steps, (2) its own context window isolated from the main session, and (3) a bounded, well-defined output format. Both validators satisfy all three criteria.
+
+**Why this matters:**
+Choosing the wrong mechanism would have produced something that looks like a validator but isn't. A hook that echoes a reminder is not validation. A CLAUDE.md rule that says "check for schema issues" does not check for schema issues. The subagent mechanism ensures the validation actually runs and produces verifiable evidence.
+
+---
+
+## AND-104 Task 5: Extension Mechanism Selection — Validators as Skills
+
+**Date:** 2026-05-28
+
+**Decision:**
+`validate-api` and `validate-csv` were implemented as user-invocable skills rather than hooks, subagents, or CLAUDE.md conventions.
+
+The alternatives were ruled out:
+
+- **Hook**: hooks fire on events (file edits, session stop) — not on explicit user intent. Validation is not something that should run automatically on every edit; it is a deliberate action a developer takes before a deploy or after a data change. A hook that runs validation on every `.go` edit would be noisy and slow.
+- **Subagent**: a subagent has no entry point a user can invoke directly. It must be spawned by a skill, a hook, or the main agent. Exposing validation as a bare subagent would require the user to know to type `Agent(api-validator)` in a prompt, which is not a user-facing interface.
+- **CLAUDE.md convention**: same problem as above — passive documentation does not give the user an executable command. Writing "run validation before submitting" in CLAUDE.md does not create `/validate-api`.
+
+A skill is the right mechanism when the task: (1) should be triggered by the user explicitly, (2) has a stable, named entry point (`/validate-api`, `/validate-csv`), and (3) needs to delegate to an agent for the actual execution. The skill provides the user-facing interface; the subagent provides the execution engine.
+
+**Why this separation matters:**
+Skill + subagent is a two-layer design: the skill handles invocation and argument passing, the subagent handles reasoning and tool use. This separation means the skill stays simple (under 20 lines) while the subagent can evolve independently. If the validation logic changes, only the subagent needs to be updated — the user-facing interface stays the same.
+
+---
