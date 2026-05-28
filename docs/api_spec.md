@@ -331,7 +331,7 @@ Returns the ML-generated risk assessment for a single elevator. Risk score and l
 |---|---|---|
 | `elevator_id` | string | Elevator identifier |
 | `risk_score` | float [0.0–1.0] | Continuous risk probability. Higher = greater risk. |
-| `risk_level` | string (enum) | Categorical risk bucket: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `risk_level` | string (enum) | Categorical risk bucket: `LOW`, `MEDIUM`, `HIGH` |
 | `predicted_failure_date` | date (YYYY-MM-DD) \| null | Predicted date of compliance failure or breakdown. `null` if model cannot project. |
 | `confidence` | float [0.0–1.0] | Model confidence in the prediction. |
 | `model_version` | string | Version identifier of the ML model that generated the score. |
@@ -379,7 +379,7 @@ Returns the ML-generated risk assessment for a single elevator. Risk score and l
 - Returns 503 before `predictions.csv` is deployed
 - Returns 200 with all defined fields once data is available
 - `risk_score` is a float between 0.0 and 1.0
-- `risk_level` is one of `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
+- `risk_level` is one of `LOW`, `MEDIUM`, `HIGH`
 - `predicted_failure_date` may be `null`
 - Returns 404 for unknown elevator ID
 - Returns 400 for non-numeric ID
