@@ -1493,3 +1493,65 @@ The system now has consistent enforcement of workflow rules, with no ambiguity b
 - Ensure documentation reflects actual system behavior, not intended behavior.
 
 ---
+
+## AND-104 Task 5: Full-Stack Integration with Validation Tooling
+
+**Date:** 2026-05-28
+
+**Context:**
+After completing the Go REST API (Task 3) and Claude Code workflow tooling (Task 4), the remaining gap was wiring the frontend into the Go API and validating all four endpoints using the `validate-api` skill and `api-validator` subagent.
+
+Two integration strategies were evaluated:
+
+- **Client-side (browser → Go API directly):** HTMX could call `http://localhost:8081` from the browser. Rejected: violates the project's no-custom-JavaScript constraint, requires CORS headers on the Go API, and exposes the internal service address to the browser.
+- **Server-side proxy (Flask → Go API → client):** The Flask route `/elevator/<id>` calls the Go API on behalf of the browser using `requests.get()`, maps the response, and passes it to the existing Jinja2 template. Chosen because it requires zero JavaScript, keeps the frontend architecture unchanged, and is consistent with the spec-driven server-rendered workflow.
+
+**Decision:**
+Server-side proxy was implemented in `platform/server.py` for the `/elevator/<id>` route. The route now calls `/api/elevators/<id>` and `/api/elevators/<id>/inspections` on the Go API. Go API field names (`inspection_date`, `outcome`) are remapped to template-expected keys in the handler — no template changes required. `incident_count` and `alteration_count` are not available via the Go API and remain CSV-sourced. All Go API calls are wrapped in `try/except`: if the API is unreachable, Flask returns HTTP 503 and the detail panel renders a user-visible error message instead of crashing.
+
+**System configuration:**
+- Go API: `go run ./platform/api` → `:8081`
+- Flask: `py -3 platform/server.py` → `:5000`
+- No shared ports; no conflicts running simultaneously.
+- Go API unavailability: `/elevator/<id>` returns 503 with message "Unable to fetch elevator data from API."
+
+**API Validation — `/validate-api` results:**
+
+Validation was conducted by delegating each endpoint to the `api-validator` subagent via the `validate-api` skill (`context: fork`, `agent: api-validator`), which read `docs/api_spec.md` as the authoritative contract and tested each scenario defined per endpoint.
+
+### ✅ PASS: /api/elevators
+- Default request: 200 OK, all fields present (`elevator_id`, `location`, `license_number`, `status`, `elevator_type`, `license_expiration_date`, `latest_inspection_date`, `latest_inspection_outcome`) ✓
+- Pagination: `?page=1&limit=50` → `total`, `page`, `limit`, `results` present; offset math correct ✓
+- Status filter: `?status=ACTIVE` → only ACTIVE records returned ✓
+- Invalid status: `?status=INVALID` → 400 Bad Request ✓
+- Sorting: `?sort=license_expiration_date&order=asc` → correct ascending order ✓
+- Invalid limit: `?limit=-1` → 400 Bad Request ✓
+- Invalid limit: `?limit=0` → 400 Bad Request ✓
+- Content-Type: `application/json` on all responses ✓
+
+### ✅ PASS: /api/elevators/{id}
+- Valid numeric ID: 200 OK, all 8 required fields present ✓
+- Non-numeric ID: 400 Bad Request ✓
+- Unknown numeric ID: 404 Not Found ✓
+- Content-Type: `application/json` ✓
+
+### ✅ PASS: /api/elevators/{id}/inspections
+- Valid elevator with inspections: 200 OK, `inspections` array present ✓
+- Pagination: `?page=1&limit=10` → correct offset and total ✓
+- Invalid limit: `?limit=-1` → 400 Bad Request ✓
+- Unknown elevator ID: 404 Not Found ✓
+- Content-Type: `application/json` ✓
+
+### ✅ PASS: /api/elevators/{id}/risk
+- Unknown elevator ID: 404 Not Found (404 precedes 503 per spec §5) ✓
+- Known elevator, predictions unavailable: 503 Service Unavailable ✓
+- 503 body contains `"error"` and `"endpoint"` fields ✓
+- Content-Type: `application/json` ✓
+
+**Outcome:**
+The `/elevator/<id>` detail panel now sources elevator data and inspection history from the Go API. The dashboard remains fully functional if the Go API is unavailable. All four endpoints validated against `docs/api_spec.md` with no contract violations detected. Both servers run simultaneously without conflict.
+
+**What I would change next time:**
+The field mapping step (remapping `inspection_date` → `Latest_INSPECTION_Date`) would be unnecessary if the template had been written using the API field names from the start. Aligning template variable names to API schema during initial implementation avoids an extra transformation layer at integration time.
+
+---

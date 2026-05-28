@@ -15,6 +15,7 @@ Endpoints:
 
 from flask import Flask, render_template, request, make_response
 import pandas as pd
+import requests
 from pathlib import Path
 from datetime import date, timedelta
 
@@ -53,6 +54,8 @@ df_incidents = _df_inc
 
 TODAY        = date.today()
 ONE_YEAR_AGO = TODAY - timedelta(days=365)
+
+GO_API = "http://localhost:8081"
 
 # Maps the URL `sort=` param to the CSV column name
 SORT_FIELDS = {
@@ -215,37 +218,52 @@ def elevator_detail(elev_id):
     if request.method == "DELETE":
         return make_response("")
 
-    rows = df_merged[df_merged["ElevatingDevicesNumber"] == elev_id]
-    if rows.empty:
-        return "<h1>404 — Elevator not found</h1>", 404
+    # Fetch elevator core data from Go API
+    try:
+        api_resp = requests.get(f"{GO_API}/api/elevators/{elev_id}", timeout=5)
+        if api_resp.status_code == 404:
+            return "<p class='p-5 text-sm text-slate-500'>Elevator not found.</p>", 404
+        api_resp.raise_for_status()
+        elev = api_resp.json()
+    except requests.exceptions.RequestException:
+        return "<p class='p-5 text-sm text-red-600'>Unable to fetch elevator data from API.</p>", 503
 
-    first = rows.iloc[0]
-    alt_count = (
+    # Fetch inspection history from Go API
+    try:
+        insp_resp = requests.get(
+            f"{GO_API}/api/elevators/{elev_id}/inspections",
+            params={"limit": 200},
+            timeout=5,
+        )
+        insp_resp.raise_for_status()
+        raw = insp_resp.json().get("inspections", [])
+    except requests.exceptions.RequestException:
+        raw = []
+
+    # Map Go API field names to keys the template expects
+    inspections = [
+        {"Latest_INSPECTION_Date": r["inspection_date"], "InspectionOutcome": r["outcome"]}
+        for r in raw
+    ]
+
+    # incident_count and alteration_count are not exposed by the Go API;
+    # keep CSV-based lookups for these supplementary counts only.
+    rows = df_merged[df_merged["ElevatingDevicesNumber"] == elev_id]
+    alt_count = int(
         rows["originating service request number"]
         .replace("", pd.NA).dropna().nunique()
-    )
-
-    insp = (
-        df_inspections[df_inspections["ElevatingDevicesNumber"] == elev_id]
-        [["Latest_INSPECTION_Date", "InspectionOutcome"]]
-        .sort_values(
-            by="Latest_INSPECTION_Date",
-            ascending=False,
-            na_position="last"
-        )
-        .drop_duplicates()
-        .to_dict("records")
     )
     inc_count = int(
         df_incidents[df_incidents["elevating devices number"] == elev_id]
         ["Incident Number"].nunique()
     )
+
     return render_template(
         "_elevator_detail.html",
         elevator_id=elev_id,
-        location=first["LocationoftheElevatingDevice"],
-        status=first["LICENSESTATUS"],
-        inspections=insp,
+        location=elev.get("location", ""),
+        status=elev.get("status", ""),
+        inspections=inspections,
         incident_count=inc_count,
         alteration_count=alt_count,
         is_overdue=is_overdue,
