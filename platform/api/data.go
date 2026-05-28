@@ -108,6 +108,7 @@ func LoadInspectionCSV(path string) error {
 
 // LoadPredictionsCSV soft-fails if the file does not exist.
 // Until predictions.csv is available, /risk returns 503.
+// CSV columns (positional): elevator_id, risk_score, risk_level, model_version, prediction_date
 func LoadPredictionsCSV(path string) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -128,19 +129,26 @@ func LoadPredictionsCSV(path string) {
 		if i == 0 {
 			continue
 		}
-		if len(row) < 7 {
+		if len(row) < 5 {
 			continue
 		}
-		riskScore, _ := strconv.ParseFloat(row[1], 64)
-		confidence, _ := strconv.ParseFloat(row[4], 64)
+		riskScore, err := strconv.ParseFloat(row[1], 64)
+		if err != nil {
+			continue
+		}
+		// Confidence = max(riskScore, 1-riskScore): model certainty in its prediction direction.
+		confidence := riskScore
+		if confidence < 0.5 {
+			confidence = 1 - confidence
+		}
 		r := &RiskResponse{
 			ElevatorID:           row[0],
 			RiskScore:            riskScore,
 			RiskLevel:            row[2],
-			PredictedFailureDate: nullableString(row[3]),
+			PredictedFailureDate: nil,
 			Confidence:           confidence,
-			ModelVersion:         row[5],
-			GeneratedAt:          row[6],
+			ModelVersion:         row[3],
+			GeneratedAt:          row[4],
 		}
 		riskIdx[r.ElevatorID] = r
 	}
