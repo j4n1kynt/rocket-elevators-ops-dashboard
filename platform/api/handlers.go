@@ -237,7 +237,7 @@ func GetElevatorRisk(w http.ResponseWriter, r *http.Request) {
 
 	risk, ok := riskIdx[id]
 	if !ok {
-		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
+		writeJSON(w, 404, ErrorResponse{Error: "No prediction available for this elevator.", ElevatorID: id})
 		return
 	}
 
