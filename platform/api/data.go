@@ -169,3 +169,14 @@ func isNumeric(s string) bool {
 	_, err := strconv.Atoi(s)
 	return err == nil
 }
+
+// EnrichElevatorsWithRisk sets RiskLevel on each Elevator from the loaded
+// predictions index. Call once after LoadPredictionsCSV succeeds.
+func EnrichElevatorsWithRisk() {
+	for i := range elevators {
+		if risk, ok := riskIdx[elevators[i].ElevatorID]; ok {
+			level := risk.RiskLevel
+			elevators[i].RiskLevel = &level
+		}
+	}
+}

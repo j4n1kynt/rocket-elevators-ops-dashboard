@@ -41,14 +41,13 @@
     "PostToolUse": [
       {
         "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "gofmt",
-            "args": ["-w", "{{file}}"],
-            "timeout": 10,
-            "if": "Edit(*.go)",
-            "statusMessage": "Formatting Go code..."
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/gofmt.sh",
+          "args": [],
+          "timeout": 10,
+          "statusMessage": "Formatting Go code..."
           }
         ]
       }

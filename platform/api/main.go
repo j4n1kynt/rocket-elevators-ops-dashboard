@@ -19,6 +19,7 @@ func main() {
 
 	LoadPredictionsCSV("data/predictions.csv")
 	if predictionsAvailable {
+		EnrichElevatorsWithRisk()
 		log.Printf("predictions loaded: /risk endpoint active")
 	} else {
 		log.Printf("predictions.csv not found: /risk returns 503")

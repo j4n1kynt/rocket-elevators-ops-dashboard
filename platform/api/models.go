@@ -9,6 +9,7 @@ type Elevator struct {
 	LicenseExpirationDate   string  `json:"license_expiration_date"`
 	LatestInspectionDate    *string `json:"latest_inspection_date"`
 	LatestInspectionOutcome *string `json:"latest_inspection_outcome"`
+	RiskLevel               *string `json:"risk_level"`
 }
 
 type ElevatorListResponse struct {
