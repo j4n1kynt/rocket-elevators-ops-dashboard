@@ -1576,6 +1576,26 @@ Choosing the wrong mechanism would have produced something that looks like a val
 
 ---
 
+## AND-104 Task 5: Extension Mechanism Selection — Validators as Skills
+
+**Date:** 2026-05-28
+
+**Decision:**
+`validate-api` and `validate-csv` were implemented as user-invocable skills rather than hooks, subagents, or CLAUDE.md conventions.
+
+The alternatives were ruled out:
+
+- **Hook**: hooks fire on events (file edits, session stop) — not on explicit user intent. Validation is not something that should run automatically on every edit; it is a deliberate action a developer takes before a deploy or after a data change. A hook that runs validation on every `.go` edit would be noisy and slow.
+- **Subagent**: a subagent has no entry point a user can invoke directly. It must be spawned by a skill, a hook, or the main agent. Exposing validation as a bare subagent would require the user to know to type `Agent(api-validator)` in a prompt, which is not a user-facing interface.
+- **CLAUDE.md convention**: same problem as above — passive documentation does not give the user an executable command. Writing "run validation before submitting" in CLAUDE.md does not create `/validate-api`.
+
+A skill is the right mechanism when the task: (1) should be triggered by the user explicitly, (2) has a stable, named entry point (`/validate-api`, `/validate-csv`), and (3) needs to delegate to an agent for the actual execution. The skill provides the user-facing interface; the subagent provides the execution engine.
+
+**Why this separation matters:**
+Skill + subagent is a two-layer design: the skill handles invocation and argument passing, the subagent handles reasoning and tool use. This separation means the skill stays simple (under 20 lines) while the subagent can evolve independently. If the validation logic changes, only the subagent needs to be updated — the user-facing interface stays the same.
+
+---
+
 ## AND-104 Task 6: ML Predictions Generation and Go API Integration
 
 **Date:** 2026-05-28
@@ -1603,27 +1623,14 @@ The `.git/hooks/pre-commit` hook blocks all commits to `data/` (source datasets 
 **Problem 4 — Misleading 404 error message in handlers.go:**
 `GetElevatorRisk` returned `"Elevator not found."` when a valid elevator ID had no prediction entry. The elevator exists in the fleet — it simply has no prediction in `riskIdx`. The message was corrected to `"No prediction available for this elevator."` to distinguish a missing-prediction 404 from a missing-elevator 404.
 
+**What went well:**
+- The RandomForestClassifier training and prediction pipeline ran without issues on the first attempt — the model, feature list, temporal split, and `predict_proba` indexing were all correct.
+- All three validation assertions passed immediately: 100% elevator coverage (40,954 of 40,954), risk scores fully within [0, 1], and distribution non-degenerate (HIGH 69.8%, MEDIUM 17.8%, LOW 12.4%).
+- The Go API integration was clean: `LoadPredictionsCSV` was updated to the 5-column format in a single pass, `EnrichElevatorsWithRisk()` correctly injected `risk_level` into all list responses, and the 404/503 precedence logic for `/risk` was already correct per spec §5.
+- The pre-commit hook exception was surgical — one `grep -v` line protecting the generated artifact without weakening the broader read-only rule.
+- The platform conventions skill update and CLAUDE.md documentation were done in the same session, keeping tooling and documentation in sync.
+
 **Lesson learned:**
 When the task says "notebook," deliver a notebook — not a script. The notebook is the primary artifact; a `.py` mirror is optional scaffolding. Read the column count and values in the spec before writing CSV output code; computing derived fields (confidence, null dates) belongs in the consumer (Go), not the producer (Python). For Jupyter path issues, a conditional `os.chdir` at the top of the notebook is the only cross-environment solution — relative paths that assume a fixed cwd will always break in at least one launch environment.
-
----
-
-## AND-104 Task 5: Extension Mechanism Selection — Validators as Skills
-
-**Date:** 2026-05-28
-
-**Decision:**
-`validate-api` and `validate-csv` were implemented as user-invocable skills rather than hooks, subagents, or CLAUDE.md conventions.
-
-The alternatives were ruled out:
-
-- **Hook**: hooks fire on events (file edits, session stop) — not on explicit user intent. Validation is not something that should run automatically on every edit; it is a deliberate action a developer takes before a deploy or after a data change. A hook that runs validation on every `.go` edit would be noisy and slow.
-- **Subagent**: a subagent has no entry point a user can invoke directly. It must be spawned by a skill, a hook, or the main agent. Exposing validation as a bare subagent would require the user to know to type `Agent(api-validator)` in a prompt, which is not a user-facing interface.
-- **CLAUDE.md convention**: same problem as above — passive documentation does not give the user an executable command. Writing "run validation before submitting" in CLAUDE.md does not create `/validate-api`.
-
-A skill is the right mechanism when the task: (1) should be triggered by the user explicitly, (2) has a stable, named entry point (`/validate-api`, `/validate-csv`), and (3) needs to delegate to an agent for the actual execution. The skill provides the user-facing interface; the subagent provides the execution engine.
-
-**Why this separation matters:**
-Skill + subagent is a two-layer design: the skill handles invocation and argument passing, the subagent handles reasoning and tool use. This separation means the skill stays simple (under 20 lines) while the subagent can evolve independently. If the validation logic changes, only the subagent needs to be updated — the user-facing interface stays the same.
 
 ---
