@@ -32,6 +32,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/fleet/stats", GetFleetStats)
+	mux.HandleFunc("GET /api/fleet/alerts", GetFleetAlerts)
 	mux.HandleFunc("GET /api/elevators", GetElevators)
 	mux.HandleFunc("GET /api/elevators/{id}", GetElevatorByID)
 	mux.HandleFunc("GET /api/elevators/{id}/inspections", GetElevatorInspections)

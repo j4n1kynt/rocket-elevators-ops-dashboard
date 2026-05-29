@@ -112,7 +112,8 @@ Returns a paginated list of all elevators in the fleet. Supports filtering by `s
       "elevator_type": "Passenger Elevator",
       "license_expiration_date": "2017-04-28",
       "latest_inspection_date": "2015-03-27",
-      "latest_inspection_outcome": "All Orders Resolved"
+      "latest_inspection_outcome": "All Orders Resolved",
+      "risk_level": "HIGH"
     },
     {
       "elevator_id": "10047",
@@ -122,7 +123,8 @@ Returns a paginated list of all elevators in the fleet. Supports filtering by `s
       "elevator_type": "Freight Elevator",
       "license_expiration_date": "2008-03-15",
       "latest_inspection_date": null,
-      "latest_inspection_outcome": null
+      "latest_inspection_outcome": null,
+      "risk_level": null
     }
   ]
 }
@@ -144,6 +146,7 @@ Returns a paginated list of all elevators in the fleet. Supports filtering by `s
 | `license_expiration_date` | date (YYYY-MM-DD) | |
 | `latest_inspection_date` | date (YYYY-MM-DD) \| null | |
 | `latest_inspection_outcome` | string \| null | |
+| `risk_level` | string \| null | ML risk level from `predictions.csv` (`LOW`, `MEDIUM`, `HIGH`). Null if no prediction available. |
 
 **Error responses:**
 
@@ -178,7 +181,8 @@ Returns the full profile of a single elevator by its ID.
   "elevator_type": "Passenger Elevator",
   "license_expiration_date": "2005-10-01",
   "latest_inspection_date": "2016-12-28",
-  "latest_inspection_outcome": "Unable to Inspect"
+  "latest_inspection_outcome": "Unable to Inspect",
+  "risk_level": "HIGH"
 }
 ```
 
@@ -192,7 +196,8 @@ Returns the full profile of a single elevator by its ID.
   "elevator_type": "Freight Elevator",
   "license_expiration_date": "2008-03-15",
   "latest_inspection_date": null,
-  "latest_inspection_outcome": null
+  "latest_inspection_outcome": null,
+  "risk_level": null
 }
 ```
 
@@ -208,6 +213,7 @@ Returns the full profile of a single elevator by its ID.
 | `license_expiration_date` | date (YYYY-MM-DD) | |
 | `latest_inspection_date` | date (YYYY-MM-DD) \| null | |
 | `latest_inspection_outcome` | string \| null | |
+| `risk_level` | string \| null | ML risk level from `predictions.csv` (`LOW`, `MEDIUM`, `HIGH`). Null if no prediction available. |
 
 **Error responses:**
 
@@ -357,6 +363,9 @@ Returns aggregate fleet statistics including total elevator count, distribution 
 **Query parameters:** None
 
 **Response — 200 OK:**
+
+> **Note:** Numeric values in the example below are illustrative. Actual values reflect the live dataset at runtime and will change as `elevator_fleet.csv` and `predictions.csv` are regenerated. Validators should verify structure, field types, and invariants — not exact counts.
+
 ```json
 {
   "total_elevators": 43002,
@@ -368,10 +377,10 @@ Returns aggregate fleet statistics including total elevator count, distribution 
   },
   "inspection_pass_rate": 0.6983,
   "equipment_type_distribution": {
-    "Passenger Elevator": 39594,
-    "Freight Elevator": 1899,
-    "LULA Elevator": 1165,
-    "Observation Elevator": 296,
+    "Passenger Elevator": 39605,
+    "Freight Elevator": 1902,
+    "LULA Elevator": 1166,
+    "Observation Elevator": 299,
     "Freight Elevator-P": 13,
     "Freight Elevator-E": 8,
     "Temporary Elevator": 4,
@@ -394,6 +403,68 @@ Returns aggregate fleet statistics including total elevator count, distribution 
 | `risk_distribution.unknown` | integer | Count of elevators with no prediction in `predictions.csv`. Guaranteed: `low + medium + high + unknown == total_elevators`. |
 | `inspection_pass_rate` | float [0.0–1.0] | Proportion of elevators with at least one inspection with outcome `Passed` or `All Orders Resolved`. Elevators with no inspection record are counted as non-passing. |
 | `equipment_type_distribution` | object | Count of elevators per `elevator_type` value. Keys are the raw type strings from `elevator_fleet.csv`. A `"null"` key appears only if the dataset contains elevators with no type value; absent from the response when all elevators have a type. |
+
+**Error responses:** None — this endpoint has no parameters and cannot fail.
+
+---
+
+### `GET /api/fleet/alerts`
+
+**Description:**  
+Returns elevators that are both high-risk (`risk_level = HIGH`) and have a failed most-recent inspection outcome. Results are sorted by `risk_score` descending so the most critical elevators appear first.
+
+**Data source:** `predictions.csv` (risk level and score) + `inspection.csv` (latest inspection outcome) + `elevator_fleet.csv` (location)
+
+**Query parameters:** None
+
+**Response — 200 OK:**
+
+> **Note:** Numeric values in the example below are illustrative. Actual values reflect the live dataset at runtime.
+
+```json
+{
+  "total": 2,
+  "alerts": [
+    {
+      "elevator_id": "12345",
+      "location": "123 Main St, Toronto ON",
+      "risk_level": "HIGH",
+      "risk_score": 0.97,
+      "confidence": 0.88,
+      "latest_inspection_date": "2023-06-10",
+      "latest_inspection_outcome": "Failed"
+    },
+    {
+      "elevator_id": "67890",
+      "location": "456 Bay St, Ottawa ON",
+      "risk_level": "HIGH",
+      "risk_score": 0.85,
+      "confidence": 0.85,
+      "latest_inspection_date": null,
+      "latest_inspection_outcome": null
+    }
+  ]
+}
+```
+
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `total` | integer | Number of alerts returned |
+| `alerts` | array | Alert entries, sorted by `risk_score` DESC |
+| `alerts[].elevator_id` | string | Elevator identifier |
+| `alerts[].location` | string | Physical address |
+| `alerts[].risk_level` | string | Always `"HIGH"` for all alert entries |
+| `alerts[].risk_score` | float [0.0–1.0] | ML risk score from `predictions.csv` |
+| `alerts[].confidence` | float [0.0–1.0] | Model confidence, computed as `max(risk_score, 1 - risk_score)` |
+| `alerts[].latest_inspection_date` | date (YYYY-MM-DD) \| null | Most recent inspection date; null if no inspection on record |
+| `alerts[].latest_inspection_outcome` | string \| null | Outcome of most recent inspection; null if no inspection on record |
+
+**Filter logic:**
+- Elevator must have `risk_level = HIGH` in `predictions.csv`. Elevators without predictions are excluded.
+- The elevator's most recent inspection outcome must **not** be `"Passed"` or `"All Orders Resolved"` (case-insensitive).
+- Elevators with no inspection record are included (no passing inspection on record).
 
 **Error responses:** None — this endpoint has no parameters and cannot fail.
 

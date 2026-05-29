@@ -307,3 +307,60 @@ func GetFleetStats(w http.ResponseWriter, r *http.Request) {
 		EquipmentTypeDistribution: typeCounts,
 	})
 }
+
+func GetFleetAlerts(w http.ResponseWriter, r *http.Request) {
+	var alerts []AlertEntry
+
+	for id, risk := range riskIdx {
+		if !strings.EqualFold(risk.RiskLevel, "HIGH") {
+			continue
+		}
+
+		e, ok := elevatorIdx[id]
+		if !ok {
+			continue
+		}
+
+		devNum, _ := strconv.Atoi(id)
+		inspections := inspectionIdx[devNum]
+
+		// Find most recent inspection — ISO dates sort lexicographically.
+		var latestInsp *Inspection
+		for i := range inspections {
+			if latestInsp == nil || inspections[i].InspectionDate > latestInsp.InspectionDate {
+				latestInsp = &inspections[i]
+			}
+		}
+
+		// Exclude elevators whose most recent inspection passed.
+		if latestInsp != nil {
+			outcome := strings.ToLower(latestInsp.Outcome)
+			if outcome == "passed" || outcome == "all orders resolved" {
+				continue
+			}
+		}
+
+		entry := AlertEntry{
+			ElevatorID: id,
+			Location:   e.Location,
+			RiskLevel:  risk.RiskLevel,
+			RiskScore:  risk.RiskScore,
+			Confidence: risk.Confidence,
+		}
+		if latestInsp != nil {
+			entry.LatestInspectionDate = &latestInsp.InspectionDate
+			entry.LatestInspectionOutcome = &latestInsp.Outcome
+		}
+		alerts = append(alerts, entry)
+	}
+
+	sort.Slice(alerts, func(i, j int) bool {
+		return alerts[i].RiskScore > alerts[j].RiskScore
+	})
+
+	if alerts == nil {
+		alerts = []AlertEntry{}
+	}
+
+	writeJSON(w, 200, FleetAlertsResponse{Total: len(alerts), Alerts: alerts})
+}

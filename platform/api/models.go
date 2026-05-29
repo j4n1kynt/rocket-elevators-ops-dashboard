@@ -58,8 +58,23 @@ type RiskDistribution struct {
 }
 
 type FleetStatsResponse struct {
-	TotalElevators               int                `json:"total_elevators"`
-	RiskDistribution             RiskDistribution   `json:"risk_distribution"`
-	InspectionPassRate           float64            `json:"inspection_pass_rate"`
-	EquipmentTypeDistribution    map[string]int     `json:"equipment_type_distribution"`
+	TotalElevators            int              `json:"total_elevators"`
+	RiskDistribution          RiskDistribution `json:"risk_distribution"`
+	InspectionPassRate        float64          `json:"inspection_pass_rate"`
+	EquipmentTypeDistribution map[string]int   `json:"equipment_type_distribution"`
+}
+
+type AlertEntry struct {
+	ElevatorID              string  `json:"elevator_id"`
+	Location                string  `json:"location"`
+	RiskLevel               string  `json:"risk_level"`
+	RiskScore               float64 `json:"risk_score"`
+	Confidence              float64 `json:"confidence"`
+	LatestInspectionDate    *string `json:"latest_inspection_date"`
+	LatestInspectionOutcome *string `json:"latest_inspection_outcome"`
+}
+
+type FleetAlertsResponse struct {
+	Total  int          `json:"total"`
+	Alerts []AlertEntry `json:"alerts"`
 }

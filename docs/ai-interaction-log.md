@@ -1634,3 +1634,35 @@ The `.git/hooks/pre-commit` hook blocks all commits to `data/` (source datasets 
 When the task says "notebook," deliver a notebook — not a script. The notebook is the primary artifact; a `.py` mirror is optional scaffolding. Read the column count and values in the spec before writing CSV output code; computing derived fields (confidence, null dates) belongs in the consumer (Go), not the producer (Python). For Jupyter path issues, a conditional `os.chdir` at the top of the notebook is the only cross-environment solution — relative paths that assume a fixed cwd will always break in at least one launch environment.
 
 ---
+
+## AND-104 Task 7: Fleet-Level Endpoints and Custom Extension
+
+**Date:** 2026-05-29
+
+**What was done:**
+- Created `/new-endpoint` as a user-invocable skill (custom extension) to scaffold Go API endpoints via a 5-step spec-first workflow: spec update → handler → route registration → data layer check → `/validate-api`
+- Implemented `GET /api/fleet/stats` using the skill: total elevators, risk distribution (low/medium/high/unknown), inspection pass rate, equipment type distribution
+- Implemented `GET /api/fleet/alerts`: joins `riskIdx`, `inspectionIdx`, and `elevatorIdx` in-memory; filters `risk_level = HIGH` + failed most-recent inspection; sorted by `risk_score` DESC
+- Changed default API port from 8081 to 8080 across all project files (`main.go`, `server.py`, agent configs, skills, README, `CLAUDE.md`)
+
+**Problem 1 — Risk distribution under-count:**
+`predictions.csv` covers ~40,954 of 43,002 elevators. Elevators with `RiskLevel = nil` were silently skipped in the risk-counting loop, producing a `risk_distribution` sum ~3,650 short of `total_elevators`. Fixed by adding an `"unknown"` bucket to `RiskDistribution` and routing nil RiskLevel into it. Invariant enforced: `low + medium + high + unknown == total_elevators`.
+
+**Problem 2 — Port inconsistency across tooling:**
+After changing the API default port from 8081 → 8080 in `main.go`, the `api-validator` subagent continued hitting port 8081 because it has its own hardcoded base URL in its agent config. The validator appeared to work (it connected and got responses) but was talking to a stale server instance. Fixed by grepping all files for "8081" and updating every remaining reference — 7 files total.
+
+**Problem 3 — Spec example drift:**
+`equipment_type_distribution` counts in `api_spec.md` were from an earlier dataset snapshot. The validator was treating these stale counts as contractual and failing on count mismatches. Fixed by updating spec example values to current live data and adding an illustrative note. The `api-validator` agent config was also updated with an explicit rule: for aggregate endpoints, validate structure and invariants — not exact numeric values.
+
+**Problem 4 — `risk_level` undocumented in elevator responses:**
+The `Elevator` struct serializes `risk_level` in both `GET /api/elevators` and `GET /api/elevators/{id}` responses (injected by `EnrichElevatorsWithRisk()` at startup). The spec did not document this field, causing the validator to flag it as an undocumented extra field. Fixed by adding `risk_level` to the field tables in both spec sections rather than removing the field from the struct (which would have broken the alerts endpoint join logic).
+
+**Custom extension: `/new-endpoint` skill**
+Created `.claude/skills/new-endpoint/SKILL.md` to address repeated friction in the spec-first workflow. Without the skill, each new endpoint required manually remembering the 5-step order: write spec section → implement handler → register route → confirm data layer → run `/validate-api`. Steps were frequently skipped or reordered, causing validator failures late in the cycle. The skill makes the workflow explicit and executable via `/new-endpoint <path> "<description>"`.
+
+**Validation results:**
+- `/validate-api /api/fleet/stats` → ✅ PASS
+- `/validate-api /api/fleet/alerts` → ✅ PASS
+- `/validate-api /api/elevators` → ✅ PASS (after adding `risk_level` to spec)
+
+---

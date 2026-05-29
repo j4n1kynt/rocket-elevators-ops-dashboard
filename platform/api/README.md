@@ -6,6 +6,8 @@ Go implementation of the Rocket Elevators REST API defined in `docs/api_spec.md`
 
 | Method | Path | Description |
 |---|---|---|
+| `GET` | `/api/fleet/stats` | Aggregate fleet statistics: total, risk distribution, pass rate, equipment types |
+| `GET` | `/api/fleet/alerts` | High-risk elevators with failed most-recent inspection, sorted by risk score |
 | `GET` | `/api/elevators` | Paginated fleet listing with filter, search, sort |
 | `GET` | `/api/elevators/{id}` | Single elevator profile |
 | `GET` | `/api/elevators/{id}/inspections` | Inspection history, sorted descending |
