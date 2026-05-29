@@ -349,6 +349,7 @@ Returns the ML-generated risk assessment for a single elevator. Risk score and l
 |---|---|---|
 | `400` | `id` is non-numeric | `{"error": "Invalid elevator ID format. ID must be numeric."}` |
 | `404` | No elevator found for the given ID | `{"error": "Elevator not found.", "elevator_id": "99999"}` |
+| `404` | Elevator exists but has no entry in `predictions.csv` | `{"error": "No prediction available for this elevator.", "elevator_id": "10047"}` |
 | `503` | `predictions.csv` not yet available | `{"error": "Risk data unavailable. Predictions pipeline not yet deployed.", "endpoint": "/api/elevators/{id}/risk"}` |
 
 ---

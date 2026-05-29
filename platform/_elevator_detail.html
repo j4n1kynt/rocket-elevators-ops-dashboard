@@ -39,6 +39,30 @@
     </div>
   </div>
 
+  <!-- Risk Assessment (AND-104 Task 8 — from Go API /api/elevators/{id}/risk) -->
+  <div class="mb-4 pb-4 border-b border-slate-100">
+    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Risk Assessment</p>
+    {% if risk_data %}
+      {% set r = risk_data.get('risk_level', '') %}
+      <div class="flex items-center gap-2 mb-1">
+        {% if r == 'HIGH' %}
+          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">HIGH</span>
+        {% elif r == 'MEDIUM' %}
+          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">MEDIUM</span>
+        {% elif r == 'LOW' %}
+          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">LOW</span>
+        {% endif %}
+        <span class="text-sm text-slate-700">Score: {{ "%.2f"|format(risk_data.get('risk_score', 0)) }}</span>
+      </div>
+      <p class="text-xs text-slate-500">Confidence: {{ "%.0f"|format(risk_data.get('confidence', 0) * 100) }}%</p>
+      {% if risk_data.get('predicted_failure_date') %}
+      <p class="text-xs text-slate-500 mt-0.5">Predicted failure: {{ risk_data['predicted_failure_date'] }}</p>
+      {% endif %}
+    {% else %}
+      <p class="text-xs text-slate-400">{{ risk_message or 'Unavailable.' }}</p>
+    {% endif %}
+  </div>
+
   <!-- Inspection history: Date + Outcome, most recent first (spec Panel layout §1) -->
   <div>
     <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Inspection History</p>

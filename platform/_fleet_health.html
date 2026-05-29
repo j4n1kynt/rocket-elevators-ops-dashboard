@@ -1,0 +1,42 @@
+<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+  <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Fleet Health</p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+
+    <!-- LOW risk -->
+    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Low Risk</p>
+      <p class="text-2xl font-bold text-green-600">{{ "{:,}".format(low) }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">{{ low_pct }}% of fleet</p>
+    </div>
+
+    <!-- MEDIUM risk -->
+    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Medium Risk</p>
+      <p class="text-2xl font-bold text-amber-600">{{ "{:,}".format(medium) }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">{{ medium_pct }}% of fleet</p>
+    </div>
+
+    <!-- HIGH risk -->
+    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">High Risk</p>
+      <p class="text-2xl font-bold text-red-600">{{ "{:,}".format(high) }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">{{ high_pct }}% of fleet</p>
+    </div>
+
+    <!-- UNKNOWN (no prediction) -->
+    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">No Prediction</p>
+      <p class="text-2xl font-bold text-slate-500">{{ "{:,}".format(unknown) }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">{{ unknown_pct }}% of fleet</p>
+    </div>
+
+    <!-- Inspection pass rate -->
+    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Inspection Pass Rate</p>
+      <p class="text-2xl font-bold text-slate-800">{{ pass_rate }}%</p>
+      <p class="text-xs text-slate-400 mt-0.5">Elevators with ≥1 pass</p>
+    </div>
+
+  </div>
+</div>

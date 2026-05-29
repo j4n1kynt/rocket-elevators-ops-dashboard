@@ -456,3 +456,90 @@ The user can sort elevators by specific columns (e.g., expiry date, inspection d
 - **Multiple rapid sort clicks:** If the user clicks a sort header multiple times in rapid succession, only the final sort state is displayed; intermediate states are not processed or shown.
 
 ---
+
+## AND-104 Task 8: Risk Integration
+
+This section extends the dashboard to surface ML risk data from the Go API (`http://localhost:8080`). All new risk data is fetched from the Go API at runtime; no new CSV reads are added to the Flask server.
+
+---
+
+### Feature 1: Risk Level Column in Fleet Table
+
+A new **Risk Level** column is added as the last (9th) column of the fleet table.
+
+- **Display:** Color-coded badge matching the existing status/outcome badge style:
+  - `HIGH` → red badge
+  - `MEDIUM` → amber badge
+  - `LOW` → green badge
+  - No prediction available → "—" (muted gray text)
+- **Data source:** `risk_level` field from `GET /api/elevators` response (included in every paginated result)
+- **Behavior:** Read-only; no filtering or sorting by risk level in this version
+
+---
+
+### Feature 2: Pagination
+
+The fleet table is paginated at **50 rows per page**.
+
+- **Controls:** Previous / Next buttons appear below the table with a result count: "Page N of M — K results"
+- **Reset:** Any filter change, search change, or sort action resets to page 1
+- **State preservation:** Pagination buttons include all active filter and search parameters
+- **No JavaScript:** Pagination controls use HTMX `hx-get` with `hx-include="#controls"` — no client-side state management
+
+---
+
+### Feature 3: Fleet Health Panel
+
+A **fleet health panel** appears between the summary cards and the fleet table. It is loaded via HTMX on page load from `GET /api/fleet/stats`.
+
+**Displayed data:**
+
+| Metric | Description |
+|---|---|
+| Risk distribution | Count and percentage for each risk level: LOW, MEDIUM, HIGH, UNKNOWN |
+| Inspection pass rate | Percentage of elevators with at least one passing inspection |
+
+**Visual design:** Consistent with existing summary cards — white card, muted labels, bold values, accent colors matching the risk badge scheme (green/amber/red/slate).
+
+**Error handling:** If the Go API is unreachable, display "Fleet health data unavailable." in place of the panel.
+
+---
+
+### Feature 4: Alerts Section
+
+A **critical alerts section** appears below the fleet table. It is loaded via HTMX on page load from `GET /api/fleet/alerts`.
+
+**Displayed data:** Top 20 alerts (already sorted by `risk_score` DESC by the API), with columns:
+
+| Column | Description |
+|---|---|
+| Elevator ID | Monospace identifier |
+| Location | Full address (truncated with `title` tooltip) |
+| Risk Score | Formatted as 0.XX |
+| Latest Inspection Outcome | Color badge: Fail=red, Follow up=amber, other=plain |
+
+**Header:** "Critical Alerts — Showing N of M total (HIGH risk + failed inspection)"
+
+**Error handling:** If the Go API is unreachable, display "Alerts unavailable." in place of the section.
+
+---
+
+### Feature 5: Risk Assessment in Detail Panel
+
+The elevator detail panel gains a **Risk Assessment** section, displayed after the Incidents/Alterations summary and before Inspection History.
+
+**Displayed data when a prediction exists (200):**
+- Risk level badge (HIGH/MEDIUM/LOW, same color scheme as table)
+- Risk score formatted to 2 decimal places (e.g., "Score: 0.87")
+- Model confidence as a percentage (e.g., "Confidence: 87%")
+- Predicted failure date if present (e.g., "Predicted failure: 2026-09-14"); omitted if null
+
+**Displayed data when no prediction exists:**
+- "No prediction available for this elevator." (muted text)
+
+**Displayed data when API is unreachable:**
+- "Risk data unavailable." (muted text)
+
+**Data source:** `GET /api/elevators/{id}/risk` (called on each panel load)
+
+---

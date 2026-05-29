@@ -1666,3 +1666,50 @@ Created `.claude/skills/new-endpoint/SKILL.md` to address repeated friction in t
 - `/validate-api /api/elevators` → ✅ PASS (after adding `risk_level` to spec)
 
 ---
+
+### AND-104 Task 8: Dashboard Integration and Verification (2026-05-29)
+
+**What was done:**
+- Validated all 6 Go API endpoints before touching frontend code — one spec gap found (`GET /api/elevators/{id}/risk` did not document the "elevator exists but no prediction" 404 case). Fixed in spec, re-validated ✅ PASS.
+- Updated `docs/dashboard_spec.md` with AND-104 Task 8 section before any HTML changes (CLAUDE.md constraint: spec first, always).
+- Migrated the fleet table from CSV-based pandas filtering to a Go API proxy: Flask `/table` route now calls `GET /api/elevators` with the same filter/sort params (with param name mapping: `type` → `elevator_type`, `license_expiry` → `license_expiration_date`). The `risk_level` field from the Go API response populates the new Risk Level badge column.
+- Added pagination (50 rows/page) to the fleet table. Pagination controls are HTMX-driven with `hx-include="#controls"` to preserve active filters. An OOB swap updates `#pagination` div outside the `<table>` element so sort's outerHTML swap doesn't erase it.
+- Added fleet health panel (from `GET /api/fleet/stats`) and critical alerts section (top 20 from `GET /api/fleet/alerts`) as HTMX `hx-trigger="load"` sections with skeleton placeholders.
+- Added risk assessment section to the elevator detail panel, calling `GET /api/elevators/{id}/risk` per panel load. Graceful fallback for 404 (no prediction), 503 (pipeline not deployed), or request exception.
+- Refined `protect-data.sh` hook: added early-exit for `data/predictions.csv` before the blocking check. Source data files (`inspection.csv`, `incident.json`, etc.) remain protected; generated artifact `predictions.csv` is no longer blocked.
+
+**Key problems and solutions:**
+
+**Problem 1 — Table data source conflict:**
+Task 8 requires all displayed elevator data to come from the Go API. But the summary cards (overdue inspections, expiring soon) require date arithmetic across all 43K records — a computation the Go API does not expose. Resolution: table display rows come from Go API (pagination + risk_level); overdue/expiring cards are computed from `df_fleet` CSV at startup using the same filter logic applied to the subset matching the current controls. The cards update correctly per-filter; the table displays Go API data. No new CSV reads added for display data.
+
+**Problem 2 — Pagination OOB placement:**
+Sort buttons do `hx-swap="outerHTML"` on `#fleetTable`. If the `#pagination` div is inside `#fleetTable`, it gets erased on every sort. Fix: place `#pagination` as a sibling AFTER the `overflow-x-auto` div but still inside the white card container. Every `/table` response appends a pagination OOB swap snippet, which HTMX processes regardless of whether the main target is `#tableBody` or `#fleetTable`.
+
+**Problem 3 — Risk spec gap for "no prediction" case:**
+`GET /api/elevators/{id}/risk` returned 404 `{"error": "No prediction available for this elevator."}` for elevators that exist but lack a predictions.csv entry. The spec only documented one 404 case (elevator not found). The `api-validator` subagent caught this during the pre-integration validation pass. Fix: added the second 404 case to `docs/api_spec.md`. No code change required — the handler was already correct.
+
+**Hook refinement — `protect-data.sh`:**
+The original hook blocked ALL edits to `data/*` using a single glob. This is correct for source datasets (`inspection.csv`, `incident.json`, `merged_elevator_data.csv`) but wrong for `predictions.csv`, which is a generated output of `generate_predictions.py`. If Claude ever needs to update or replace the predictions file, the hook would block it. Refined to allow `predictions.csv` with an early-exit, preserving protection for all other data files.
+
+**Extension reflection:**
+
+*Most valuable extension across Tasks 4–8:* The `validate-api` skill backed by the `api-validator` subagent. Across three tasks (Tasks 5, 7, 8), it caught:
+- Missing fields in responses
+- Undocumented extra fields (`risk_level` in elevator list)
+- Spec example drift (stale equipment_type counts)
+- Missing 404 variant for no-prediction case
+- Port mismatches (8081 vs 8080)
+Without automated validation, these would have surfaced only when the dashboard broke in unexpected ways. The subagent's isolation (separate context per run, haiku model for speed) meant it could run exhaustive test cases without consuming the main conversation context. The `validate-api` skill made it invocable with one line, lowering the friction enough that I ran it routinely — not just once at the end.
+
+*Extension I would design differently:* `protect-data.sh`. The initial design used a single glob (`data/*`) to block everything under `data/`. This was intentionally broad to catch accidental edits to source datasets. But the glob is too coarse — it doesn't distinguish between source files (never change) and generated outputs (expected to change). A better design would explicitly list the files to protect: `data/inspection.csv`, `data/incident.json`, `data/merged_elevator_data.csv`, etc., rather than using a directory glob. This avoids the false positive on `predictions.csv` without weakening protection on the actual source data. The lesson: hooks that protect by exclusion (block all except...) are more maintainable than hooks that protect by inclusion (block all of...) when the directory contains mixed file types.
+
+**Validation results (all endpoints, pre-integration):**
+- `/validate-api /api/elevators` → ✅ PASS
+- `/validate-api /api/elevators/{id}` → ✅ PASS
+- `/validate-api /api/elevators/{id}/inspections` → ✅ PASS
+- `/validate-api /api/elevators/{id}/risk` → ✅ PASS (after spec fix)
+- `/validate-api /api/fleet/stats` → ✅ PASS
+- `/validate-api /api/fleet/alerts` → ✅ PASS (note: `risk_score: 1` vs `1.0` is a Go JSON serialization quirk; semantically valid, documented as known limitation)
+
+---

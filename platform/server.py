@@ -8,9 +8,13 @@ Run guide:
 Endpoints:
     GET /        Renders platform/index.html with summary card metrics
     GET /table   Returns an HTML fragment for HTMX swapping.
-                 Query params: status, type, q, sort, order
+                 Query params: status, type, q, sort, order, page
                  HX-Target: tableBody  -> <tr> rows only  (innerHTML swap)
                  HX-Target: fleetTable -> full <table>    (outerHTML swap, refreshes sort-button URLs)
+    GET /fleet-health   Returns fleet health panel HTML fragment (from Go API /api/fleet/stats)
+    GET /alerts         Returns critical alerts HTML fragment (from Go API /api/fleet/alerts)
+    GET /elevator/<id>  Returns elevator detail panel HTML fragment
+    DELETE /elevator/<id> Clears the detail panel
 """
 
 from flask import Flask, render_template, request, make_response
@@ -23,7 +27,9 @@ HERE = Path(__file__).resolve().parent
 app  = Flask(__name__, template_folder=str(HERE))
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-# Load once at startup; NaN -> empty string so templates get simple falsy checks
+# Load once at startup; NaN -> empty string so templates get simple falsy checks.
+# df_fleet is used only for summary card computation (overdue/expiring metrics)
+# since the Go API does not expose those date-arithmetic aggregates.
 df_fleet = pd.read_csv(HERE / "elevator_fleet.csv", dtype=str).fillna("")
 
 DATA = HERE.parent / "data"
@@ -35,19 +41,6 @@ df_merged = pd.read_csv(
              "LICENSESTATUS", "originating service request number"],
 ).fillna("")
 
-_df_insp_raw = pd.read_csv(
-    DATA / "inspection.csv",
-    dtype=str,
-    usecols=["ElevatingDevicesNumber", "Latest_INSPECTION_Date", "InspectionOutcome"],
-).fillna("")
-
-# Normalize inspection dates to ISO format (YYYY-MM-DD) to ensure:
-# - consistent display in detail panel
-# - reliable sorting in endpoint response
-_dates = pd.to_datetime(_df_insp_raw["Latest_INSPECTION_Date"], errors="coerce")
-_df_insp_raw["Latest_INSPECTION_Date"] = _dates.dt.strftime("%Y-%m-%d").where(_dates.notna(), "")
-df_inspections = _df_insp_raw
-
 _df_inc = pd.read_json(DATA / "incident.json")
 _df_inc["elevating devices number"] = _df_inc["elevating devices number"].astype(str)
 df_incidents = _df_inc
@@ -55,12 +48,13 @@ df_incidents = _df_inc
 TODAY        = date.today()
 ONE_YEAR_AGO = TODAY - timedelta(days=365)
 
-GO_API = "http://localhost:8080"
+GO_API     = "http://localhost:8080"
+TABLE_LIMIT = 50
 
-# Maps the URL `sort=` param to the CSV column name
-SORT_FIELDS = {
-    "license_expiry":    "License Expiration Date",
-    "latest_inspection": "Latest Inspection Date",
+# Maps Flask sort param values to Go API sort param values
+GO_SORT = {
+    "license_expiry":    "license_expiration_date",
+    "latest_inspection": "latest_inspection_date",
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -109,6 +103,7 @@ def build_full_table(rows_html: str, active: str, order: str) -> str:
     Wrap the rendered <tr> rows in a complete <table id="fleetTable">.
     Sort button URLs are updated to the NEXT direction so toggling works
     without any client-side JavaScript (Approach A, per dashboard spec §3).
+    Risk Level column header added per AND-104 Task 8 spec.
     """
     le_next, le_icon = _sort_btn("license_expiry",    active, order)
     li_next, li_icon = _sort_btn("latest_inspection", active, order)
@@ -141,12 +136,39 @@ def build_full_table(rows_html: str, active: str, order: str) -> str:
       </th>
       <th class="{TH} whitespace-nowrap">Latest Inspection Outcome</th>
       <th class="{TH} whitespace-nowrap">Elevator Type</th>
+      <th class="{TH} whitespace-nowrap">Risk Level</th>
     </tr>
   </thead>
   <tbody id="tableBody" class="divide-y divide-slate-100 text-slate-700">
 {rows_html}
   </tbody>
 </table>"""
+
+
+def build_pagination_oob(page: int, total: int, limit: int) -> str:
+    """Return an OOB swap snippet for the #pagination div below the table."""
+    total_pages = max(1, (total + limit - 1) // limit)
+    if total_pages <= 1:
+        return '<div id="pagination" hx-swap-oob="outerHTML"></div>'
+
+    BTN = ("px-3 py-1.5 text-xs font-medium rounded border border-slate-200 "
+           "hover:border-slate-400 text-slate-600 hover:text-slate-800 cursor-pointer")
+    prev_btn = (
+        f'<button hx-get="/table?page={page - 1}" hx-target="#tableBody" '
+        f'hx-swap="innerHTML" hx-include="#controls" class="{BTN}">&#8592; Prev</button>'
+    ) if page > 1 else ""
+    next_btn = (
+        f'<button hx-get="/table?page={page + 1}" hx-target="#tableBody" '
+        f'hx-swap="innerHTML" hx-include="#controls" class="{BTN}">Next &#8594;</button>'
+    ) if page < total_pages else ""
+
+    return (
+        f'<div id="pagination" hx-swap-oob="outerHTML" '
+        f'class="flex items-center justify-between px-5 py-3 border-t border-slate-200 text-sm text-slate-500">'
+        f'<span>Page {page} of {total_pages} &mdash; {total:,} results</span>'
+        f'<div class="flex gap-2">{prev_btn}{next_btn}</div>'
+        f'</div>'
+    )
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -159,58 +181,118 @@ def index():
 
 @app.route("/table")
 def table():
-    df = df_fleet.copy()
-
-    # 1. Filter ----------------------------------------------------------------
+    # 1. Parse params ----------------------------------------------------------
     status = request.args.get("status", "").strip()
     etype  = request.args.get("type",   "").strip()
-    q      = request.args.get("q",      "").strip().lower()
+    q      = request.args.get("q",      "").strip()
+    sort   = request.args.get("sort",   "").strip()
+    order  = request.args.get("order",  "asc").strip().lower()
+    try:
+        page = max(1, int(request.args.get("page", 1) or 1))
+    except (ValueError, TypeError):
+        page = 1
 
+    # 2. Build Go API params ---------------------------------------------------
+    api_params: dict = {"page": page, "limit": TABLE_LIMIT, "order": order}
     if status:
-        df = df[df["Status"] == status]
+        api_params["status"] = status
     if etype:
-        df = df[df["Elevator Type"] == etype]
+        api_params["elevator_type"] = etype   # Go API uses elevator_type, not type
     if q:
-        mask = (
-            df["Elevator ID"].str.lower().str.contains(q, na=False) |
-            df["Location"].str.lower().str.contains(q, na=False)
-        )
-        df = df[mask]
+        api_params["q"] = q
+    if sort in GO_SORT:
+        api_params["sort"] = GO_SORT[sort]
 
-    # 2. Sort ------------------------------------------------------------------
-    # Parse dates to datetime for correct chronological order; blanks sort last.
-    sort  = request.args.get("sort",  "").strip()
-    order = request.args.get("order", "asc").strip()
+    # 3. Fetch from Go API -----------------------------------------------------
+    try:
+        api_resp = requests.get(f"{GO_API}/api/elevators", params=api_params, timeout=10)
+        api_resp.raise_for_status()
+        data  = api_resp.json()
+        rows  = data.get("results", [])
+        total = data.get("total", 0)
+    except requests.exceptions.RequestException:
+        rows  = []
+        total = 0
 
-    if sort in SORT_FIELDS:
-        col = SORT_FIELDS[sort]
-        df["_key"] = pd.to_datetime(df[col], errors="coerce")
-        df = df.sort_values("_key", ascending=(order == "asc"), na_position="last")
-        df = df.drop(columns=["_key"])
-
-    # 3. Annotate overdue flag -------------------------------------------------
-    rows = df.to_dict("records")
+    # 4. Annotate rows with overdue flag (Flask-computed) ----------------------
     for row in rows:
-        row["_overdue"] = is_overdue(row.get("Latest Inspection Date", ""))
+        row["_overdue"] = is_overdue(row.get("latest_inspection_date") or "")
 
-    # 4. Render rows via template (reused by both response paths) --------------
+    # 5. Render rows -----------------------------------------------------------
     rows_html = render_template("_table_rows.html", rows=rows)
 
-    # 5. Compute filtered metrics and build OOB card snippet -------------------
-    m = compute_metrics(df)
+    # 6. Compute card metrics from CSV (overdue/expiring not in Go API) --------
+    df_sub = df_fleet.copy()
+    if status:
+        df_sub = df_sub[df_sub["Status"] == status]
+    if etype:
+        df_sub = df_sub[df_sub["Elevator Type"] == etype]
+    if q:
+        ql   = q.lower()
+        mask = (
+            df_sub["Elevator ID"].str.lower().str.contains(ql, na=False) |
+            df_sub["Location"].str.lower().str.contains(ql, na=False)
+        )
+        df_sub = df_sub[mask]
+    m = compute_metrics(df_sub)
+
     cards_oob = (
-        f'\n<p id="card-total"   hx-swap-oob="innerHTML">{m["total_elevators"]}</p>'
-        f'\n<p id="card-active"  hx-swap-oob="innerHTML">{m["active_elevators"]}</p>'
-        f'\n<p id="card-overdue" hx-swap-oob="innerHTML">{m["overdue_inspections"]}</p>'
+        f'\n<p id="card-total"    hx-swap-oob="innerHTML">{total:,}</p>'
+        f'\n<p id="card-active"   hx-swap-oob="innerHTML">{m["active_elevators"]}</p>'
+        f'\n<p id="card-overdue"  hx-swap-oob="innerHTML">{m["overdue_inspections"]}</p>'
         f'\n<p id="card-expiring" hx-swap-oob="innerHTML">{m["expiring_soon"]}</p>'
     )
 
-    # 6. Decide response shape based on HTMX target header --------------------
-    # Sort buttons target #fleetTable (outerHTML); filters/search target #tableBody (innerHTML).
-    if request.headers.get("HX-Target") == "fleetTable":
-        return make_response(build_full_table(rows_html, sort, order) + cards_oob)
+    # 7. Build pagination OOB -------------------------------------------------
+    pagination_oob = build_pagination_oob(page, total, TABLE_LIMIT)
 
-    return make_response(rows_html + cards_oob)
+    # 8. Decide response shape based on HTMX target header --------------------
+    if request.headers.get("HX-Target") == "fleetTable":
+        return make_response(build_full_table(rows_html, sort, order) + cards_oob + pagination_oob)
+
+    return make_response(rows_html + cards_oob + pagination_oob)
+
+
+@app.route("/fleet-health")
+def fleet_health():
+    """Return fleet health panel HTML from Go API /api/fleet/stats."""
+    try:
+        resp = requests.get(f"{GO_API}/api/fleet/stats", timeout=5)
+        resp.raise_for_status()
+        stats = resp.json()
+    except Exception:
+        return "<p class='text-sm text-slate-400 p-4'>Fleet health data unavailable.</p>"
+
+    rd    = stats["risk_distribution"]
+    total = stats["total_elevators"]
+
+    def pct(n: int) -> int:
+        return round(n / total * 100) if total else 0
+
+    return render_template(
+        "_fleet_health.html",
+        total=total,
+        low=rd["low"],       low_pct=pct(rd["low"]),
+        medium=rd["medium"], medium_pct=pct(rd["medium"]),
+        high=rd["high"],     high_pct=pct(rd["high"]),
+        unknown=rd["unknown"], unknown_pct=pct(rd["unknown"]),
+        pass_rate=round(stats["inspection_pass_rate"] * 100, 1),
+    )
+
+
+@app.route("/alerts")
+def alerts_panel():
+    """Return critical alerts section HTML from Go API /api/fleet/alerts."""
+    try:
+        resp = requests.get(f"{GO_API}/api/fleet/alerts", timeout=10)
+        resp.raise_for_status()
+        data  = resp.json()
+        shown = data["alerts"][:20]
+        total = data["total"]
+    except Exception:
+        return "<p class='text-sm text-slate-400 p-4'>Alerts unavailable.</p>"
+
+    return render_template("_alerts.html", alerts=shown, total=total, shown_count=len(shown))
 
 
 @app.route("/elevator/<elev_id>", methods=["GET", "DELETE"])
@@ -246,6 +328,20 @@ def elevator_detail(elev_id):
         for r in raw
     ]
 
+    # Fetch risk assessment from Go API
+    risk_data    = None
+    risk_message = ""
+    try:
+        risk_resp = requests.get(f"{GO_API}/api/elevators/{elev_id}/risk", timeout=3)
+        if risk_resp.status_code == 200:
+            risk_data = risk_resp.json()
+        elif risk_resp.status_code == 503:
+            risk_message = "Risk pipeline not yet deployed."
+        elif risk_resp.status_code == 404:
+            risk_message = "No prediction available for this elevator."
+    except requests.exceptions.RequestException:
+        risk_message = "Risk data unavailable."
+
     # incident_count and alteration_count are not exposed by the Go API;
     # keep CSV-based lookups for these supplementary counts only.
     rows = df_merged[df_merged["ElevatingDevicesNumber"] == elev_id]
@@ -266,6 +362,8 @@ def elevator_detail(elev_id):
         inspections=inspections,
         incident_count=inc_count,
         alteration_count=alt_count,
+        risk_data=risk_data,
+        risk_message=risk_message,
         is_overdue=is_overdue,
     )
 

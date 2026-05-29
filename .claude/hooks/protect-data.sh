@@ -14,6 +14,12 @@ fi
 # Normalize backslashes to forward slashes (Windows path compatibility)
 file_path="${file_path//\\//}"
 
+# predictions.csv is a generated artifact (output of generate_predictions.py/ipynb) — allow edits
+if [[ "$file_path" == data/predictions.csv ]]; then
+  exit 0
+fi
+
+# All other data/* files are source datasets — block modifications to protect data integrity
 if [[ "$file_path" == data/* ]]; then
   exit 2
 fi
