@@ -10,7 +10,7 @@ agent: api-validator
 
 # /validate-api — API Contract Validator
 
-Validate a live API endpoint at `http://localhost:8081` against `docs/api_spec.md`.
+Validate a live API endpoint at `http://localhost:8080` against `docs/api_spec.md`.
 
 ## Usage
 

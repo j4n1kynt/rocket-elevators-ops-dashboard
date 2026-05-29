@@ -19,7 +19,7 @@ Must be run from the **project root** — CSV paths are relative:
 go run ./platform/api
 ```
 
-Server listens on port `8081` by default. Override with:
+Server listens on port `8080` by default. Override with:
 
 ```bash
 PORT=9000 go run ./platform/api

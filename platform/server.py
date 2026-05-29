@@ -55,7 +55,7 @@ df_incidents = _df_inc
 TODAY        = date.today()
 ONE_YEAR_AGO = TODAY - timedelta(days=365)
 
-GO_API = "http://localhost:8081"
+GO_API = "http://localhost:8080"
 
 # Maps the URL `sort=` param to the CSV column name
 SORT_FIELDS = {

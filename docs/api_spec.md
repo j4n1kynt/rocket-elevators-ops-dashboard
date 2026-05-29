@@ -347,6 +347,58 @@ Returns the ML-generated risk assessment for a single elevator. Risk score and l
 
 ---
 
+### `GET /api/fleet/stats`
+
+**Description:**  
+Returns aggregate fleet statistics including total elevator count, distribution across risk levels, inspection pass rate, and count by equipment type.
+
+**Data source:** `elevator_fleet.csv` (primary) and `inspection.csv` (for pass rate computation)
+
+**Query parameters:** None
+
+**Response — 200 OK:**
+```json
+{
+  "total_elevators": 43002,
+  "risk_distribution": {
+    "low": 4865,
+    "medium": 6828,
+    "high": 27659,
+    "unknown": 3650
+  },
+  "inspection_pass_rate": 0.6983,
+  "equipment_type_distribution": {
+    "Passenger Elevator": 39594,
+    "Freight Elevator": 1899,
+    "LULA Elevator": 1165,
+    "Observation Elevator": 296,
+    "Freight Elevator-P": 13,
+    "Freight Elevator-E": 8,
+    "Temporary Elevator": 4,
+    "Special Installation": 1,
+    "Sidewalk Elevator": 3,
+    "Material Lift - ATD": 1
+  }
+}
+```
+
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `total_elevators` | integer | Total count of all elevators in the fleet |
+| `risk_distribution` | object | Count of elevators per risk level category |
+| `risk_distribution.low` | integer | Count of elevators with `risk_level = LOW` |
+| `risk_distribution.medium` | integer | Count of elevators with `risk_level = MEDIUM` |
+| `risk_distribution.high` | integer | Count of elevators with `risk_level = HIGH` |
+| `risk_distribution.unknown` | integer | Count of elevators with no prediction in `predictions.csv`. Guaranteed: `low + medium + high + unknown == total_elevators`. |
+| `inspection_pass_rate` | float [0.0–1.0] | Proportion of elevators with at least one inspection with outcome `Passed` or `All Orders Resolved`. Elevators with no inspection record are counted as non-passing. |
+| `equipment_type_distribution` | object | Count of elevators per `elevator_type` value. Keys are the raw type strings from `elevator_fleet.csv`. A `"null"` key appears only if the dataset contains elevators with no type value; absent from the response when all elevators have a type. |
+
+**Error responses:** None — this endpoint has no parameters and cannot fail.
+
+---
+
 ## 6. Verification Criteria
 
 ### `GET /api/elevators`

@@ -27,10 +27,11 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8081"
+		port = "8080"
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/fleet/stats", GetFleetStats)
 	mux.HandleFunc("GET /api/elevators", GetElevators)
 	mux.HandleFunc("GET /api/elevators/{id}", GetElevatorByID)
 	mux.HandleFunc("GET /api/elevators/{id}/inspections", GetElevatorInspections)

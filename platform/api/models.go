@@ -49,3 +49,17 @@ type ErrorResponse struct {
 	ElevatorID string `json:"elevator_id,omitempty"`
 	Endpoint   string `json:"endpoint,omitempty"`
 }
+
+type RiskDistribution struct {
+	Low     int `json:"low"`
+	Medium  int `json:"medium"`
+	High    int `json:"high"`
+	Unknown int `json:"unknown"`
+}
+
+type FleetStatsResponse struct {
+	TotalElevators               int                `json:"total_elevators"`
+	RiskDistribution             RiskDistribution   `json:"risk_distribution"`
+	InspectionPassRate           float64            `json:"inspection_pass_rate"`
+	EquipmentTypeDistribution    map[string]int     `json:"equipment_type_distribution"`
+}

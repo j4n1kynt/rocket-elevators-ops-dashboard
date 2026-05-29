@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -242,4 +243,67 @@ func GetElevatorRisk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, 200, *risk)
+}
+
+func GetFleetStats(w http.ResponseWriter, r *http.Request) {
+	// Count total elevators
+	totalElevators := len(elevators)
+
+	// Count elevators per risk level
+	riskCounts := map[string]int{"low": 0, "medium": 0, "high": 0, "unknown": 0}
+	for _, e := range elevators {
+		if e.RiskLevel == nil {
+			riskCounts["unknown"]++
+		} else {
+			level := strings.ToLower(*e.RiskLevel)
+			if _, ok := riskCounts[level]; ok {
+				riskCounts[level]++
+			} else {
+				riskCounts["unknown"]++
+			}
+		}
+	}
+
+	if sum := riskCounts["low"] + riskCounts["medium"] + riskCounts["high"] + riskCounts["unknown"]; sum != totalElevators {
+		log.Printf("WARNING: risk_distribution sum %d != total_elevators %d", sum, totalElevators)
+	}
+
+	// Count elevators with at least one passing inspection
+	passingElevators := make(map[string]bool)
+	for devNum, inspections := range inspectionIdx {
+		elevID := strconv.Itoa(devNum)
+		for _, insp := range inspections {
+			outcome := strings.ToLower(insp.Outcome)
+			if outcome == "passed" || outcome == "all orders resolved" {
+				passingElevators[elevID] = true
+				break
+			}
+		}
+	}
+	passRate := 0.0
+	if totalElevators > 0 {
+		passRate = float64(len(passingElevators)) / float64(totalElevators)
+	}
+
+	// Count elevators per equipment type
+	typeCounts := make(map[string]int)
+	for _, e := range elevators {
+		if e.ElevatorType == nil {
+			typeCounts["null"]++
+		} else {
+			typeCounts[*e.ElevatorType]++
+		}
+	}
+
+	writeJSON(w, 200, FleetStatsResponse{
+		TotalElevators: totalElevators,
+		RiskDistribution: RiskDistribution{
+			Low:     riskCounts["low"],
+			Medium:  riskCounts["medium"],
+			High:    riskCounts["high"],
+			Unknown: riskCounts["unknown"],
+		},
+		InspectionPassRate:        passRate,
+		EquipmentTypeDistribution: typeCounts,
+	})
 }
