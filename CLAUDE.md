@@ -22,6 +22,7 @@ py -3 platform/prepare_data.py              # regenerate elevator_fleet.csv from
 py -3 intelligence/generate_predictions.py  # regenerate data/predictions.csv — CLI mirror of generate_predictions.ipynb
 py -3 platform/server.py                    # serve dashboard at http://localhost:5000
 go run ./platform/api                       # serve Go API at http://localhost:8080 (must run from project root — CSV paths are relative)
+                                            # Port is 8080, not 8081 — 8081 is blocked by the company firewall. Do not change this port.
 ```
 
 ## Conventions

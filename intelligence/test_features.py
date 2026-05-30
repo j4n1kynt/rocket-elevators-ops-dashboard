@@ -195,7 +195,7 @@ def test_leakage_order_features():
         )
 
 
-## §6.5 — Schema contract (exactly 16 columns, no extras)
+## §6.5 — Schema contract (exactly 28 columns, no extras)
 def test_schema_contract():
     EXPECTED_COLUMNS = {
         "ElevatingDevicesNumber",
@@ -214,7 +214,15 @@ def test_schema_contract():
         "prior_overdue_order_count",
         "prior_unresolved_order_count",
         "distinct_directive_count",
-        "device_type_encoded",
+        "device_type_Freight_Elevator_E",
+        "device_type_Freight_Elevator_P",
+        "device_type_LULA_Elevator",
+        "device_type_Material_Lift_ATD",
+        "device_type_Observation_Elevator",
+        "device_type_Passenger_Elevator",
+        "device_type_Sidewalk_Elevator",
+        "device_type_Special_Installation",
+        "device_type_Temporary_Elevator",
         "insp_type_Followup",
         "insp_type_Other",
         "insp_type_Periodic",

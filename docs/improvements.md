@@ -1,3 +1,43 @@
+## AND-103 Task 2: Add Location and Alteration Count as Static Features
+
+**What was added:**  
+Two static elevator-level features — `Location` and `AlterationCount` — merged into the feature matrix on the join key (`ElevatingDevicesNumber`).
+
+`Location` encodes where the elevator operates (e.g., building zone or borough). `AlterationCount` captures the number of mechanical modifications the unit has undergone. Both are constant per elevator and appear in every row for that elevator.
+
+**Where:**  
+`prepare_data.py` — feature matrix construction stage, after loading `elevator_fleet.csv`
+
+**Why:**  
+The original pipeline included only `EquipmentType` as a static feature, leaving two predictive signals unused.
+
+`Location` correlates with failure risk because operating environment (commercial vs. residential, high-traffic vs. low-traffic) affects wear patterns and inspection outcomes. Without it, two elevators with identical inspection histories but different operating environments look identical to the model.
+
+`AlterationCount` is a proxy for mechanical complexity and intervention frequency. An elevator modified five times differs fundamentally in risk profile from an unmodified unit. Omitting it forces the model to explain that risk through inspection history alone, which is incomplete.
+
+Adding both reduces unexplained residual variance, improves precision on high-risk predictions, and surfaces actionable findings via feature importance (e.g., "location type X elevators skew high-risk" can directly inform inspection scheduling).
+
+---
+
+## AND-103 Task 2: Dummy Encode DeviceType Consistently with InspectionType
+
+**What was added:**  
+`DeviceType` re-encoded using one-hot (dummy) encoding via `pd.get_dummies(..., drop_first=True)`, replacing the integer label encoding that was previously applied.
+
+**Where:**  
+`prepare_data.py` — encoding stage, alongside the existing `InspectionType` one-hot encoding
+
+**Why:**  
+The original pipeline applied inconsistent encoding strategies to two nominal categoricals in the same feature group: `InspectionType` was one-hot encoded, but `DeviceType` was label encoded (integer).
+
+Label encoding assigns ordered integers to unordered categories (e.g., Escalator=0, Elevator=1, Dumbwaiter=2). This introduces a false ordinal relationship — the model may interpret Dumbwaiter as numerically "greater than" Elevator, which is semantically incorrect. While RandomForest handles this somewhat tolerantly (splits on thresholds, doesn't assume linearity), the implicit numeric relationship still affects interaction terms between features and makes the pipeline incorrect for any downstream model that processes features numerically.
+
+The inconsistency also makes the pipeline harder to audit and harder to port: a future contributor reading the code expects nominal categoricals to be dummy-encoded consistently; a label-encoded exception with no comment creates technical debt.
+
+Switching to one-hot encoding eliminates the ordinal artifact, makes feature importance readable per device type (e.g., `DeviceType_Dumbwaiter` importance = 0.07 rather than an opaque integer coefficient), and aligns the pipeline with standard practice for nominal features.
+
+---
+
 ## AND-104 Task 3: CSV Header Validation
 
 **Status:** ⚠️ Partially Implemented
