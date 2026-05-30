@@ -119,3 +119,33 @@ This also closes the gap documented in the "CSV Header Validation" entry above: 
 - Severity levels tied to impact: HIGH = data loss or corruption at API level, MEDIUM = degraded responses, LOW = data quality risk
 - `/validate-csv all` includes cross-dataset referential integrity because orphaned inspection records (inspections for elevators not in fleet) are invisible in the API and dashboard but can skew analytics
 - Uses `haiku` model and `maxTurns: 10` — validation is a bounded, mechanical task that doesn't require reasoning depth
+
+---
+
+## AND-104 Post-Audit: Fleet Endpoint Field Mappings Added to API Spec Appendix
+
+**Title:** Added fleet endpoint fields to API spec appendix
+
+**What was changed:**
+Added `FleetStatsResponse` and `AlertEntry` field entries to the Appendix: Field Name Mapping table in `docs/api_spec.md`.
+
+**Where:**
+`docs/api_spec.md`, Appendix: Field Name Mapping section
+
+**Why it adds value:**
+The appendix previously only covered elevator, inspection, and risk fields. Future developers or API consumers using the appendix as a field lookup would find no entries for the two fleet endpoints, requiring them to read the full endpoint section to understand the data origin. The additions make the appendix a complete single reference for all response field sources across all 6 endpoints.
+
+---
+
+## AND-104 Post-Audit: Corrected gofmt Hook Documentation
+
+**Title:** Aligned gofmt hook audit description with actual behavior
+
+**What was changed:**
+Updated `docs/claude_md_audit.md` to remove the incorrect `if: "Edit(*.go)"` filter claim; clarified that the hook runs on all edits and that `gofmt.sh` handles non-Go files gracefully. Also corrected the hook count (5, not 3) and added the Stop hook section that was previously incorrectly described as unimplementable.
+
+**Where:**
+`docs/claude_md_audit.md`, PostToolUse section and Summary section
+
+**Why it adds value:**
+The documentation was describing behavior that doesn't exist (a file-type filter) and incorrectly stating that the Stop event is not a real Claude Code hook type. Accurate hook documentation prevents confusion for anyone inspecting settings.json and comparing it to the audit. Reliable audit documentation is required for the system to serve as a maintainable reference for future contributors.

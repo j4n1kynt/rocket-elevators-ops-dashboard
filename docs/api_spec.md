@@ -508,6 +508,21 @@ Returns elevators that are both high-risk (`risk_level = HIGH`) and have a faile
 - Returns 404 for unknown elevator ID
 - Returns 400 for non-numeric ID
 
+### `GET /api/fleet/stats`
+- Returns 200 with `total_elevators`, `risk_distribution`, `inspection_pass_rate`, and `equipment_type_distribution` fields present
+- `risk_distribution.low + risk_distribution.medium + risk_distribution.high + risk_distribution.unknown == total_elevators` invariant holds
+- `inspection_pass_rate` is a float in the range `[0.0, 1.0]`
+- `equipment_type_distribution` is a non-empty object with string keys (elevator type names) and integer values
+- Endpoint accepts no query parameters; always returns 200 — never returns 4xx
+
+### `GET /api/fleet/alerts`
+- Returns 200 with `total` (integer) and `alerts` (array) fields present
+- Every entry in `alerts` has `risk_level = "HIGH"`
+- `alerts` is sorted by `risk_score` descending (highest risk first)
+- Entries with no inspection record on file have `latest_inspection_date: null` and `latest_inspection_outcome: null`
+- `total` equals the length of the `alerts` array
+- Endpoint accepts no query parameters; always returns 200 — never returns 4xx
+
 ---
 
 ## Appendix: Field Name Mapping
@@ -532,3 +547,17 @@ Returns elevators that are both high-risk (`risk_level = HIGH`) and have a faile
 | `confidence` | computed: `max(risk_score, 1 - risk_score)` | — |
 | `model_version` | `model_version` (col 3) | `predictions.csv` |
 | `generated_at` | `prediction_date` (col 4) | `predictions.csv` |
+| `total_elevators` | computed: `len(elevators)` | `elevators` slice (in-memory) |
+| `risk_distribution.low` | computed: count where `risk_level = LOW` | `elevators` slice + `riskIdx` |
+| `risk_distribution.medium` | computed: count where `risk_level = MEDIUM` | `elevators` slice + `riskIdx` |
+| `risk_distribution.high` | computed: count where `risk_level = HIGH` | `elevators` slice + `riskIdx` |
+| `risk_distribution.unknown` | computed: count where no prediction in `riskIdx` | `elevators` slice + `riskIdx` |
+| `inspection_pass_rate` | computed: elevators with ≥1 passing inspection / total | `inspectionIdx` (in-memory) |
+| `equipment_type_distribution` | computed: count per `elevator_type` value | `elevators` slice (in-memory) |
+| `alerts[].elevator_id` | `elevator_id` (key) | `riskIdx` |
+| `alerts[].location` | `Location` | `elevatorIdx` → `elevator_fleet.csv` |
+| `alerts[].risk_level` | `risk_level` (col 2) | `riskIdx` → `predictions.csv` |
+| `alerts[].risk_score` | `risk_score` (col 1) | `riskIdx` → `predictions.csv` |
+| `alerts[].confidence` | computed: `max(risk_score, 1 - risk_score)` | — |
+| `alerts[].latest_inspection_date` | most recent `Latest_INSPECTION_Date` | `inspectionIdx` → `inspection.csv` |
+| `alerts[].latest_inspection_outcome` | most recent `InspectionOutcome` | `inspectionIdx` → `inspection.csv` |

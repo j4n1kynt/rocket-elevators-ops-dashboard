@@ -48,39 +48,39 @@ This document classifies rules from CLAUDE.md into three categories:
 
 ---
 
-### 2. Query Parameter Validation (PreToolUse → Prompt Hook)
+### 2. Query Parameter Validation (PreToolUse → Async Echo Command)
 
 **Problem:** Task 3 revealed runtime issues when API handlers accepted invalid query parameters (e.g., negative `limit` values). These bugs should be caught at code-review time, not runtime.
 
-**Solution:** PreToolUse prompt hook asks for confirmation when editing API handlers, specifically about parameter validation.
+**Solution:** PreToolUse command hook prints a non-blocking reminder when editing API handlers, prompting conscious consideration of parameter bounds.
 
-**Why Hook:** Prompts Claude to consciously consider whether parameter bounds are enforced; prevents silent regressions.
+**Why Hook:** Reminds Claude to verify parameter bounds are enforced before the edit completes; prevents silent regressions without blocking the workflow.
 
 **Implementation:** 
-- Hook type: `prompt` (asks yes/no verification question)
+- Hook type: `command` (async echo — non-blocking reminder)
 - Matcher: `Edit` tool on `platform/api/handlers.go`
-- Prompts: "Does this change validate query parameters with lower bounds?"
-- Timeout: 30 seconds
+- Prints: "Reminder: Validate query parameters (limit >= 1) when editing handlers.go"
+- `async: true` — does not block the edit
 
-**Test:** Edit handlers.go and observe the prompt asking about parameter validation before file is modified.
+**Test:** Edit handlers.go and observe the reminder message printed before/during the edit.
 
 ---
 
-### 3. Content-Type Enforcement (PreToolUse → Prompt Hook)
+### 3. Content-Type Enforcement (PreToolUse → Async Echo Command)
 
 **Problem:** API responses must include `Content-Type: application/json` header. Developers might bypass the `writeJSON()` helper and set headers manually.
 
-**Solution:** PreToolUse prompt hook reminds developers to use the `writeJSON()` helper instead of raw JSON encoding.
+**Solution:** PreToolUse command hook prints a non-blocking reminder to use the `writeJSON()` helper instead of raw JSON encoding.
 
 **Why Hook:** Ensures consistency through conscious choice rather than relying on code review to catch every instance.
 
 **Implementation:** 
-- Hook type: `prompt` (asks for confirmation)
+- Hook type: `command` (async echo — non-blocking reminder)
 - Matcher: `Edit` tool on `platform/api/handlers.go`
-- Prompts: "Did you use writeJSON() helper instead of json.NewEncoder(w).Encode?"
-- Timeout: 30 seconds
+- Prints: "Reminder: Use writeJSON() helper — do not call json.NewEncoder(w).Encode directly"
+- `async: true` — does not block the edit
 
-**Test:** Edit handlers.go and observe the prompt asking about JSON encoding approach before file is modified.
+**Test:** Edit handlers.go and observe the reminder message printed before/during the edit.
 
 ---
 
@@ -88,14 +88,13 @@ This document classifies rules from CLAUDE.md into three categories:
 
 **Problem:** Inconsistent code formatting during Go development creates noise in diffs and review burden.
 
-**Solution:** PostToolUse command hook automatically runs `gofmt -w` on modified `.go` files after Edit tool completes.
+**Solution:** PostToolUse command hook automatically runs `gofmt -w` on the edited file path after every Edit tool completes. `gofmt` exits cleanly on non-Go files, so the hook is safe to run without a file-type filter.
 
 **Why Hook:** Formatting is deterministic and should be automated. Keeps commits clean and eliminates formatting from code review.
 
 **Implementation:** 
-- Hook type: `command` (runs `gofmt -w ${file_path}`)
-- Matcher: `Edit` tool
-- Filter: `if: "Edit(*.go)"` — only runs on Go files
+- Hook type: `command` (runs `.claude/hooks/gofmt.sh`)
+- Matcher: `Edit` tool (all file edits — no `if` filter; `gofmt` handles non-Go files gracefully)
 - Status message: "Formatting Go code..."
 - Timeout: 10 seconds
 
@@ -103,18 +102,39 @@ This document classifies rules from CLAUDE.md into three categories:
 
 ---
 
+---
+
+### 5. Task Completion Notification (Stop → Async Command Hook)
+
+**Problem:** No visibility into when Claude Code finishes a task in the background, especially during long multi-file operations.
+
+**Solution:** Stop hook sends a Windows system notification message when Claude Code's session ends.
+
+**Why Hook:** Provides ambient awareness without interrupting the workflow; useful during long tasks.
+
+**Implementation:**
+- Hook type: `command` (runs `msg * "Claude Code: Task completed"`)
+- Matcher: Stop event (fires when Claude Code session ends)
+- `async: true` — fires after session close, does not delay it
+
+**Test:** Complete a Claude Code task and observe the Windows system message popup.
+
+---
+
 ## Summary
 
-**Hook Coverage:** 3 implemented hooks (4th — Task Completion Awareness — cannot be implemented as "Stop" is not a real Claude Code event type)
+**Hook Coverage:** 5 implemented hooks
 
 **Distribution by Type:**
-- **PreToolUse (3 hooks):** File protection (command), query parameter validation (prompt), content-type enforcement (prompt)
+- **PreToolUse (3 hooks):** File protection (command, blocking), query parameter validation (async echo command), content-type enforcement (async echo command)
 - **PostToolUse (1 hook):** Go formatting (command)
+- **Stop (1 hook):** Task completion notification (async command)
 
 **Key Implementation Decisions:**
 1. File protection uses a **command hook** that exits with code 2 to block; data/ files cannot be edited
-2. Validation hooks use **prompt hooks** for conscious decision-making rather than silent pattern matching
-3. Go formatting uses a **command hook** that runs `gofmt -w` automatically post-edit
-4. All hooks use proper Claude Code format: `matcher` → `hooks` array with `type`, `command`/`prompt`/etc.
+2. Validation hooks use **async echo commands** as non-blocking reminders — they print guidance without interrupting the edit
+3. Go formatting uses a **command hook** that runs `gofmt` automatically post-edit on all files; `gofmt` handles non-Go files gracefully so no file-type filter is needed
+4. Task notification uses the **Stop hook** to fire a Windows system message on session end
+5. All hooks use proper Claude Code format: `matcher` → `hooks` array with `type`, `command`, etc.
 
 **Hook Framework Compatibility:** All hooks follow Claude Code's actual hook specification from https://code.claude.com/docs/en/hooks
