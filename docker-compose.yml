@@ -1,3 +1,4 @@
+# AND-105 Task 1: Docker and PostgreSQL Setup
 services:
   db:
     image: postgres:16
