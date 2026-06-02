@@ -543,3 +543,142 @@ The elevator detail panel gains a **Risk Assessment** section, displayed after t
 **Data source:** `GET /api/elevators/{id}/risk` (called on each panel load)
 
 ---
+
+## AND-105 Task 2: Relational Data Model
+
+### Overview
+
+Five tables form the relational schema. `elevators` is the central entity; all other tables reference it via `elevator_id`. The join key across all source datasets is `ElevatingDevicesNumber` (license.csv) / `elevating devices number` (incident.json) / `Elevating Devices Number` (altered.json), normalized to `elevator_id INTEGER` in all tables.
+
+---
+
+### Tables
+
+#### elevators
+**Source:** `data/license.csv`  
+**Primary key:** `elevator_id` — the `ElevatingDevicesNumber` field is the stable government-assigned identifier used as the join key across every dataset; chosen as natural PK over a surrogate to preserve traceability.  
+**Purpose:** Central entity. Represents one licensed elevating device. All operational data (inspections, incidents, alterations, predictions) is anchored here.
+
+| Column | Type | Constraints | Source field | Transformation |
+|--------|------|-------------|--------------|----------------|
+| elevator_id | INTEGER | PK NOT NULL | ElevatingDevicesNumber | Cast to INTEGER |
+| location | TEXT | NOT NULL | LocationoftheElevatingDevice | None |
+| license_number | TEXT | NOT NULL | ElevatingDevicesLicenseNumber | None |
+| status | TEXT | NOT NULL CHECK IN ('ACTIVE','BY REQUEST') | LICENSESTATUS | Uppercase normalized |
+| license_expiry_date | DATE | — | LICENSEEXPIRYDATE | Parse "28-Apr-17" → DATE |
+| license_holder | TEXT | — | LICENSEHOLDER | None |
+| license_holder_address | TEXT | — | LICENSEHOLDERADDRESS | None |
+| billing_customer | TEXT | — | BILLINGCUSTOMER | None |
+| billing_address | TEXT | — | BILLINGADDRESS | None |
+| elevator_type | TEXT | — | Elevator Type (elevator_fleet.csv) | None |
+
+**Indexes:** `status`, `license_expiry_date`
+
+---
+
+#### inspections
+**Source:** `data/inspection.csv`  
+**Primary key:** `inspection_id` — the `InspectionNumber` field is the unique inspection record identifier assigned by the regulator; stable natural PK.  
+**Purpose:** Separate entity because one elevator accumulates many inspection records over its lifetime (1:N). Keeping inspections separate allows querying inspection history, frequency, and outcome trends per elevator without denormalizing the elevators table.  
+**Cardinality:** Many inspections → one elevator. `elevator_id` is NOT NULL; an inspection record without an elevator reference is meaningless.  
+**Orphan behavior:** FK constraint prevents inserting an inspection for an elevator_id that does not exist in `elevators`.
+
+| Column | Type | Constraints | Source field | Transformation |
+|--------|------|-------------|--------------|----------------|
+| inspection_id | INTEGER | PK NOT NULL | InspectionNumber | Cast to INTEGER |
+| elevator_id | INTEGER | NOT NULL FK → elevators | ElevatingDevicesNumber | Cast to INTEGER |
+| service_request_number | INTEGER | — | originatingservicerequestnumber | Cast to INTEGER |
+| customer | TEXT | — | InspectionCustomer | None |
+| location | TEXT | — | InspectionLocation | None |
+| inspection_type | TEXT | — | InspectionType | None |
+| earliest_inspection_date | DATE | — | Earliest_INSPECTION_Date | Parse "1/10/2011" → DATE |
+| latest_inspection_date | DATE | — | Latest_INSPECTION_Date | Parse "1/10/2011" → DATE |
+| outcome | TEXT | — | InspectionOutcome | None |
+
+**Indexes:** `elevator_id`, `latest_inspection_date`, `outcome`
+
+---
+
+#### incidents
+**Source:** `data/incident.json`  
+**Primary key:** `incident_id` — the `Incident Number` field is the unique government-assigned incident identifier; stable natural PK.  
+**Purpose:** Separate entity because one elevator can be involved in many reported incidents (1:N). Incident records capture safety events independently of routine inspections.  
+**Cardinality:** Many incidents → one elevator. `elevator_id` is NOT NULL.  
+**Orphan behavior:** FK constraint prevents inserting an incident for an elevator_id that does not exist in `elevators`.  
+**Design decision:** The source contains ~30 sparse boolean injury-type columns (Burns Severe, Fracture Major Bone, etc.). These are collapsed into a single `injury_severity TEXT` column with values `fatal / permanent / minor / none`, derived from the four summary columns (`fatal injury`, `permanent (serious) injury`, `non-permanent (minor) injury`, `No Injury`). This avoids 30 nullable boolean columns that are almost always NULL.
+
+| Column | Type | Constraints | Source field | Transformation |
+|--------|------|-------------|--------------|----------------|
+| incident_id | INTEGER | PK NOT NULL | Incident Number | Cast to INTEGER |
+| elevator_id | INTEGER | NOT NULL FK → elevators | elevating devices number | Cast to INTEGER |
+| creation_date | DATE | — | Creation Date | Parse "14-Jan-11" → DATE |
+| date_of_occurrence | DATE | — | Date Of Occurrence | Parse "06-Jan-11" → DATE |
+| time_of_occurrence | TIME | — | Time of Occurrence | Parse "2:00:00 PM" → TIME |
+| category | TEXT | — | catagory of incident | None (typo preserved from source) |
+| incident_summary | TEXT | — | Incident Summary | None |
+| root_cause | TEXT | — | Specific Root Cause | None |
+| narrative | TEXT | — | Reported occurrence narrative | None |
+| fatal_injury | BOOLEAN | NOT NULL DEFAULT FALSE | Fatal Injury Victim | NULL → FALSE |
+| injury_severity | TEXT | CHECK IN ('fatal','permanent','minor','none') | fatal/permanent/minor/No Injury columns | Derive from four summary columns |
+| task_number | INTEGER | — | Task Number | Cast to INTEGER |
+
+**Indexes:** `elevator_id`, `date_of_occurrence`, `category`
+
+---
+
+#### alterations
+**Source:** `data/altered.json`  
+**Primary key:** `alteration_id SERIAL` — no stable natural PK exists in the source; `originating service request number` is a reference number but not guaranteed unique across alteration records. Surrogate key used.  
+**Purpose:** Separate entity because one elevator can have many alteration requests (1:N). Alterations track physical modifications to devices, distinct from inspections and incidents.  
+**Cardinality:** Many alterations → one elevator. `elevator_id` is NOT NULL.  
+**Orphan behavior:** FK constraint prevents inserting an alteration for an elevator_id that does not exist in `elevators`. `inspection_number` is nullable — not all alterations result in a linked inspection record.
+
+| Column | Type | Constraints | Source field | Transformation |
+|--------|------|-------------|--------------|----------------|
+| alteration_id | SERIAL | PK NOT NULL | — | Surrogate; auto-generated |
+| service_request_number | INTEGER | — | originating service request number | Cast to INTEGER |
+| elevator_id | INTEGER | NOT NULL FK → elevators | Elevating Devices Number | Cast to INTEGER |
+| customer | TEXT | — | Alteration Customer | None |
+| summary | TEXT | — | Summary | None |
+| location | TEXT | — | Alteration  Location | Strip extra whitespace |
+| alteration_type | TEXT | — | Alteration Type | None |
+| status | TEXT | — | Status of Alteration Request | None |
+| contractor_name | TEXT | — | Alteration contractor name | None |
+| billing_customer | TEXT | — | Billing Customer | None |
+| inspection_number | INTEGER | FK → inspections (nullable) | Inspection number | Cast to INTEGER; NULL if absent |
+
+**Indexes:** `elevator_id`, `status`, `service_request_number`
+
+---
+
+#### predictions
+**Source:** `data/predictions.csv`  
+**Primary key:** `elevator_id` — one prediction record per elevator (1:1 with elevators). elevator_id is both PK and FK, enforcing the one-to-one relationship and preventing duplicate prediction rows for the same elevator.  
+**Purpose:** Separate entity to isolate ML model output from operational data. Predictions are regenerated independently of the source datasets and may not exist for all elevators.  
+**Cardinality:** One prediction → one elevator (optional; not all elevators have a prediction).  
+**Orphan behavior:** FK constraint prevents inserting a prediction for an elevator_id that does not exist in `elevators`. A missing row means no prediction exists for that elevator (the API returns 503 or 404 accordingly).
+
+| Column | Type | Constraints | Source field | Transformation |
+|--------|------|-------------|--------------|----------------|
+| elevator_id | INTEGER | PK NOT NULL FK → elevators | elevator_id | Cast to INTEGER |
+| risk_score | NUMERIC(5,4) | NOT NULL | risk_score | Cast to NUMERIC |
+| risk_level | TEXT | NOT NULL CHECK IN ('LOW','MEDIUM','HIGH') | risk_level | Uppercase |
+| risk_explanation | TEXT | — | — | Populated by ML pipeline at generation time |
+| model_version | TEXT | NOT NULL | model_version | None |
+| prediction_date | DATE | NOT NULL | prediction_date | Parse ISO date → DATE |
+
+**Indexes:** `risk_level`, `prediction_date`
+
+---
+
+### Relationships Summary
+
+| Relationship | Cardinality | Join columns | Orphan behavior |
+|---|---|---|---|
+| elevators → inspections | 1:N | elevators.elevator_id = inspections.elevator_id | FK prevents orphaned inspections |
+| elevators → incidents | 1:N | elevators.elevator_id = incidents.elevator_id | FK prevents orphaned incidents |
+| elevators → alterations | 1:N | elevators.elevator_id = alterations.elevator_id | FK prevents orphaned alterations |
+| elevators → predictions | 1:1 (optional) | elevators.elevator_id = predictions.elevator_id | Absence of row = no prediction; no cascading delete defined |
+| alterations → inspections | N:1 (optional) | alterations.inspection_number = inspections.inspection_id | Nullable FK; alteration may exist without a linked inspection |
+
+---
