@@ -1826,6 +1826,19 @@ Validating all endpoints before writing any frontend code is strictly better tha
 **What I would change next time:**
 - Add a `healthcheck` to the `db` service and use `condition: service_healthy` in `api`'s `depends_on` block. The current setup starts `api` as soon as the `db` container starts, not when Postgres is actually ready to accept connections. For a future task where the API opens a real DB connection at startup, this race condition will cause crashes.
 
+**AI-generated vs manually written:**
+- `docker-compose.yml` — fully AI-generated. Service names, image versions, port mappings, volume name, env var names and values, and the `depends_on` wiring were all produced by Claude from the task requirements. The only post-generation edit was removing the deprecated `version: "3.9"` key after Docker Compose v5 flagged it.
+- `platform/api/Dockerfile` — fully AI-generated. Both stages (builder and runtime), the `CGO_ENABLED=0 GOOS=linux` build flags, the `ca-certificates` install, and the CSV file copy paths were all AI-produced. The task header comment was added manually after the audit.
+- Connectivity verification commands (`nc -zv db 5432`, `psql` session) — AI-generated and run interactively. No manual shell work was required.
+- Nothing in this task was written by hand from scratch; all directives were AI-generated and then reviewed, run, and verified.
+
+**Docker/Compose directives learned:**
+- `depends_on` with a service name starts the dependent container after the dependency container starts — not after it is healthy. A `healthcheck` + `condition: service_healthy` is needed for true readiness gating.
+- Build `context: .` sets the root from which `COPY` paths in the Dockerfile are resolved. When a Dockerfile lives in a subdirectory but needs files from the project root, the context must be the root — not the Dockerfile's directory.
+- Docker Compose uses service names as internal DNS hostnames. Any inter-container address must use the service name (e.g., `db`), not `localhost` or an IP.
+- Named volumes (`pgdata`) survive `docker compose down` but are removed by `docker compose down -v`. Using a named volume (rather than a bind mount) is the correct pattern for database persistence in Compose.
+- `CGO_ENABLED=0 GOOS=linux` produces a fully static binary that runs on any Linux image, including minimal Alpine, with no libc dependency.
+
 **Lesson learned:**
 Docker networking uses service names as hostnames — `DB_HOST: db` is correct, `localhost` would silently fail. Verifying connectivity at the TCP level (`nc`) before attempting an authenticated connection isolates network issues from credential issues, making failures easier to diagnose.
 
