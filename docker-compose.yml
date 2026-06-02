@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: rocket_elevators
+      POSTGRES_USER: api_user
+      POSTGRES_PASSWORD: api_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: platform/api/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: api_user
+      DB_PASSWORD: api_password
+      DB_NAME: rocket_elevators
+
+volumes:
+  pgdata:
