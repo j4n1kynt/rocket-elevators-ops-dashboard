@@ -1797,3 +1797,36 @@ The overdue/expiring summary cards still rely on `df_fleet` CSV because the Go A
 Validating all endpoints before writing any frontend code is strictly better than validating after integration. Spec gaps caught pre-integration require only a spec edit and re-validation. The same gap caught post-integration also requires tracing through frontend error handling to verify no broken assumptions.
 
 ---
+
+## AND-105 Task 1: Docker and PostgreSQL Setup
+
+**Date:** 2026-06-02
+
+**Prompt used:**
+"Generate the required Docker configuration for Task 1: Docker and PostgreSQL Setup. Create docker-compose.yml at project root defining `db` (postgres:16) and `api` (built from platform/api/Dockerfile) services, and a multi-stage Go Dockerfile. API must remain CSV-driven; DB integration is not yet implemented."
+
+**What was done:**
+- Created `docker-compose.yml` at project root with two services: `db` (postgres:16, named volume `pgdata`, port 5432) and `api` (built from `platform/api/Dockerfile`, port 8080, `depends_on: db`, all DB env vars passed via `DB_HOST=db`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
+- Created `platform/api/Dockerfile` as a multi-stage build: stage 1 uses `golang:1.22-alpine` to compile the binary with `CGO_ENABLED=0`; stage 2 uses `alpine:3.19` with only `ca-certificates`, the compiled binary, and the CSV data files copied in. No source code in the final image.
+- Removed the obsolete `version: "3.9"` top-level key after Docker Compose v2 emitted a deprecation warning.
+- Verified the stack with `docker compose up --build`: both containers started, `api` loaded 43,002 elevators and activated the `/risk` endpoint, `db` initialized the `rocket_elevators` database.
+- Confirmed end-to-end DB connectivity from the `api` container using `nc -zv db 5432` (TCP open) and an authenticated `psql` session (`SELECT version()` returned PostgreSQL 16.14).
+- Confirmed the API is functional via `curl http://localhost:8080/api/elevators?limit=1` — correct JSON with pagination fields and all elevator fields present.
+
+**What worked:**
+- Multi-stage build kept the final image minimal: no Go toolchain, no source files, only the binary and CSV data.
+- Setting build `context: .` (project root) was necessary and correct — the Dockerfile needs access to both `platform/elevator_fleet.csv` and `data/` which live outside the `platform/api/` directory.
+- `DB_HOST: db` (service name, not `localhost`) correctly leveraged Docker's internal DNS for container-to-container networking. Confirmed with `nc` from inside the `api` container.
+
+**What didn't work / issues:**
+- Docker Desktop was not running on first attempt, causing a "Docker Desktop is unable to start" daemon error. The engine started successfully after a manual launch from the system tray.
+- PowerShell's `curl` alias (`Invoke-WebRequest`) failed in non-interactive mode; switched to Bash `curl -s` for the endpoint test.
+- `version: "3.9"` triggered a deprecation warning in Docker Compose v5 — removed immediately.
+
+**What I would change next time:**
+- Add a `healthcheck` to the `db` service and use `condition: service_healthy` in `api`'s `depends_on` block. The current setup starts `api` as soon as the `db` container starts, not when Postgres is actually ready to accept connections. For a future task where the API opens a real DB connection at startup, this race condition will cause crashes.
+
+**Lesson learned:**
+Docker networking uses service names as hostnames — `DB_HOST: db` is correct, `localhost` would silently fail. Verifying connectivity at the TCP level (`nc`) before attempting an authenticated connection isolates network issues from credential issues, making failures easier to diagnose.
+
+---
