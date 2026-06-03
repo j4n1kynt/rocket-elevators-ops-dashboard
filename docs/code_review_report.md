@@ -69,6 +69,8 @@ dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
     url.QueryEscape(user), url.QueryEscape(password), host, port, dbname)
 ```
 
+**Status: ✅ Fixed** — `url.QueryEscape` applied to both user and password at `db.go:28` in commit following `55cd124`.
+
 ---
 
 ## SUGGESTIONS
@@ -160,12 +162,13 @@ Nullable `*time.Time` fields use `formatDate()` (lines 205, 293, 616); non-nulla
 
 **No critical issues.** The PostgreSQL migration is safe from SQL injection — all user values are parameterized, sort columns derive from a validated whitelist, and no user-controlled strings reach SQL structure. Three independent review methods (Explore agents, `/code-review`, fan-out) reached the same conclusion.
 
-**Fix applied:** W1 (`errors.Is`) committed in `c8e468a`. No other fixes required before merge.
+**Fixes applied:**
+- W1 (`errors.Is`) — committed in `c8e468a`
+- W3 (DSN URL encoding) — `url.QueryEscape` on user + password at `db.go:28`
 
-**New finding from fan-out (W3):** DSN password URL-encoding — not caught by Explore agents or `/code-review`, surfaces the value of independent review tooling. Low operational risk in the Docker Compose deployment (env var values are controlled), but should be fixed before any deployment where passwords may contain special characters.
+**New finding from fan-out (W3):** Not caught by Explore agents or `/code-review`; surfaces the value of independent file-focused review. Fixed before merge.
 
-**Priority order for optional improvements:**
-1. W3 — DSN URL encoding (latent auth failure with special-char passwords)
-2. W2 — InitDB per-attempt timeout (startup safety)
-3. S1 — Remove dead `nullableString()` function
-4. S3 — Case-insensitive risk_level filter in GetFleetAlerts
+**Remaining open items (non-blocking):**
+1. W2 — InitDB per-attempt timeout (startup safety; mitigated by Docker `service_healthy` gate)
+2. S1 — Remove dead `nullableString()` function
+3. S3 — Case-insensitive risk_level filter in GetFleetAlerts

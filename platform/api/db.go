@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
@@ -25,7 +26,7 @@ func InitDB() error {
 		port = "5432"
 	}
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, dbname)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", url.QueryEscape(user), url.QueryEscape(password), host, port, dbname)
 
 	var (
 		pool *pgxpool.Pool
