@@ -7,23 +7,10 @@ import (
 )
 
 func main() {
-	if err := LoadFleetCSV("platform/elevator_fleet.csv"); err != nil {
-		log.Fatalf("failed to load fleet data: %v", err)
+	if err := InitDB(); err != nil {
+		log.Fatalf("database unavailable: %v", err)
 	}
-	log.Printf("loaded %d elevators", len(elevators))
-
-	if err := LoadInspectionCSV("data/inspection.csv"); err != nil {
-		log.Fatalf("failed to load inspection data: %v", err)
-	}
-	log.Printf("loaded inspection records for %d elevators", len(inspectionIdx))
-
-	LoadPredictionsCSV("data/predictions.csv")
-	if predictionsAvailable {
-		EnrichElevatorsWithRisk()
-		log.Printf("predictions loaded: /risk endpoint active")
-	} else {
-		log.Printf("predictions.csv not found: /risk returns 503")
-	}
+	log.Printf("database connection established")
 
 	port := os.Getenv("PORT")
 	if port == "" {

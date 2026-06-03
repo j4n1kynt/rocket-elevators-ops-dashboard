@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -15,16 +17,24 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+func formatDate(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format("2006-01-02")
+	return &s
+}
+
 func GetElevators(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
 	statusFilter := q.Get("status")
-	typeFilter := q.Get("elevator_type")
-	search := q.Get("q")
-	sortBy := q.Get("sort")
-	order := q.Get("order")
+	typeFilter   := q.Get("elevator_type")
+	search       := q.Get("q")
+	sortBy       := q.Get("sort")
+	order        := strings.ToLower(q.Get("order"))
 
-	page := 1
+	page  := 1
 	limit := 50
 
 	if v := q.Get("page"); v != "" {
@@ -38,7 +48,6 @@ func GetElevators(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	order = strings.ToLower(order) // normalize before default so "DESC" works
 	if sortBy == "" {
 		sortBy = "license_expiration_date"
 	}
@@ -63,62 +72,131 @@ func GetElevators(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := make([]Elevator, 0, len(elevators))
-	for _, e := range elevators {
-		if statusFilter != "" && e.Status != statusFilter {
-			continue
-		}
-		if typeFilter != "" {
-			if e.ElevatorType == nil || !strings.EqualFold(*e.ElevatorType, typeFilter) {
-				continue
-			}
-		}
-		if search != "" {
-			ql := strings.ToLower(search)
-			if !strings.Contains(strings.ToLower(e.ElevatorID), ql) &&
-				!strings.Contains(strings.ToLower(e.Location), ql) {
-				continue
-			}
-		}
-		results = append(results, e)
+	// Validated sort column — safe to interpolate (not user input)
+	sortCol := "e.license_expiry_date"
+	if sortBy == "latest_inspection_date" {
+		sortCol = "li.latest_inspection_date"
+	}
+	sortDir := "ASC"
+	if order == "desc" {
+		sortDir = "DESC"
 	}
 
-	sort.Slice(results, func(i, j int) bool {
-		var a, b *string
-		if sortBy == "latest_inspection_date" {
-			a = results[i].LatestInspectionDate
-			b = results[j].LatestInspectionDate
-		} else {
-			ai := results[i].LicenseExpirationDate
-			bi := results[j].LicenseExpirationDate
-			a, b = &ai, &bi
-		}
-		// Nulls always last, regardless of sort direction.
-		if a == nil && b == nil {
-			return false
-		}
-		if a == nil {
-			return false
-		}
-		if b == nil {
-			return true
-		}
-		if order == "desc" {
-			return *a > *b
-		}
-		return *a < *b
-	})
+	// Build WHERE clause — condition strings are hardcoded; only values are args
+	var conds []string
+	var args  []any
 
-	total := len(results)
+	if statusFilter != "" {
+		args = append(args, statusFilter)
+		conds = append(conds, fmt.Sprintf("e.status = $%d", len(args)))
+	}
+	if typeFilter != "" {
+		args = append(args, strings.ToLower(typeFilter))
+		conds = append(conds, fmt.Sprintf("LOWER(e.elevator_type) = $%d", len(args)))
+	}
+	if search != "" {
+		args = append(args, "%"+strings.ToLower(search)+"%")
+		n := len(args)
+		conds = append(conds, fmt.Sprintf("(LOWER(e.elevator_id::text) LIKE $%d OR LOWER(e.location) LIKE $%d)", n, n))
+	}
+
+	where := ""
+	if len(conds) > 0 {
+		where = "WHERE " + strings.Join(conds, " AND ")
+	}
+
+	// Count total matching rows (WHERE only references elevators — no JOIN needed)
+	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM elevators e %s", where)
+	var total int
+	if err := db.QueryRow(r.Context(), countSQL, args...).Scan(&total); err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
+	}
+
+	results := []Elevator{}
 	offset := (page - 1) * limit
-	if offset >= total {
-		results = []Elevator{}
-	} else {
-		end := offset + limit
-		if end > total {
-			end = total
+
+	if offset < total {
+		// Append LIMIT and OFFSET as the next args
+		args = append(args, limit)
+		limitArg := len(args)
+		args = append(args, offset)
+		offsetArg := len(args)
+
+		querySQL := fmt.Sprintf(`
+			WITH li AS (
+				SELECT DISTINCT ON (elevator_id)
+					elevator_id, latest_inspection_date, outcome
+				FROM inspections
+				ORDER BY elevator_id, latest_inspection_date DESC NULLS LAST
+			)
+			SELECT
+				e.elevator_id::text,
+				e.location,
+				e.license_number,
+				e.status,
+				e.elevator_type,
+				e.license_expiry_date,
+				li.latest_inspection_date,
+				li.outcome,
+				p.risk_level
+			FROM elevators e
+			LEFT JOIN li ON li.elevator_id = e.elevator_id
+			LEFT JOIN predictions p ON p.elevator_id = e.elevator_id
+			%s
+			ORDER BY %s %s NULLS LAST
+			LIMIT $%d OFFSET $%d`,
+			where, sortCol, sortDir, limitArg, offsetArg,
+		)
+
+		rows, err := db.Query(r.Context(), querySQL, args...)
+		if err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+			return
 		}
-		results = results[offset:end]
+		defer rows.Close()
+
+		for rows.Next() {
+			var (
+				elevatorID  string
+				location    string
+				licenseNum  string
+				status      string
+				elevType    *string
+				licExpiry   *time.Time
+				inspDate    *time.Time
+				inspOutcome *string
+				riskLevel   *string
+			)
+			if err := rows.Scan(
+				&elevatorID, &location, &licenseNum, &status,
+				&elevType, &licExpiry, &inspDate, &inspOutcome, &riskLevel,
+			); err != nil {
+				writeJSON(w, 500, ErrorResponse{Error: "scan failed"})
+				return
+			}
+
+			licExp := ""
+			if licExpiry != nil {
+				licExp = licExpiry.Format("2006-01-02")
+			}
+
+			results = append(results, Elevator{
+				ElevatorID:              elevatorID,
+				Location:                location,
+				LicenseNumber:           licenseNum,
+				Status:                  status,
+				ElevatorType:            elevType,
+				LicenseExpirationDate:   licExp,
+				LatestInspectionDate:    formatDate(inspDate),
+				LatestInspectionOutcome: inspOutcome,
+				RiskLevel:               riskLevel,
+			})
+		}
+		if err := rows.Err(); err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "row iteration failed"})
+			return
+		}
 	}
 
 	writeJSON(w, 200, ElevatorListResponse{
@@ -137,13 +215,71 @@ func GetElevatorByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e, ok := elevatorIdx[id]
-	if !ok {
+	elevID, _ := strconv.Atoi(id)
+
+	var (
+		elevatorID  string
+		location    string
+		licenseNum  string
+		status      string
+		elevType    *string
+		licExpiry   *time.Time
+		inspDate    *time.Time
+		inspOutcome *string
+		riskLevel   *string
+	)
+
+	err := db.QueryRow(r.Context(), `
+		SELECT
+			e.elevator_id::text,
+			e.location,
+			e.license_number,
+			e.status,
+			e.elevator_type,
+			e.license_expiry_date,
+			li.latest_inspection_date,
+			li.outcome,
+			p.risk_level
+		FROM elevators e
+		LEFT JOIN LATERAL (
+			SELECT latest_inspection_date, outcome
+			FROM inspections
+			WHERE elevator_id = e.elevator_id
+			ORDER BY latest_inspection_date DESC NULLS LAST
+			LIMIT 1
+		) li ON true
+		LEFT JOIN predictions p ON p.elevator_id = e.elevator_id
+		WHERE e.elevator_id = $1`,
+		elevID,
+	).Scan(
+		&elevatorID, &location, &licenseNum, &status,
+		&elevType, &licExpiry, &inspDate, &inspOutcome, &riskLevel,
+	)
+	if err == pgx.ErrNoRows {
 		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
 		return
 	}
+	if err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
+	}
 
-	writeJSON(w, 200, *e)
+	licExp := ""
+	if licExpiry != nil {
+		licExp = licExpiry.Format("2006-01-02")
+	}
+
+	writeJSON(w, 200, Elevator{
+		ElevatorID:              elevatorID,
+		Location:                location,
+		LicenseNumber:           licenseNum,
+		Status:                  status,
+		ElevatorType:            elevType,
+		LicenseExpirationDate:   licExp,
+		LatestInspectionDate:    formatDate(inspDate),
+		LatestInspectionOutcome: inspOutcome,
+		RiskLevel:               riskLevel,
+	})
 }
 
 func GetElevatorInspections(w http.ResponseWriter, r *http.Request) {
@@ -154,13 +290,10 @@ func GetElevatorInspections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := elevatorIdx[id]; !ok {
-		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
-		return
-	}
+	elevID, _ := strconv.Atoi(id)
 
 	q := r.URL.Query()
-	page := 1
+	page  := 1
 	limit := 50
 
 	if v := q.Get("page"); v != "" {
@@ -173,7 +306,6 @@ func GetElevatorInspections(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
-
 	if limit < 1 {
 		writeJSON(w, 400, ErrorResponse{Error: "limit must be at least 1"})
 		return
@@ -183,26 +315,77 @@ func GetElevatorInspections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	devNum, _ := strconv.Atoi(id)
-	src := inspectionIdx[devNum]
-	records := make([]Inspection, len(src))
-	copy(records, src)
+	// Check elevator exists
+	var exists bool
+	if err := db.QueryRow(r.Context(),
+		"SELECT EXISTS(SELECT 1 FROM elevators WHERE elevator_id = $1)", elevID,
+	).Scan(&exists); err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
+	}
+	if !exists {
+		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
+		return
+	}
 
-	// YYYY-MM-DD strings sort lexicographically == chronologically.
-	sort.Slice(records, func(i, j int) bool {
-		return records[i].InspectionDate > records[j].InspectionDate
-	})
+	var total int
+	if err := db.QueryRow(r.Context(),
+		"SELECT COUNT(*) FROM inspections WHERE elevator_id = $1", elevID,
+	).Scan(&total); err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
+	}
 
-	total := len(records)
+	records := []Inspection{}
 	offset := (page - 1) * limit
-	if offset >= total {
-		records = []Inspection{}
-	} else {
-		end := offset + limit
-		if end > total {
-			end = total
+
+	if offset < total {
+		rows, err := db.Query(r.Context(), `
+			SELECT
+				inspection_id,
+				COALESCE(inspection_type, '') AS inspection_type,
+				latest_inspection_date,
+				outcome
+			FROM inspections
+			WHERE elevator_id = $1
+			ORDER BY latest_inspection_date DESC NULLS LAST
+			LIMIT $2 OFFSET $3`,
+			elevID, limit, offset,
+		)
+		if err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+			return
 		}
-		records = records[offset:end]
+		defer rows.Close()
+
+		for rows.Next() {
+			var (
+				inspNum  int
+				inspType string
+				inspDate *time.Time
+				outcome  string
+			)
+			if err := rows.Scan(&inspNum, &inspType, &inspDate, &outcome); err != nil {
+				writeJSON(w, 500, ErrorResponse{Error: "scan failed"})
+				return
+			}
+
+			dateStr := ""
+			if inspDate != nil {
+				dateStr = inspDate.Format("2006-01-02")
+			}
+
+			records = append(records, Inspection{
+				InspectionNumber: inspNum,
+				InspectionType:   inspType,
+				InspectionDate:   dateStr,
+				Outcome:          outcome,
+			})
+		}
+		if err := rows.Err(); err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "row iteration failed"})
+			return
+		}
 	}
 
 	writeJSON(w, 200, ElevatorInspectionsResponse{
@@ -222,86 +405,134 @@ func GetElevatorRisk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 404 must be checked before 503: unknown IDs are a client error regardless of pipeline state.
-	if _, ok := elevatorIdx[id]; !ok {
+	elevID, _ := strconv.Atoi(id)
+
+	// 404 on unknown elevator checked before prediction lookup, per spec
+	var exists bool
+	if err := db.QueryRow(r.Context(),
+		"SELECT EXISTS(SELECT 1 FROM elevators WHERE elevator_id = $1)", elevID,
+	).Scan(&exists); err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
+	}
+	if !exists {
 		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
 		return
 	}
 
-	if !predictionsAvailable {
-		writeJSON(w, 503, ErrorResponse{
-			Error:    "Risk data unavailable. Predictions pipeline not yet deployed.",
-			Endpoint: "/api/elevators/{id}/risk", // literal template per spec §5
-		})
-		return
-	}
+	var (
+		elevIDStr    string
+		riskScore    float64
+		riskLevel    string
+		modelVersion string
+		predDate     time.Time
+	)
 
-	risk, ok := riskIdx[id]
-	if !ok {
+	err := db.QueryRow(r.Context(), `
+		SELECT elevator_id::text, risk_score::float8, risk_level, model_version, prediction_date
+		FROM predictions
+		WHERE elevator_id = $1`,
+		elevID,
+	).Scan(&elevIDStr, &riskScore, &riskLevel, &modelVersion, &predDate)
+	if err == pgx.ErrNoRows {
 		writeJSON(w, 404, ErrorResponse{Error: "No prediction available for this elevator.", ElevatorID: id})
 		return
 	}
+	if err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
+	}
 
-	writeJSON(w, 200, *risk)
+	confidence := riskScore
+	if confidence < 0.5 {
+		confidence = 1 - confidence
+	}
+
+	writeJSON(w, 200, RiskResponse{
+		ElevatorID:           elevIDStr,
+		RiskScore:            riskScore,
+		RiskLevel:            riskLevel,
+		PredictedFailureDate: nil,
+		Confidence:           confidence,
+		ModelVersion:         modelVersion,
+		GeneratedAt:          predDate.Format("2006-01-02"),
+	})
 }
 
 func GetFleetStats(w http.ResponseWriter, r *http.Request) {
-	// Count total elevators
-	totalElevators := len(elevators)
-
-	// Count elevators per risk level
-	riskCounts := map[string]int{"low": 0, "medium": 0, "high": 0, "unknown": 0}
-	for _, e := range elevators {
-		if e.RiskLevel == nil {
-			riskCounts["unknown"]++
-		} else {
-			level := strings.ToLower(*e.RiskLevel)
-			if _, ok := riskCounts[level]; ok {
-				riskCounts[level]++
-			} else {
-				riskCounts["unknown"]++
-			}
-		}
+	// Risk distribution + total (one query)
+	var (
+		totalElevators int
+		lowCount       int
+		mediumCount    int
+		highCount      int
+		unknownCount   int
+	)
+	err := db.QueryRow(r.Context(), `
+		SELECT
+			COUNT(*) AS total,
+			COUNT(CASE WHEN LOWER(p.risk_level) = 'low'     THEN 1 END) AS low,
+			COUNT(CASE WHEN LOWER(p.risk_level) = 'medium'  THEN 1 END) AS medium,
+			COUNT(CASE WHEN LOWER(p.risk_level) = 'high'    THEN 1 END) AS high,
+			COUNT(CASE WHEN p.risk_level IS NULL             THEN 1 END) AS unknown
+		FROM elevators e
+		LEFT JOIN predictions p ON p.elevator_id = e.elevator_id`,
+	).Scan(&totalElevators, &lowCount, &mediumCount, &highCount, &unknownCount)
+	if err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
 	}
 
-	if sum := riskCounts["low"] + riskCounts["medium"] + riskCounts["high"] + riskCounts["unknown"]; sum != totalElevators {
-		log.Printf("WARNING: risk_distribution sum %d != total_elevators %d", sum, totalElevators)
+	// Elevators with at least one passing inspection
+	var passingCount int
+	err = db.QueryRow(r.Context(), `
+		SELECT COUNT(DISTINCT elevator_id)
+		FROM inspections
+		WHERE LOWER(outcome) IN ('passed', 'all orders resolved')`,
+	).Scan(&passingCount)
+	if err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
 	}
 
-	// Count elevators with at least one passing inspection
-	passingElevators := make(map[string]bool)
-	for devNum, inspections := range inspectionIdx {
-		elevID := strconv.Itoa(devNum)
-		for _, insp := range inspections {
-			outcome := strings.ToLower(insp.Outcome)
-			if outcome == "passed" || outcome == "all orders resolved" {
-				passingElevators[elevID] = true
-				break
-			}
-		}
-	}
 	passRate := 0.0
 	if totalElevators > 0 {
-		passRate = float64(len(passingElevators)) / float64(totalElevators)
+		passRate = float64(passingCount) / float64(totalElevators)
 	}
 
-	// Count elevators per equipment type
+	// Equipment type distribution
+	typeRows, err := db.Query(r.Context(), `
+		SELECT COALESCE(elevator_type, 'null') AS type, COUNT(*) AS cnt
+		FROM elevators
+		GROUP BY elevator_type`)
+	if err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
+	}
+	defer typeRows.Close()
+
 	typeCounts := make(map[string]int)
-	for _, e := range elevators {
-		if e.ElevatorType == nil {
-			typeCounts["null"]++
-		} else {
-			typeCounts[*e.ElevatorType]++
+	for typeRows.Next() {
+		var typeName string
+		var cnt int
+		if err := typeRows.Scan(&typeName, &cnt); err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "scan failed"})
+			return
 		}
+		typeCounts[typeName] = cnt
+	}
+	if err := typeRows.Err(); err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "row iteration failed"})
+		return
 	}
 
 	writeJSON(w, 200, FleetStatsResponse{
 		TotalElevators: totalElevators,
 		RiskDistribution: RiskDistribution{
-			Low:     riskCounts["low"],
-			Medium:  riskCounts["medium"],
-			High:    riskCounts["high"],
-			Unknown: riskCounts["unknown"],
+			Low:     lowCount,
+			Medium:  mediumCount,
+			High:    highCount,
+			Unknown: unknownCount,
 		},
 		InspectionPassRate:        passRate,
 		EquipmentTypeDistribution: typeCounts,
@@ -309,57 +540,72 @@ func GetFleetStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetFleetAlerts(w http.ResponseWriter, r *http.Request) {
-	var alerts []AlertEntry
-
-	for id, risk := range riskIdx {
-		if !strings.EqualFold(risk.RiskLevel, "HIGH") {
-			continue
-		}
-
-		e, ok := elevatorIdx[id]
-		if !ok {
-			continue
-		}
-
-		devNum, _ := strconv.Atoi(id)
-		inspections := inspectionIdx[devNum]
-
-		// Find most recent inspection — ISO dates sort lexicographically.
-		var latestInsp *Inspection
-		for i := range inspections {
-			if latestInsp == nil || inspections[i].InspectionDate > latestInsp.InspectionDate {
-				latestInsp = &inspections[i]
-			}
-		}
-
-		// Exclude elevators whose most recent inspection passed.
-		if latestInsp != nil {
-			outcome := strings.ToLower(latestInsp.Outcome)
-			if outcome == "passed" || outcome == "all orders resolved" {
-				continue
-			}
-		}
-
-		entry := AlertEntry{
-			ElevatorID: id,
-			Location:   e.Location,
-			RiskLevel:  risk.RiskLevel,
-			RiskScore:  risk.RiskScore,
-			Confidence: risk.Confidence,
-		}
-		if latestInsp != nil {
-			entry.LatestInspectionDate = &latestInsp.InspectionDate
-			entry.LatestInspectionOutcome = &latestInsp.Outcome
-		}
-		alerts = append(alerts, entry)
+	rows, err := db.Query(r.Context(), `
+		WITH li AS (
+			SELECT DISTINCT ON (elevator_id)
+				elevator_id, latest_inspection_date, outcome
+			FROM inspections
+			ORDER BY elevator_id, latest_inspection_date DESC NULLS LAST
+		)
+		SELECT
+			e.elevator_id::text,
+			e.location,
+			p.risk_level,
+			p.risk_score::float8,
+			li.latest_inspection_date,
+			li.outcome
+		FROM elevators e
+		JOIN predictions p ON p.elevator_id = e.elevator_id
+		LEFT JOIN li ON li.elevator_id = e.elevator_id
+		WHERE p.risk_level = 'HIGH'
+		  AND (
+			li.elevator_id IS NULL
+			OR LOWER(li.outcome) NOT IN ('passed', 'all orders resolved')
+		  )
+		ORDER BY p.risk_score DESC`)
+	if err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+		return
 	}
+	defer rows.Close()
 
-	sort.Slice(alerts, func(i, j int) bool {
-		return alerts[i].RiskScore > alerts[j].RiskScore
-	})
+	alerts := []AlertEntry{}
 
-	if alerts == nil {
-		alerts = []AlertEntry{}
+	for rows.Next() {
+		var (
+			elevatorID  string
+			location    string
+			riskLevel   string
+			riskScore   float64
+			inspDate    *time.Time
+			inspOutcome *string
+		)
+		if err := rows.Scan(
+			&elevatorID, &location, &riskLevel, &riskScore,
+			&inspDate, &inspOutcome,
+		); err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "scan failed"})
+			return
+		}
+
+		confidence := riskScore
+		if confidence < 0.5 {
+			confidence = 1 - confidence
+		}
+
+		alerts = append(alerts, AlertEntry{
+			ElevatorID:              elevatorID,
+			Location:                location,
+			RiskLevel:               riskLevel,
+			RiskScore:               riskScore,
+			Confidence:              confidence,
+			LatestInspectionDate:    formatDate(inspDate),
+			LatestInspectionOutcome: inspOutcome,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		writeJSON(w, 500, ErrorResponse{Error: "row iteration failed"})
+		return
 	}
 
 	writeJSON(w, 200, FleetAlertsResponse{Total: len(alerts), Alerts: alerts})
