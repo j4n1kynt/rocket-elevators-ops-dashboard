@@ -1958,3 +1958,83 @@ Elapsed: 16.17s
 Reading the migration DDL before writing the ETL is not optional — it is the spec for the ETL. Every NOT NULL, CHECK, and FK constraint in the schema is a requirement the ETL must satisfy. Writing the ETL without reading the DDL first leads to FK violations, constraint failures, and silent data loss.
 
 ---
+
+## AND-105 Task 4: Go API Migration — CSV to PostgreSQL
+
+**Date:** 2026-06-03
+
+**Prompt used:**
+"Migrate the Go API from CSV-based data access to PostgreSQL using pgxpool. Replace all CSV loading code. Keep all API responses identical. Use parameterized SQL ($1, $2). Fail fast if DB unavailable. Validate each endpoint with /validate-api."
+
+**What was done:**
+- Added `github.com/jackc/pgx/v5/pgxpool` to `go.mod` / `go.sum` via `go get`.
+- Created `platform/api/db.go`: initializes a `pgxpool.Pool` from `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME` env vars; retries up to 10 times with 2-second backoff; calls `pool.Ping()` after each attempt; assigns to package-level `db` pointer; returns a wrapped error after all retries fail — the API does not start if the DB is unreachable.
+- Rewrote `platform/api/main.go`: removed all three CSV loading calls (`LoadFleetCSV`, `LoadInspectionCSV`, `LoadPredictionsCSV`) and `EnrichElevatorsWithRisk()`; replaced with a single `InitDB()` call that fails fast on error. Route registration and port binding unchanged.
+- Rewrote `platform/api/data.go`: removed all in-memory state (`elevators []Elevator`, `elevatorIdx`, `inspectionIdx`, `riskIdx`, `predictionsAvailable`) and all CSV parsing functions. Retained only two pure helper functions (`isNumeric`, `nullableString`) that are still used by handlers.
+- Rewrote `platform/api/handlers.go`: all six handlers migrated to parameterized SQL via `db.Query` / `db.QueryRow`. `pgx.ErrNoRows` used for 404 detection. `r.Context()` passed to all DB calls for request cancellation.
+- Updated `platform/api/Dockerfile`: bumped builder stage from `golang:1.22-alpine` to `golang:1.25-alpine` (pgx v5.10.0 requires Go ≥ 1.25); added `go.sum` to the COPY command; removed CSV file copies from the runtime stage — the final image now contains only the binary.
+- Updated `docker-compose.yml`: added `healthcheck` to `db` service (`pg_isready -U api_user -d rocket_elevators`, interval 5s, 10 retries); changed `api.depends_on` from a plain list entry to `condition: service_healthy` — the API container no longer starts until PostgreSQL is accepting connections.
+- Ran `docker compose up --build -d`; confirmed startup log: `database connection established` then `server running on :8080`.
+- Validated all 6 endpoints via `/validate-api` subagent — all ✅ PASS.
+
+**SQL query design per endpoint:**
+
+| Endpoint | Query pattern |
+|---|---|
+| `GET /api/elevators` | COUNT(*) for total; CTE with `DISTINCT ON (elevator_id)` for latest inspection; LEFT JOINs to `predictions`; dynamic WHERE + ORDER BY; LIMIT/OFFSET |
+| `GET /api/elevators/{id}` | LATERAL subquery for most-recent inspection; LEFT JOIN predictions |
+| `GET /api/elevators/{id}/inspections` | EXISTS check for elevator; COUNT(*); paged SELECT ORDER BY latest_inspection_date DESC |
+| `GET /api/elevators/{id}/risk` | EXISTS check for elevator; SELECT from predictions; confidence computed Go-side |
+| `GET /api/fleet/stats` | COUNT + CASE WHEN aggregates for risk distribution in one query; separate COUNT DISTINCT for pass rate; GROUP BY for type distribution |
+| `GET /api/fleet/alerts` | CTE for latest inspection per elevator; JOIN predictions WHERE risk_level = 'HIGH' AND most-recent outcome NOT IN ('passed', 'all orders resolved') |
+
+**What worked:**
+- The `DISTINCT ON (elevator_id) ORDER BY elevator_id, latest_inspection_date DESC NULLS LAST` pattern efficiently retrieved the most-recent inspection per elevator in the list query without a subquery per row.
+- Using `r.Context()` on all DB calls means request cancellations (browser navigation, client disconnect) propagate to in-flight DB queries automatically.
+- The two-query approach (COUNT first, then paged SELECT) was simpler and more correct than a `COUNT(*) OVER ()` window function, which returns 0 rows on out-of-bounds pages and can't distinguish "page past end" from "empty result set."
+- Running `go build ./...` locally before rebuilding Docker caught compilation errors without a full Docker rebuild cycle.
+
+**What didn't work / issues:**
+
+**Problem 1 — pgx v5.10.0 requires Go 1.25; Dockerfile used golang:1.22-alpine:**
+`go get github.com/jackc/pgx/v5` on the local Go 1.25 toolchain bumped `go.mod` to `go 1.25.0`. The Dockerfile builder stage was `golang:1.22-alpine`, which rejected it with "module requires go >= 1.25.0 (running go 1.22.12; GOTOOLCHAIN=local)". Fix: bumped builder to `golang:1.25-alpine` (released Aug 2025, available on Docker Hub). Note: downgrading `go.mod` to `go 1.22` also fails because pgx v5.10.0's own `go.mod` declares `go 1.25.0`.
+
+**Problem 2 — go.sum missing `github.com/jackc/puddle/v2` (pgxpool transitive dependency):**
+`go get github.com/jackc/pgx/v5` added pgx to go.sum but not its pool-specific transitive dependency (`puddle/v2`). The Docker build compiled successfully until it hit the `pgxpool` import, then failed with "missing go.sum entry for github.com/jackc/puddle/v2". Fix: ran `go get github.com/jackc/pgx/v5/pgxpool@v5.10.0` explicitly to pull the transitive dep into go.sum.
+
+**Problem 3 — API fails fast before PostgreSQL ready (depends_on race):**
+Even with `condition: service_healthy`, the API container started and reached `InitDB()` immediately, but PostgreSQL needed ~2 seconds after passing the health check before accepting authenticated connections. The original `InitDB()` had no retry logic and exited on the first failed ping. Fixed by adding a retry loop (10 attempts, 2-second backoff) — the API now tolerates a brief post-healthy window before Postgres accepts connections.
+
+**Problem 4 — 503 path removed from /risk:**
+The CSV-based API checked `predictionsAvailable` (a boolean set at startup) before querying predictions, returning 503 if `predictions.csv` did not exist. In the DB version this flag is gone — `predictions` is always a table. The 503 path is no longer reachable. The validator confirmed this is correct behavior for the current architecture: if the DB is up and predictions were loaded by the ETL, all valid elevators either have a prediction (200) or don't (404).
+
+**AI-generated vs manually written:**
+- `platform/api/db.go` — fully AI-generated. Connection DSN, retry loop, ping check, and pool assignment were all produced by Claude from the task requirements.
+- `platform/api/main.go` — AI-generated rewrite. CSV loading removed; `InitDB()` substituted; route registration copied verbatim from the original.
+- `platform/api/data.go` — AI-generated. Stripped to two helper functions; all CSV state removed.
+- `platform/api/handlers.go` — fully AI-generated. All SQL queries, dynamic WHERE clause builder, date formatting helpers, and pgx scan patterns were produced by Claude. No SQL was written by hand.
+- `docker-compose.yml` healthcheck and `condition: service_healthy` — AI-generated.
+- `platform/api/Dockerfile` builder stage bump and go.sum COPY — AI-generated; no manual edits.
+
+**pgxpool / pgx v5 patterns learned:**
+- `pgxpool.New` creates the pool but does not open connections until first use. `pool.Ping()` forces an actual connection, which is needed for the fail-fast startup check.
+- `db.QueryRow(...).Scan(...)` returns `pgx.ErrNoRows` (not `sql.ErrNoRows`) when no row is found — must import `github.com/jackc/pgx/v5` for the sentinel value.
+- pgx v5 scans PostgreSQL `DATE` columns into `*time.Time` automatically. `NUMERIC` columns can be scanned into `float64` when cast explicitly with `::float8` in SQL.
+- `DISTINCT ON (col) ORDER BY col, sort_key DESC NULLS LAST` is the idiomatic PostgreSQL pattern for "most recent per group." It is efficient (index-scannable with the right index) and avoids lateral subquery overhead on large scans.
+- Dynamic WHERE clause construction in Go: build a `[]string` of condition fragments and a `[]any` arg slice. Condition fragments are hardcoded strings (not user input); only the bound values come from user input. `fmt.Sprintf("e.status = $%d", len(args))` after appending the value produces correct positional placeholders. The same arg index can appear multiple times in a single query (e.g., `LIKE $3 OR LIKE $3`).
+
+**Validation results:**
+- `GET /api/elevators` → ✅ PASS (filtering, sorting, pagination, error codes all verified)
+- `GET /api/elevators/{id}` → ✅ PASS (200, 404, 400 all verified)
+- `GET /api/elevators/{id}/inspections` → ✅ PASS (pagination, empty array for no inspections, 404 all verified)
+- `GET /api/elevators/{id}/risk` → ✅ PASS (200 with confidence formula, 404 for no prediction, 400 for non-numeric ID)
+- `GET /api/fleet/stats` → ✅ PASS (risk distribution invariant: low + medium + high + unknown = total_elevators)
+- `GET /api/fleet/alerts` → ✅ PASS (17,088 HIGH-risk alerts, sorted by risk_score DESC, correct inspection outcome filtering)
+
+**Known data finding (not an API bug):**
+`equipment_type_distribution` only returns `{"null": 42962}` — all 42,962 elevator rows in PostgreSQL have `elevator_type = NULL` because the ETL reads `license.csv` (no type column). Type data lives in `installed.json` / `elevator_fleet.csv`. This is an ETL gap, not an API contract violation. The API correctly returns what is in the DB.
+
+**Lesson learned:**
+When migrating from in-memory data to a database, the hardest part is not the SQL — it is managing the startup dependency order. A container that "started" is not the same as a service that is "ready." Retry loops in application code and health checks in Compose are both needed: health checks gate container startup, retry loops handle the post-healthy transient window. Relying on `depends_on` alone, without both layers, will produce intermittent startup failures.
+
+---

@@ -10,6 +10,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U api_user -d rocket_elevators"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build:
@@ -18,7 +23,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DB_HOST: db
       DB_PORT: 5432
