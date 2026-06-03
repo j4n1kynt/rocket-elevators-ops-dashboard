@@ -2064,19 +2064,47 @@ When migrating from in-memory data to a database, the hardest part is not the SQ
 
 **Key observation:** W3 (DSN URL encoding at `db.go:28`) was found only by the `claude -p` fan-out on `db.go`. The Explore agents and `/code-review` skill both missed it. The focused, file-specific prompt ("review only this file") caused the reviewer to examine the DSN construction in isolation and ask "what happens if the password contains `@`?" — a question that was not asked when reviewing the full handlers + db + main context together.
 
-### Findings summary
+### Worktree reviewer session — actual output
+
+The `claude --worktree db-reviewer` session received only file paths with no implementation context. It produced:
+
+**Confirmed clean:** SQL injection — independently verified the sort whitelist and parameterized values. No injection risk found.
+
+**New findings (missed by all prior methods):**
+
+| ID | Severity | File | Finding |
+|----|----------|------|---------|
+| W3 | WARNING | db.go:28 | Special chars in password corrupt URL DSN — independently confirmed; recommended key=value format over URL encoding |
+| W4 | WARNING | main.go:30 | No HTTP server timeouts — Slowloris / goroutine leak under load |
+| W5 | WARNING | main.go:9–33 | No graceful shutdown; `db.Close()` never called on SIGTERM |
+| W6 | WARNING | db.go:34–49 | Default `MaxConns = max(4, numCPU)` too low for multi-query handlers under concurrency |
+| S7 | SUGGESTION | handlers.go:93–95 | Invalid `order` param silently defaults to ASC |
+| S8 | SUGGESTION | handlers.go:499–514 | `GetFleetStats` pass rate counts historical passes, not current inspection status |
+
+**Previously found and confirmed by worktree session:** S2 (LIKE wildcards), S4 (json.Encode error discarded).
+
+**Value of the worktree approach:** W4 (HTTP timeouts), W5, W6, S7, S8 were all missed by Explore agents, `/code-review`, `/security-review`, and `claude -p` fan-out. The no-context, file-paths-only constraint forced the reviewer to approach the code without any assumptions from the implementation session — it examined `main.go` as a standalone server binary and asked "what happens when a client is slow?" rather than focusing on database correctness.
+
+W3 was independently rediscovered and the reviewer recommended the key=value DSN format (superior to `url.QueryEscape` since it requires no encoding at all). The writer session adopted this approach.
+
+### Findings summary (final, including worktree session)
 
 | ID | Severity | Description | Status |
 |----|----------|-------------|--------|
 | W1 | WARNING | `err == pgx.ErrNoRows` should use `errors.Is` | ✅ Fixed in `c8e468a` |
-| W2 | WARNING | No per-attempt timeout in `InitDB` retry loop | Open — low risk in Docker setup |
-| W3 | WARNING | DSN password not URL-encoded; special chars cause silent auth failure | Open — latent, no fix needed for current env |
+| W2 | WARNING | No per-attempt timeout in `InitDB` retry loop | Open — mitigated by `service_healthy` gate |
+| W3 | WARNING | DSN password breaks on special characters | ✅ Fixed — key=value DSN format |
+| W4 | WARNING | No HTTP server timeouts | ✅ Fixed — `ReadTimeout`/`WriteTimeout`/`IdleTimeout` |
+| W5 | WARNING | No graceful shutdown; `db.Close()` never called | Open |
+| W6 | WARNING | Default `MaxConns` low under concurrent load | Open |
 | S1 | SUGGESTION | `nullableString()` dead code in `data.go` | Open |
 | S2 | SUGGESTION | LIKE wildcards unescaped in `search` param | Open |
 | S3 | SUGGESTION | `WHERE risk_level = 'HIGH'` case-sensitive | Open |
 | S4 | SUGGESTION | `json.Encode` error silently discarded in `writeJSON` | Open |
 | S5 | SUGGESTION | No upper bound on `page` param | Open |
 | S6 | SUGGESTION | Inline date formatting bypasses `formatDate()` helper | Open |
+| S7 | SUGGESTION | Invalid `order` param silently defaults to ASC | Open |
+| S8 | SUGGESTION | `GetFleetStats` pass rate counts historical passes | Open |
 
 ### Fix choice: W1 (`errors.Is` over custom wrapper)
 
