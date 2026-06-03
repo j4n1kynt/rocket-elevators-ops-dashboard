@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -268,7 +269,7 @@ func GetElevatorByID(w http.ResponseWriter, r *http.Request) {
 		&elevatorID, &location, &licenseNum, &status,
 		&elevType, &licExpiry, &inspDate, &inspOutcome, &riskLevel,
 	)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeJSON(w, 404, ErrorResponse{Error: "Elevator not found.", ElevatorID: id})
 		return
 	}
@@ -447,7 +448,7 @@ func GetElevatorRisk(w http.ResponseWriter, r *http.Request) {
 		WHERE elevator_id = $1`,
 		elevID,
 	).Scan(&elevIDStr, &riskScore, &riskLevel, &modelVersion, &predDate)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeJSON(w, 404, ErrorResponse{Error: "No prediction available for this elevator.", ElevatorID: id})
 		return
 	}
