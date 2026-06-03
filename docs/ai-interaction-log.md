@@ -1898,6 +1898,16 @@ Docker networking uses service names as hostnames — `DB_HOST: db` is correct, 
 **Lesson learned:**
 Schema design decisions are hard to reverse once data is loaded. Inspecting source files before writing DDL — not after — is the correct order of operations. Two of the five most significant design choices in this schema (SERIAL for alterations, severity collapse for incidents) would have been missed without upfront source inspection.
 
+### Review workflow decision: two-stage prompt approach (design → hardening)
+
+Rather than requesting a production-ready schema in a single prompt, the work was split into two sequential stages: an initial design pass, then a targeted hardening pass. This is a deliberate review workflow decision, not just a convenience.
+
+**Reasoning:** A single comprehensive prompt for schema design tends to produce a schema that satisfies stated requirements but skips hardening decisions that require separate judgment — ON DELETE behavior, null enforcement, defaults, and index placement are secondary concerns during the modeling pass and primary concerns during a hardening pass. Mixing them in one prompt causes the model to make constraint decisions at the same time as entity-relationship decisions, which produces inconsistent results: some columns get NOT NULL, others don't, without a principled rationale.
+
+Splitting the work preserves the design pass as a first draft that can be evaluated structurally before constraints are layered on. The hardening prompt was deliberately scoped to exactly the five refinements needed (CASCADE behavior, NOT NULL on outcome, DEFAULT on injury_severity, predictions index) — it did not reopen modeling decisions. This mirrors the Writer/Reviewer split used in Task 5: the first pass generates without constraint pressure, the second pass reviews and enforces production requirements. The reviewer's job is easier when the design is stable; the designer's job is easier when they're not simultaneously thinking about production hardening.
+
+**Outcome:** The two-pass approach caught the `NOT NULL` constraint on `inspections.outcome` correctly — the hardening pass verified the null rate before adding the constraint, which the initial design pass would have applied optimistically. A single-pass approach would likely have added `NOT NULL` without the programmatic verification step.
+
 ---
 
 ## AND-105 Task 3: ETL Pipeline -- Flat Files to PostgreSQL
@@ -2037,6 +2047,16 @@ The CSV-based API checked `predictionsAvailable` (a boolean set at startup) befo
 **Lesson learned:**
 When migrating from in-memory data to a database, the hardest part is not the SQL — it is managing the startup dependency order. A container that "started" is not the same as a service that is "ready." Retry loops in application code and health checks in Compose are both needed: health checks gate container startup, retry loops handle the post-healthy transient window. Relying on `depends_on` alone, without both layers, will produce intermittent startup failures.
 
+### Review workflow decision: fresh-context api-validator subagent for endpoint contract verification
+
+Post-implementation validation used a dedicated `api-validator` subagent rather than manual testing within the writer session. This was a deliberate review workflow decision.
+
+**Reasoning:** The session that wrote the SQL queries holds a mental model of what each query should return. Manual testing in that session checks whether the API behaves as intended — but "intended" is shaped by implementation assumptions that may not match the spec. A fresh-context subagent with only the API spec and the live endpoint responses can surface discrepancies that the writer's mental model papers over. If `GET /api/elevators/{id}` returns a field named `license_expiry` but the spec says `license_expiry_date`, the writer's session may accept it as "close enough"; the subagent has no such context and flags the mismatch.
+
+The `api-validator` subagent was given the spec (`docs/api_spec.md`) and told to test each endpoint against a live server. It had no knowledge of the implementation, no awareness of what queries were used, and no context from the writing session. All six endpoints passed (✅), which confirmed not just that the server responded but that response shapes, field names, status codes, and pagination behavior all matched the contract.
+
+**This is the same principle that drives the Task 5 worktree reviewer:** implementation context is a liability during review. The subagent pattern used here to verify API contracts is the same isolation approach later formalized as the Writer/Reviewer workflow — the difference is tooling (`claude -p` / `--worktree` in Task 5 vs. a subagent in Task 4) not principle.
+
 ---
 
 ## AND-105 Task 5: Structured Code Review — PostgreSQL Integration
@@ -2051,6 +2071,16 @@ When migrating from in-memory data to a database, the hardest part is not the SQ
 **`claude --worktree db-reviewer`** — Creates an isolated git worktree from the current branch and opens a new Claude Code session in it. The reviewer session has no conversation history and no knowledge of what the writer session tried or discarded. This simulates an independent human code reviewer — someone who sees only the code, not the thought process behind it. The worktree isolation also means the reviewer can modify files, run the server, or test fixes without affecting the main workspace. After review, the worktree is cleaned up with `claude --rm db-reviewer`.
 
 **`claude -p` fan-out** — Runs non-interactive (`-p` = print mode) Claude Code passes on specific files. Unlike an interactive session, each `-p` invocation starts fresh with no prior context, processes one file, and exits. This is useful for catching issues that might be missed when reviewing all files together — a reviewer who has been reading `handlers.go` for 10 minutes may normalize patterns that seem fine only because they appear consistently. Fan-out on individual files surfaces issues per-file. Note: `claude -p` uses Agent SDK credits from the Pro plan's separate allowance, not the interactive session quota.
+
+### Parallel workflow decision: domain-split Explore agents
+
+The initial code audit used two parallel Explore agents with split responsibilities rather than one sequential reviewer covering all concerns. Agent A reviewed SQL construction for injection risks; Agent B reviewed connection lifecycle, error flow, and pooling. Both ran simultaneously.
+
+**Reasoning for parallelism:** Running a single agent over 700 lines of Go API code covering both SQL safety and connection handling produces context saturation — by the time the agent reaches connection lifecycle questions, it has normalized the patterns it spent the first 400 lines reading. Splitting concerns means each agent enters its domain fresh and applies maximum sensitivity throughout. A SQL-safety reviewer that never reads the pool initialization code cannot normalize the retry loop; a connection-handling reviewer that never reads the query builder cannot normalize the WHERE clause construction.
+
+**Reasoning for splitting SQL safety vs. connection handling specifically:** These two domains have different false-positive profiles. SQL safety reviewers tend to flag any string concatenation near a query as injection risk — including hardcoded Go literals. Connection handling reviewers tend to flag any unclosed resource as a leak — including `pool.Close()` calls that are present but not in the expected position. Running them as separate agents meant their false positives were domain-specific and easier to triage: four of the SQL agent's CRITICAL findings were false positives (it confused hardcoded strings with user input); the connection agent's false positives were fewer but required tracing control flow to refute.
+
+**Observed outcome:** Three findings appeared in both agents' output (W1, W2, S3) — the overlap confirmed those as real. Findings from only one agent were held to a higher verification bar. This cross-validation pattern would not have been possible with a single sequential reviewer.
 
 ### Review methods comparison
 
