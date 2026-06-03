@@ -1899,3 +1899,62 @@ Docker networking uses service names as hostnames — `DB_HOST: db` is correct, 
 Schema design decisions are hard to reverse once data is loaded. Inspecting source files before writing DDL — not after — is the correct order of operations. Two of the five most significant design choices in this schema (SERIAL for alterations, severity collapse for incidents) would have been missed without upfront source inspection.
 
 ---
+
+## AND-105 Task 3: ETL Pipeline -- Flat Files to PostgreSQL
+
+**Date:** 2026-06-02
+
+**Prompt used:**
+"Generate a Python script to migrate data from flat files into PostgreSQL based on the existing schema. Create intelligence/etl_to_database.py and update requirements.txt. Connect via env vars. Run the migration SQL. Load all five tables in FK-dependency order. Parse dates to DATE types. Handle missing values as NULL. Use INSERT ... ON CONFLICT DO NOTHING. Print a summary of rows inserted and skipped per table."
+
+**What was done:**
+- Inspected all five source files before writing any ETL code to capture exact field names, date formats, and data quirks. Each source uses a different date format: `28-Apr-17` (license.csv), `1/10/2011` (inspection.csv), `14-Jan-11` (incident.json), `2026-05-29` (predictions.csv).
+- Wrote `parse_date()` with a four-format fallback list and `parse_time()` for the `6:30:00 AM` format in incident.json.
+- Filtered `elevators` to `ACTIVE` and `BY REQUEST` statuses only (CLAUDE.md pipeline requirement + schema CHECK constraint). All other statuses (EXPIRED, CANCELLED, PENDING_RENEWAL, etc.) are skipped with a warning.
+- Skipped 43 null-location rows in license.csv before inserting — confirmed the count programmatically before applying the NOT NULL constraint filter.
+- Collapsed incident.json's 30 sparse boolean injury columns into `injury_severity` using the four summary columns (`fatal injury`, `permanent (serious) injury`, `non-permanent (minor) injury`, `No Injury`). Default is `'none'`.
+- Built a `valid_elevator_ids` set after loading elevators and used it to pre-validate all child rows (inspections, incidents, alterations, predictions) before insert — avoids per-row FK exception handling.
+- Used `alterations` row-count guard for idempotency because its SERIAL PK has no natural conflict key; re-runs skip loading if the table is already populated.
+- Used `psycopg2.extras.execute_values` for batch inserts; counts rows before/after each batch to get accurate inserted counts under `ON CONFLICT DO NOTHING`.
+- Ran a dry-run of all type helpers against real data before connecting to the DB; confirmed `parse_date`, `parse_time`, `derive_injury_severity`, and the license.csv status filter all behaved correctly.
+- Verified the script runs end-to-end inside Docker (`python:3.12-alpine` on the same Compose network as `db`) and confirmed row counts directly in PostgreSQL via `psql`.
+
+**ETL results (first run):**
+
+| Table | Inserted | Skipped |
+|---|---|---|
+| elevators | 42,962 | 2,421 |
+| inspections | 138,647 | 4,534 |
+| incidents | 2,383 | 63 |
+| alterations | 30,935 | 684 |
+| predictions | 39,319 | 1,635 |
+| **TOTAL** | **254,246** | **9,337** |
+
+Elapsed: 16.17s
+
+**What worked:**
+- Inspecting source files before writing the ETL caught every data quirk upfront: duplicate header row in license.csv, four different date formats across files, 30 sparse boolean columns in incidents, and the missing natural PK in alterations. None of these required rework after the script was written.
+- The `valid_elevator_ids` FK guard was cleaner than catching psycopg2 FK exceptions per row. It also made skip counts accurate and traceable.
+- Running inside Docker (`python:3.12-alpine`) was the correct deployment pattern — the ETL connects to `db` by service name, the same way the Go API does, rather than relying on host-side port forwarding.
+
+**What didn't work / issues:**
+- **Windows CP-1252 locale crash:** psycopg2 on Windows with a Spanish system locale (`LICENSESTATUS` contains non-ASCII in error messages from libpq) caused a `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf3` inside `_connect`. Byte `0xf3` is `ó` in Windows-1252 — libpq returns connection error messages in the system locale ("falló la conexión..."), and psycopg2 tries to decode them as UTF-8. Setting `PYTHONUTF8=1` and `PGCLIENTENCODING=UTF8` did not fix it because the issue is in libpq's C layer, not Python's I/O. Fix: run inside Docker where locale is `en_US.UTF-8`. This is the correct production approach regardless.
+- **Unicode print crash:** The `→` character in the opening print statement caused a `UnicodeEncodeError` on Windows CP-1252 console. Fixed by replacing with `--` (ASCII). A minor but real portability issue with non-ASCII in print strings on Windows.
+
+**AI-generated vs manually written:**
+- `intelligence/etl_to_database.py` — fully AI-generated. All parsing logic, type helpers, FK guard, idempotency guard, batch insert SQL, and summary report were produced by Claude from the source file inspection results and task requirements.
+- `requirements.txt` — AI-generated (`psycopg2-binary==2.9.9`). Only one dependency needed; no ORM.
+- The dry-run verification script (`py -3 -c "..."`) — AI-generated and run interactively to confirm helper correctness before the live DB run.
+- The Docker run command used to execute the ETL — AI-generated. The `--network` flag, volume mount, and service name `db` for `DB_HOST` were all part of the generated command.
+- Nothing in this task was written by hand; all code, commands, and verification steps were AI-generated and reviewed.
+
+**Data transformations learned from reading the migration code:**
+- The schema's `outcome TEXT NOT NULL` constraint (added after verifying 0 nulls in the source) means the ETL must explicitly skip any inspection row where `InspectionOutcome` is empty — it cannot rely on the DB to accept NULL and then reject it. The NOT NULL constraint in the DDL directly shaped the ETL's skip logic.
+- The `injury_severity CHECK (injury_severity IN ('fatal','permanent','minor','none'))` constraint means the ETL's `derive_injury_severity()` function must always return one of those four values — never NULL and never an arbitrary string. The CHECK constraint in the DDL is the contract the ETL must satisfy.
+- The `predictions.elevator_id PRIMARY KEY REFERENCES elevators(elevator_id)` (1:1 pattern) means a re-run would conflict on the PK for already-loaded predictions. `ON CONFLICT (elevator_id) DO NOTHING` handles this correctly because the PK is also the conflict target.
+- The `alterations.inspection_number REFERENCES inspections(inspection_id) ON DELETE SET NULL` FK means the ETL must resolve the `inspection_number` against actually-loaded inspection IDs — not just the raw source value. An alteration referencing an inspection that was skipped (because its elevator was filtered out) must have its `inspection_number` set to NULL, or the FK insert will fail.
+
+**Lesson learned:**
+Reading the migration DDL before writing the ETL is not optional — it is the spec for the ETL. Every NOT NULL, CHECK, and FK constraint in the schema is a requirement the ETL must satisfy. Writing the ETL without reading the DDL first leads to FK violations, constraint failures, and silent data loss.
+
+---
