@@ -2038,3 +2038,63 @@ The CSV-based API checked `predictionsAvailable` (a boolean set at startup) befo
 When migrating from in-memory data to a database, the hardest part is not the SQL — it is managing the startup dependency order. A container that "started" is not the same as a service that is "ready." Retry loops in application code and health checks in Compose are both needed: health checks gate container startup, retry loops handle the post-healthy transient window. Relying on `depends_on` alone, without both layers, will produce intermittent startup failures.
 
 ---
+
+## AND-105 Task 5: Structured Code Review — PostgreSQL Integration
+
+**Date:** 2026-06-03
+**Branch:** `database-integration`
+
+### Session management features used
+
+**`/rename db-writer`** — Labels the current session as the implementation session before creating the isolated reviewer. The point is separation of context: the reviewer should have no memory of design decisions, tradeoffs considered, or false starts from the writing session. Labeling the writer session makes the workflow self-documenting and helps identify which session produced which outputs if findings are compared later.
+
+**`claude --worktree db-reviewer`** — Creates an isolated git worktree from the current branch and opens a new Claude Code session in it. The reviewer session has no conversation history and no knowledge of what the writer session tried or discarded. This simulates an independent human code reviewer — someone who sees only the code, not the thought process behind it. The worktree isolation also means the reviewer can modify files, run the server, or test fixes without affecting the main workspace. After review, the worktree is cleaned up with `claude --rm db-reviewer`.
+
+**`claude -p` fan-out** — Runs non-interactive (`-p` = print mode) Claude Code passes on specific files. Unlike an interactive session, each `-p` invocation starts fresh with no prior context, processes one file, and exits. This is useful for catching issues that might be missed when reviewing all files together — a reviewer who has been reading `handlers.go` for 10 minutes may normalize patterns that seem fine only because they appear consistently. Fan-out on individual files surfaces issues per-file. Note: `claude -p` uses Agent SDK credits from the Pro plan's separate allowance, not the interactive session quota.
+
+### Review methods comparison
+
+| Method | New findings | False positives produced | Unique catch |
+|--------|-------------|--------------------------|--------------|
+| Explore agents (parallel A+B) | W1 (errors.Is), W2 (InitDB timeout), S1–S5 | 4 CRITICAL false positives (SQL injection, double WriteHeader, rows.Close, connection leak) | S2 (LIKE wildcards), S4 (json.Encode silenced) |
+| `/code-review` (7-angle + verifier) | S6 (formatDate inconsistency), confirmed S1–S3 | 1 (non-deterministic sort REFUTED) | Correctly identified EXISTS round-trip issue |
+| `/security-review` (vuln + FP filter) | Ruled out DSN password logging, ruled out docker-compose credentials | Both candidates filtered as FP | Confirmed pgx v5 redactPW() behavior |
+| `claude -p` fan-out handlers.go | Confirmed S3, confirmed SQL safety, no new findings | rows.Close concern (defer already covers it) | Clean SQL injection verdict from fresh context |
+| `claude -p` fan-out db.go | **W3 (DSN URL encoding)** — missed by all other methods | DSN password in logs (FP — pgx redacts) | Surfaced special-character password failure |
+
+**Key observation:** W3 (DSN URL encoding at `db.go:28`) was found only by the `claude -p` fan-out on `db.go`. The Explore agents and `/code-review` skill both missed it. The focused, file-specific prompt ("review only this file") caused the reviewer to examine the DSN construction in isolation and ask "what happens if the password contains `@`?" — a question that was not asked when reviewing the full handlers + db + main context together.
+
+### Findings summary
+
+| ID | Severity | Description | Status |
+|----|----------|-------------|--------|
+| W1 | WARNING | `err == pgx.ErrNoRows` should use `errors.Is` | ✅ Fixed in `c8e468a` |
+| W2 | WARNING | No per-attempt timeout in `InitDB` retry loop | Open — low risk in Docker setup |
+| W3 | WARNING | DSN password not URL-encoded; special chars cause silent auth failure | Open — latent, no fix needed for current env |
+| S1 | SUGGESTION | `nullableString()` dead code in `data.go` | Open |
+| S2 | SUGGESTION | LIKE wildcards unescaped in `search` param | Open |
+| S3 | SUGGESTION | `WHERE risk_level = 'HIGH'` case-sensitive | Open |
+| S4 | SUGGESTION | `json.Encode` error silently discarded in `writeJSON` | Open |
+| S5 | SUGGESTION | No upper bound on `page` param | Open |
+| S6 | SUGGESTION | Inline date formatting bypasses `formatDate()` helper | Open |
+
+### Fix choice: W1 (`errors.Is` over custom wrapper)
+
+The fix for W1 was to replace `err == pgx.ErrNoRows` with `errors.Is(err, pgx.ErrNoRows)` at both comparison sites. An alternative would have been to write a helper like `isNotFound(err) bool` that wraps `errors.Is`. The direct `errors.Is` approach was chosen because:
+- The call site is already explicit — no ambiguity about what error is being tested
+- A wrapper adds indirection without adding clarity
+- The idiom is standard Go; any Go developer reading the code will recognize it immediately
+
+### False positive analysis
+
+The Explore agents produced four CRITICAL false positives that would have been alarming without verification:
+1. "SQL injection via `fmt.Sprintf(where)`" — the WHERE clause fragment strings come from hardcoded Go source code, not user input. Only values reach SQL via `$N` placeholders. The agent confused *string interpolation into SQL* with *user input reaching SQL structure*.
+2. "Connection leak in InitDB" — every `pgxpool.New` success followed by a ping failure explicitly calls `pool.Close()`. The agent didn't trace the control flow carefully enough.
+3. "Double WriteHeader" — there is no code path where `writeJSON` is called twice in the same request. The agent generalized a pattern it had seen elsewhere.
+4. "`rows.Close()` error discarded" — pgx v5's `Rows.Close()` has no return value. The agent applied a `database/sql` expectation to a different library.
+
+The `/security-review` skill's false-positive filter phase (separate verifier agent) correctly dismissed both security candidates: pgx v5's `redactPW()` makes the DSN password log safe, and the docker-compose credentials are development-only and scoped to the local Docker network.
+
+The lesson: automated reviewers err on the side of surfacing. The human analyst's role is to verify — not to rubber-stamp findings, but to trace each claim back to actual code behavior. Four of the five CRITICAL findings were false positives; the one true critical (W1, errors.Is) was the quietest of the five.
+
+---

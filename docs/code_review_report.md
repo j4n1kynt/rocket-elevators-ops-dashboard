@@ -2,10 +2,16 @@
 
 **Branch:** `database-integration`
 **Date:** 2026-06-03
-**Reviewer methodology:**
-- Reviewer agent A: SQL safety and injection analysis (fan-out)
-- Reviewer agent B: Connection handling, pooling, and error flow analysis (fan-out)
-- Independent pass: dead code, sentinel error idioms, edge cases
+
+## Review Methods Used
+
+| Method | Scope | Session |
+|--------|-------|---------|
+| Parallel Explore agents (A: SQL safety, B: connection/pooling) | All Go API files | db-writer (current) |
+| `/code-review` skill — 7-angle finder + verifier | Go API diff vs pre-AND-105 base | db-writer |
+| `/security-review` skill — vulnerability + FP filter | Branch diff | db-writer |
+| `claude -p` fan-out — handlers.go | SQL injection + row handling | db-writer |
+| `claude -p` fan-out — db.go | Connection lifecycle + credentials | db-writer |
 
 ---
 
@@ -19,35 +25,49 @@
 
 ### W1 — `handlers.go:271, 450` — Sentinel error compared with `==` instead of `errors.Is`
 
-**Source:** sql-reviewer
+**Source:** Explore agents (sql-reviewer) · `/code-review` · fan-out handlers.go
 
 ```go
-// Line 271
-if err == pgx.ErrNoRows {
-
-// Line 450
-if err == pgx.ErrNoRows {
+if err == pgx.ErrNoRows {   // line 271 (GetElevatorByID)
+if err == pgx.ErrNoRows {   // line 450 (GetElevatorRisk)
 ```
 
-`pgx.ErrNoRows` is a sentinel error value. Direct equality (`==`) works today because pgx v5's `QueryRow().Scan()` returns the sentinel unwrapped. However, if pgx wraps the error in a future release (or if any middleware wraps it), `==` silently falls through to the `if err != nil` branch, returning HTTP 500 instead of 404 for legitimate "not found" lookups. The Go-idiomatic pattern is `errors.Is(err, pgx.ErrNoRows)`, which traverses the error chain correctly.
+`pgx.ErrNoRows` is a sentinel error value. Direct equality works today because pgx v5's `QueryRow().Scan()` returns the sentinel unwrapped. If pgx ever wraps it, `==` silently routes the "not found" case to the 500 path instead of 404. The Go-idiomatic pattern `errors.Is` traverses the error chain correctly.
 
-**Fix:** Replace both comparisons with `errors.Is`.
+**Status: ✅ Fixed** — both comparisons replaced with `errors.Is(err, pgx.ErrNoRows)` in commit `c8e468a`.
 
 ---
 
 ### W2 — `db.go:35, 41` — No per-attempt timeout in `InitDB` retry loop
 
-**Source:** conn-reviewer
+**Source:** Explore agents (conn-reviewer) · `/code-review` · fan-out db.go
 
 ```go
-pool, err = pgxpool.New(context.Background(), dsn)   // line 35
-// ...
-if err = pool.Ping(context.Background()); err != nil { // line 41
+pool, err = pgxpool.New(context.Background(), dsn)      // line 35
+if err = pool.Ping(context.Background()); err != nil {  // line 41
 ```
 
-Both `pgxpool.New` and `pool.Ping` use `context.Background()`, which has no deadline. If the database host is unreachable but accepts TCP connections (e.g., a firewall black-hole), each attempt can stall indefinitely before timing out at the OS TCP level (minutes on Windows). The retry loop runs up to 10 times, so startup could block for 10× OS timeout instead of the intended ~20 seconds.
+Both calls use `context.Background()` with no deadline. A firewall black-hole that accepts TCP connections but never responds causes each attempt to stall at OS TCP timeout (minutes on Windows) rather than the intended 2-second interval. 10 attempts × unbounded wait can delay startup significantly.
 
-**Fix:** Use `context.WithTimeout(context.Background(), 5*time.Second)` per attempt.
+**Fix:** `ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second); defer cancel()` per attempt.
+
+---
+
+### W3 — `db.go:28` — Password not URL-encoded in DSN construction
+
+**Source:** fan-out db.go *(new — not caught by Explore agents or `/code-review`)*
+
+```go
+dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, dbname)
+```
+
+If `DB_PASSWORD` contains any URL-reserved character (`@`, `#`, `?`, `/`, `:`), the DSN is silently malformed — pgx parses the wrong host, port, or database name rather than failing with a clear authentication error. Enterprise and production password policies commonly require special characters, making this a latent hard-to-diagnose failure.
+
+**Fix:** Use `pgxpool.ParseConfig` with `config.ConnConfig.Password` set directly (bypasses URL-encoding entirely), or URL-encode the credentials:
+```go
+dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
+    url.QueryEscape(user), url.QueryEscape(password), host, port, dbname)
+```
 
 ---
 
@@ -55,9 +75,9 @@ Both `pgxpool.New` and `pool.Ping` use `context.Background()`, which has no dead
 
 ### S1 — `data.go:8–13` — Dead code: `nullableString()` is never called
 
-**Source:** independent
+**Source:** Independent · `/code-review` · fan-out handlers.go
 
-The helper `nullableString(s string) *string` is defined but has zero call sites. The migration from CSV-based loading left it behind. Dead exported-style functions can mislead readers about the intended API surface.
+The helper `nullableString(s string) *string` was used by `LoadFleetCSV` to handle empty CSV fields. All callers were deleted in the CSV-to-DB migration. The dead definition misleads readers about the intended API surface.
 
 **Fix:** Remove the function.
 
@@ -65,41 +85,37 @@ The helper `nullableString(s string) *string` is defined but has zero call sites
 
 ### S2 — `handlers.go:111` — LIKE wildcards in `search` parameter are unescaped
 
-**Source:** sql-reviewer (downgraded from CRITICAL — the value IS parameterized, ruling out injection)
+**Source:** Explore agents (sql-reviewer) — downgraded from CRITICAL (value IS parameterized, no injection risk)
 
 ```go
 args = append(args, "%"+strings.ToLower(search)+"%")
 ```
 
-The search value is safely parameterized, so there is no SQL injection risk. However, LIKE metacharacters `%` and `_` in user input are not escaped before wrapping. Sending `?q=%` matches every row (like no filter); `?q=_` matches any single character position. For a dashboard read endpoint with no authentication this is a nuisance rather than a vulnerability, but the behaviour is surprising.
+`?q=%` matches every row (effectively removes the filter); `?q=_` matches any single character. No security risk for a read-only dashboard, but the behaviour is surprising.
 
-**Fix (optional):** Escape `%` and `_` in the search value before wrapping: `strings.ReplaceAll(strings.ReplaceAll(search, "\\", "\\\\"), "%", "\\%")` with `... LIKE $N ESCAPE '\'`.
+**Fix (optional):** Escape `%` and `_` before wrapping, with `LIKE $N ESCAPE '\'`.
 
 ---
 
 ### S3 — `handlers.go:573` — `WHERE p.risk_level = 'HIGH'` is case-sensitive
 
-**Source:** sql-reviewer
+**Source:** Explore agents (sql-reviewer) · `/code-review` · fan-out handlers.go — confirmed by verifying ETL writes uppercase
 
-The ETL always loads `risk_level` as uppercase, so this works today. Other queries use `LOWER()` for consistency. If the ETL is ever updated to store mixed case, this filter would silently return no alerts without any error.
+The ETL (`generate_predictions.py`) writes uppercase `HIGH`/`MEDIUM`/`LOW`, so this is correct today. `GetFleetStats` defensively uses `LOWER(p.risk_level)` in its CASE statements; `GetFleetAlerts` does not. If the predictions source ever changes casing, alerts silently return zero results.
 
-**Fix (optional):** Change to `WHERE LOWER(p.risk_level) = 'high'` for defensive consistency.
+**Fix (optional):** `WHERE LOWER(p.risk_level) = 'high'` for defensive consistency.
 
 ---
 
 ### S4 — `handlers.go:27–31` — `json.Encode` error silently discarded in `writeJSON`
 
-**Source:** conn-reviewer
+**Source:** Explore agents (conn-reviewer)
 
 ```go
-func writeJSON(w http.ResponseWriter, status int, v any) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(status)
-    json.NewEncoder(w).Encode(v)   // error never checked
-}
+json.NewEncoder(w).Encode(v)   // error never checked
 ```
 
-Once `WriteHeader` has been called, the status code cannot be changed. If `Encode` fails (e.g., a `map[string]int` with a non-string key, network reset mid-write), the client receives a partial response body. There is nothing useful to do about the status code at this point, but the failure could be logged.
+After `WriteHeader` is called, the status code is fixed. If `Encode` fails (network reset mid-write), the client receives a truncated body with no indication. Nothing useful can be done about the status, but the failure could be logged.
 
 **Fix (optional):** `if err := json.NewEncoder(w).Encode(v); err != nil { log.Printf("writeJSON encode: %v", err) }`.
 
@@ -107,38 +123,49 @@ Once `WriteHeader` has been called, the status code cannot be changed. If `Encod
 
 ### S5 — `handlers.go:53–55` — No upper bound on `page` parameter
 
-**Source:** sql-reviewer (downgraded from WARNING — practical impact is nil)
+**Source:** Explore agents (sql-reviewer) · `/code-review`
+
+No cap on `page`. Astronomically large values cause `(page-1)*limit` to overflow `int64`. The `if offset < total` guard at line 132 prevents any DB query from running, so there is no practical impact given dataset size (~43 000 rows). Adding a cap documents intent.
+
+---
+
+### S6 — `handlers.go:194, 388` — Inline date formatting bypasses `formatDate()` helper
+
+**Source:** `/code-review` (PLAUSIBLE — confirmed as code pattern inconsistency)
 
 ```go
-if n, err := strconv.Atoi(v); err == nil && n > 0 {
-    page = n
-}
+licExp = licExpiry.Format("2006-01-02")   // line 195 — inline
+dateStr = inspDate.Format("2006-01-02")  // line 388 — inline
 ```
 
-There is no cap on `page`. For `page` values large enough to cause `(page - 1) * limit` to overflow `int64`, the result wraps to a negative or unexpected offset. The `if offset < total` guard at line 132 prevents any DB query from running for out-of-range pages, so the overflow has no practical effect given dataset size (~43 000 rows). Adding a cap (e.g., 100 000) documents intent.
+Nullable `*time.Time` fields use `formatDate()` (lines 205, 293, 616); non-nullable fields format inline. Both are correct today but a format change (e.g. adding timezone) must be made in two places. All date formatting should go through `formatDate()` or a non-pointer variant.
 
 ---
 
 ## FALSE POSITIVES NOTED
 
-The following findings from the reviewers were investigated and ruled out:
-
-| Reviewer claim | Verdict | Reason |
-|---|---|---|
-| CRITICAL: SQL injection via `fmt.Sprintf(where)` | **False positive** | `conds` strings are hardcoded Go literals (`"e.status = $%d"` etc.); only values come from user input via `args[]` |
-| CRITICAL: Connection leak in `InitDB` retry loop | **False positive** | `pool.Close()` is called on every ping failure; the final `return fmt.Errorf` is only reached after the last attempt's pool is already closed |
-| CRITICAL: Double `WriteHeader` in `writeJSON` | **False positive** | Each handler has exactly one `writeJSON` call per code path; no scenario calls it twice in the same request |
-| CRITICAL: `rows.Close()` error discarded | **False positive** | pgx v5 `Rows.Close()` has no return value; there is no error to check |
+| Reviewer claim | Method | Verdict | Reason |
+|---|---|---|---|
+| CRITICAL: SQL injection via `fmt.Sprintf(where)` | Explore agents | **False positive** | `conds` strings are hardcoded Go literals; only values come from user via `args[]` |
+| CRITICAL: Connection leak in `InitDB` retry loop | Explore agents | **False positive** | `pool.Close()` called on every ping failure; final `return` reached only after pool is closed |
+| CRITICAL: Double `WriteHeader` in `writeJSON` | Explore agents | **False positive** | Each handler has exactly one `writeJSON` call per code path |
+| CRITICAL: `rows.Close()` error discarded | Explore agents | **False positive** | pgx v5 `Rows.Close()` has no return value |
+| CRITICAL: DSN password logged on connect error | fan-out db.go | **False positive** | pgx v5 actively redacts passwords via `redactPW()` in all error formatting paths |
+| HIGH: Hardcoded credentials in docker-compose.yml | `/security-review` | **False positive** | Development-only placeholder credentials scoped to local Docker network; excluded per "env vars are trusted values" rule |
+| CRITICAL: `err == pgx.ErrNoRows` masked wrapped errors | Explore agents | **Fixed (was valid)** | Real latent risk; fixed in commit `c8e468a` |
 
 ---
 
 ## VERDICT
 
-**No critical issues.** The PostgreSQL migration is safe from SQL injection — all user values are parameterized, sort columns derive from a validated whitelist, and no user-controlled strings reach SQL structure.
+**No critical issues.** The PostgreSQL migration is safe from SQL injection — all user values are parameterized, sort columns derive from a validated whitelist, and no user-controlled strings reach SQL structure. Three independent review methods (Explore agents, `/code-review`, fan-out) reached the same conclusion.
 
-**Fix applied (see commit):** W1 — replaced `err == pgx.ErrNoRows` with `errors.Is(err, pgx.ErrNoRows)` at `handlers.go:271` and `handlers.go:450`.
+**Fix applied:** W1 (`errors.Is`) committed in `c8e468a`. No other fixes required before merge.
 
-**Remaining warnings are low operational risk:**
-- W2 (InitDB timeout) only matters if the container network is black-hole slow; the Docker `service_healthy` gate makes this extremely unlikely in the deployed setup.
+**New finding from fan-out (W3):** DSN password URL-encoding — not caught by Explore agents or `/code-review`, surfaces the value of independent review tooling. Low operational risk in the Docker Compose deployment (env var values are controlled), but should be fixed before any deployment where passwords may contain special characters.
 
-**The three most impactful optional improvements** (not blocking): S1 (remove dead code), S2 (LIKE escape), S3 (case-insensitive risk_level filter).
+**Priority order for optional improvements:**
+1. W3 — DSN URL encoding (latent auth failure with special-char passwords)
+2. W2 — InitDB per-attempt timeout (startup safety)
+3. S1 — Remove dead `nullableString()` function
+4. S3 — Case-insensitive risk_level filter in GetFleetAlerts
