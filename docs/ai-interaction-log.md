@@ -1843,3 +1843,59 @@ Validating all endpoints before writing any frontend code is strictly better tha
 Docker networking uses service names as hostnames — `DB_HOST: db` is correct, `localhost` would silently fail. Verifying connectivity at the TCP level (`nc`) before attempting an authenticated connection isolates network issues from credential issues, making failures easier to diagnose.
 
 ---
+
+## AND-105 Task 2: Relational Data Model — Schema Design and Production Hardening
+
+**Date:** 2026-06-02
+
+**Prompts used:**
+
+*First prompt (schema design):*
+"Design a complete relational data model for the elevator platform. Entities: elevators (license.csv), inspections (inspection.csv), incidents (incident.json), alterations (altered.json), predictions (predictions.csv). Generate a Markdown section for docs/dashboard_spec.md and a SQL file at platform/api/migrations/001_initial_schema.sql. predictions table MUST include risk_explanation TEXT. elevators is the central entity. All others reference elevators."
+
+*Second prompt (hardening):*
+"Apply targeted refinements to improve robustness: ON DELETE CASCADE for FK → elevators, ON DELETE SET NULL for alterations.inspection_number, NOT NULL on inspections.outcome if always present, DEFAULT 'none' on incidents.injury_severity, and an index on predictions(elevator_id). Do NOT redesign the schema."
+
+**What was done:**
+
+*Schema design:*
+- Inspected all five source files before writing any SQL: `license.csv`, `inspection.csv`, `incident.json`, `altered.json`, `predictions.csv`. Captured exact field names, types, and a sample row from each.
+- Designed five tables with `elevators` as the central entity. All FK chains run back to `elevators.elevator_id`, using `ElevatingDevicesNumber` as the natural join key across all datasets.
+- Collapsed the ~30 sparse boolean injury-type columns in `incident.json` into a single `injury_severity TEXT` column with a CHECK constraint (`fatal / permanent / minor / none`). This decision avoided a table with 30 nullable boolean columns that are almost always NULL.
+- Used a SERIAL surrogate PK for `alterations` because `originating service request number` is not guaranteed unique in the source.
+- Used `elevator_id` as both PK and FK in `predictions` to enforce the 1:1 relationship and prevent duplicate rows for the same elevator.
+- Documented every column with source field name, type transformation, and justification in `docs/dashboard_spec.md`.
+
+*Production hardening:*
+- Verified `inspections.outcome` null rate programmatically (`py -3`) before adding `NOT NULL` — confirmed 0 nulls across 143,181 rows. This is the correct pre-constraint check; blindly adding NOT NULL without data verification would break the migration on import.
+- Added `ON DELETE CASCADE` to `inspections`, `incidents`, `predictions`, and `alterations.elevator_id` — all of these are meaningless without their parent elevator.
+- Added `ON DELETE SET NULL` to `alterations.inspection_number` — an alteration record remains valid even if its linked inspection is removed.
+- Added `DEFAULT 'none'` + `NOT NULL` to `injury_severity` — eliminates NULLs at insert time when no injury classification is present, making the CHECK constraint fully effective.
+- Added `idx_predictions_elevator_id` — the PK index on a single-column INTEGER PK covers lookups by PK, but an explicit index is needed when `predictions` is joined from the many side (e.g., `JOIN predictions ON elevators.elevator_id = predictions.elevator_id`).
+
+**What worked:**
+- Inspecting source files before writing SQL surfaced two non-obvious issues: the lack of a natural PK in `altered.json` (leading to SERIAL) and the 30-column injury boolean problem (leading to the severity collapse). Both would have required schema changes post-design if discovered later.
+- The two-prompt approach (design first, harden second) produced a cleaner result than trying to add production constraints in a single pass. The hardening prompt was precise and constraint-scoped; it didn't reopen modeling decisions.
+- Data verification before adding `NOT NULL` prevented a constraint that could silently fail on import if the assumption turned out to be wrong.
+
+**What didn't work / issues:**
+- `python3` is not on `PATH` in the project shell; had to switch to `py -3` for the null-rate check. A minor friction point but worth noting for any future data verification steps.
+- The `predictions` table uses `elevator_id` as PK, which works for the current "one prediction per elevator" model. If the pipeline is ever extended to store prediction history, this design will require a schema change (add `prediction_id SERIAL PK`, demote `elevator_id` to FK). This is a known future migration risk.
+
+**AI-generated vs manually written:**
+- `platform/api/migrations/001_initial_schema.sql` — fully AI-generated in both passes (initial schema and hardening). The only human action was reviewing and approving each version before committing.
+- `docs/dashboard_spec.md` "Relational Data Model" section — fully AI-generated. Column mapping tables, cardinality descriptions, and orphan behavior notes were all produced by Claude from the source file inspection output.
+- Data verification command (`py -3 -c "..."`) — AI-generated and run to confirm the `outcome NOT NULL` assumption before applying the constraint.
+- Nothing in this task was written by hand from scratch; all SQL, documentation, and verification steps were AI-generated and then reviewed.
+
+**SQL/schema design directives learned:**
+- `ON DELETE CASCADE` vs `ON DELETE SET NULL` is a semantic choice, not a default. Cascade is correct when the child row is meaningless without its parent; SET NULL is correct when the child row retains independent value but the relationship becomes optional.
+- Using `elevator_id` as both PK and FK in `predictions` is a valid pattern for enforcing a 1:1 optional relationship in PostgreSQL — it prevents duplicate rows while allowing the relationship to be absent.
+- A surrogate SERIAL PK is appropriate when no stable, unique natural key exists in the source data. The trade-off is that the surrogate has no business meaning; `service_request_number` is retained as an indexed searchable column.
+- `DEFAULT 'none' NOT NULL` on a TEXT column with a CHECK constraint is the correct pattern for an enumerated field where "unknown" is a valid, explicit state rather than an absence of data.
+- Always verify null rates in source data before adding NOT NULL constraints to columns that were previously nullable. A constraint that passes in development but breaks on production import is worse than no constraint.
+
+**Lesson learned:**
+Schema design decisions are hard to reverse once data is loaded. Inspecting source files before writing DDL — not after — is the correct order of operations. Two of the five most significant design choices in this schema (SERIAL for alterations, severity collapse for incidents) would have been missed without upfront source inspection.
+
+---
