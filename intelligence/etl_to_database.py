@@ -455,7 +455,7 @@ def _print_skip_sample(reasons, limit=5):
 
 def main():
     t0 = time.time()
-    print("=== AND-105 Task 3: ETL — Flat files → PostgreSQL ===\n")
+    print("=== AND-105 Task 3: ETL -- Flat files to PostgreSQL ===\n")
 
     conn = get_connection()
     try:
