@@ -11,6 +11,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type HealthResponse struct {
+	Status   string `json:"status"`
+	Database string `json:"database"`
+}
+
+func GetHealth(w http.ResponseWriter, r *http.Request) {
+	if err := db.Ping(r.Context()); err != nil {
+		writeJSON(w, 503, HealthResponse{Status: "degraded", Database: "unreachable"})
+		return
+	}
+	writeJSON(w, 200, HealthResponse{Status: "ok", Database: "connected"})
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
