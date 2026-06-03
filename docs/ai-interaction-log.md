@@ -2156,3 +2156,63 @@ The `/security-review` skill's false-positive filter phase (separate verifier ag
 The lesson: automated reviewers err on the side of surfacing. The human analyst's role is to verify — not to rubber-stamp findings, but to trace each claim back to actual code behavior. Four of the five CRITICAL findings were false positives; the one true critical (W1, errors.Is) was the quietest of the five.
 
 ---
+## AND-106 Task 6: LLM Risk Explanation Prototype
+
+**Date:** 2026-06-03
+
+### Model choice
+
+`llama3.1:8b` — 8B parameters provides the best local inference speed/quality tradeoff for structured text generation. Smaller models (3B) lose coherence on multi-field prompts; 70B models exceed available GPU memory. llama3.1:8b has strong instruction-following for constrained outputs and is available under a permissive community licence via Ollama.
+
+### /branch exploration: three prompt directions
+
+Three `/branch` directions were explored from the same context point, each tested against the 3 highest-risk elevators for a direct comparison:
+
+| Branch | Direction | Result |
+|--------|-----------|--------|
+| **Branch 1 — V1** | Baseline minimal | Generic output; hedging phrases ("may indicate", "could suggest") in 2/3 outputs; inconsistent specificity |
+| **Branch 2 — V2** | Explicit format rules + prohibitions | Reduced hedging; model satisfied rules mechanically — cited counts regardless of significance |
+| **Branch 3 — V3** | Ontario TSSA domain context | Most accurate; model interpreted Followup inspections as evidence of unresolved prior orders; led with operationally significant factors naturally |
+
+**Branch chosen:** Branch 3 (V3 — domain context). The regulatory background gave the model the vocabulary to explain *why* a pattern matters (unresolved compliance orders), not just *that* it exists. Format rules alone cannot substitute for missing domain knowledge.
+
+### Writer/Reviewer session on prompt engineering
+
+**Writer session (this session):** Developed V3 through the three `/branch` explorations. The prompt includes TSSA regulatory background, explicit task framing ("write for the servicing technician"), and output constraints without mechanical rule-counting.
+
+**Reviewer session (`claude -p`, fresh context — no project history, only the V3 prompt text):**
+
+The reviewer identified three categories of issues the Writer session had normalized:
+
+**Hallucination triggers found by reviewer (missed by writer):**
+1. *Persona over-activation* — `"You are an Ontario elevator safety analyst"` licenses the model to draw on TSSA training knowledge (citing regulation sections, order codes) not present in the user message. The writer had framed this as grounding; the reviewer saw it as a hallucination license.
+2. *Forced ranking without a rubric* — `"Lead with the single most operationally significant risk factor"` requires the model to rank without criteria. When factors aren't clearly ranked in the data, the model invents a rationale rather than surfacing ambiguity.
+3. *Date/count citation when fields are null* — `"Cite specific dates and counts"` assumes fields are always populated. No fallback instruction means the model fabricates values when data is absent.
+
+**Ambiguous instructions found by reviewer:**
+- `"Operationally significant"` is undefined — no rubric for recency vs. count vs. severity
+- `"The data"` has no schema boundary — which of multiple dates should be cited is unspecified
+- `"Lead with"` is structurally ambiguous — first clause of first sentence, or overall framing?
+
+**Missing guardrails found by reviewer:**
+- No explicit data-scope fence (`"use only the information in this message"`) — model can supplement with training knowledge
+- No handling instruction for missing/null fields — model will fabricate or silently skip
+- No prohibition on speculation (mechanical cause diagnosis, consequence prediction)
+- No low-risk case instruction — model must produce 2–3 sentences even when all indicators are benign, leading to manufactured concerns
+
+**What the reviewer surfaced that the writer missed:** The persona framing (`"You are an Ontario elevator safety analyst with expertise in TSSA compliance"`) was the most significant gap. The writer intended this to improve domain accuracy. The reviewer correctly identified that expertise personas are hallucination licenses: a model told it "has expertise" in a domain will apply that expertise even when the user message doesn't support it. The writer had seen this as grounding; the reviewer (with no prior context) saw it as an open invitation to invent TSSA procedure details.
+
+The null-field case was also missed entirely by the writer. Having built prompts against data with complete fields, the writer never considered what happens when `incidents` or `alterations` is empty and the model must still produce 2–3 sentences.
+
+**Fresh-context review value:** Yes — the reviewer found the persona hallucination trigger and the missing null-field guardrail. Both were invisible to the writer precisely because the writer had seen the prompt work on real data. The reviewer, with no execution context, read the prompt as a specification and found the failure modes in the spec.
+
+### Data gathered per elevator
+
+For each of the 10 highest-risk elevators (by `risk_score DESC`):
+- Last 5 inspections (type, date, outcome) from `inspections` table
+- Incidents in past 2 years (category, date, injury severity) from `incidents` table
+- Last 5 alterations (type, status) from `alterations` table
+
+All queries run via `docker exec psql` (Unix socket trust auth) since libpq 18.0.3 on Windows fails SCRAM-SHA-256 through Docker Desktop's NAT layer — the TCP connection appears to PostgreSQL as coming from the Docker bridge IP rather than localhost, hitting the `scram-sha-256` pg_hba.conf rule. The Unix socket path is functionally equivalent for a development notebook.
+
+---
