@@ -54,6 +54,8 @@ def _psql(sql, via_stdin=False):
         result = subprocess.run(base, input=sql, text=True, capture_output=True)
     else:
         result = subprocess.run(base + ['-c', sql], text=True, capture_output=True)
+    if result.returncode != 0:
+        raise RuntimeError(f'psql exited {result.returncode}: {result.stderr.strip()[:200]}')
     return result.stdout.strip()
 
 
@@ -70,7 +72,9 @@ def update_batch(updates):
     """Write a batch of {elevator_id: explanation} to predictions in one transaction."""
     if not updates:
         return
-    lines = ['BEGIN;\n']
+    # \set ON_ERROR_STOP on causes psql to exit non-zero on any SQL error,
+    # which prevents a silent ROLLBACK when COMMIT is issued on an aborted transaction
+    lines = ['\\set ON_ERROR_STOP on\nBEGIN;\n']
     for eid, explanation in updates.items():
         # Escape single quotes for standard SQL quoting
         escaped = explanation.replace("'", "''")
@@ -263,20 +267,34 @@ async def generate_all(elevators, args):
             call_ollama(semaphore, SYSTEM_PROMPT, user_msg(e))
             for e in augmented
         ]
-        results = await asyncio.gather(*tasks)
+        # return_exceptions=True prevents CancelledError (Ctrl+C) from discarding
+        # completed work — exceptions are returned as values, not raised
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Collect updates and count errors
+        cancelled = False
         updates = {}
         for e, explanation in zip(augmented, results):
             eid = e['elevator_id']
-            if explanation.startswith('[ERROR:'):
+            if isinstance(explanation, asyncio.CancelledError):
+                cancelled = True  # save completed work first, re-raise after
+            elif isinstance(explanation, BaseException):
+                errors += 1
+                print(f'  ✗ {eid}: {type(explanation).__name__}: {explanation}', flush=True)
+            elif explanation.startswith('[ERROR:'):
                 errors += 1
                 print(f'  ✗ {eid}: {explanation}', flush=True)
             else:
                 updates[eid] = explanation
 
         # Write to DB
-        update_batch(updates)
+        try:
+            update_batch(updates)
+        except RuntimeError as exc:
+            errors += len(updates)
+            print(f'  ✗ batch write failed — {len(updates)} explanations lost: {exc}', flush=True)
+        if cancelled:
+            raise asyncio.CancelledError()
         done += len(batch)
 
         # Progress report

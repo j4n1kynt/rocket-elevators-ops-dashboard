@@ -2327,3 +2327,31 @@ The script skips elevators where `risk_explanation IS NOT NULL`. If interrupted 
 
 ---
 
+
+## AND-105 Task 7: Worktree Code Review -- generate_explanations.py
+
+**Date:** 2026-06-04
+**Session:** `claude --worktree task7-review`
+**Screenshot:** `docs/worktree-review.png`
+
+> **Note:** A worktree screenshot requirement was added to AND-105 Task 5 after the original task was already completed and committed. Rather than retroactively re-running the Task 5 db-reviewer session, a new worktree reviewer session was opened for a different project-relevant scenario -- reviewing `intelligence/generate_explanations.py` (Task 7 script). This satisfies the intent of the requirement (demonstrating the worktree workflow) while producing genuinely useful findings on new code.
+
+### Reviewer findings
+
+The `task7-review` worktree session reviewed `intelligence/generate_explanations.py` with no context from the implementation session. Two WARNING-level issues were surfaced:
+
+**W1 -- asyncio.gather without return_exceptions=True (line 266)**
+- Category: `asyncio_correctness`
+- `_call_ollama_sync` catches `Exception` but `asyncio.CancelledError` is a `BaseException` subclass (Python 3.8+) and is not caught. If the user presses Ctrl+C mid-batch, `CancelledError` propagates through `asyncio.to_thread`, escapes `call_ollama`, and `gather` re-raises it immediately -- the entire `generate_all` coroutine exits without calling `update_batch`. All Ollama responses already received for that batch are silently discarded and the DB is not written.
+- **Fix applied:** `asyncio.gather(*tasks, return_exceptions=True)` -- exceptions are returned as values. The results loop now handles `CancelledError` by saving completed work first, then re-raising.
+
+**W2 -- Single UPDATE failure silently rolls back the entire batch (lines 73-82)**
+- Category: `db_transaction_atomicity`
+- When a statement fails inside a `BEGIN` block, PostgreSQL sets the transaction to an aborted state. All subsequent statements are no-ops until an explicit `ROLLBACK`. Because the SQL block had no `ROLLBACK` statement, psql executed `COMMIT` on an aborted transaction -- which PostgreSQL silently treats as `ROLLBACK`. The entire batch of up to 100 updates would be lost. `_psql` discarded stderr; no exception was raised, no log line appeared, and `done` still incremented.
+- **Fix applied:** Added `\set ON_ERROR_STOP on` before `BEGIN` so psql exits non-zero on any SQL error; `_psql` now raises `RuntimeError` on non-zero exit; `generate_all` catches `RuntimeError` from `update_batch`, logs the loss, and continues.
+
+### Value of the fresh-context review
+
+Both findings were missed during implementation. The `CancelledError` gap is particularly subtle -- `_call_ollama_sync` does catch `Exception`, so the retry path looks complete. The reviewer approached `asyncio.gather` as a standalone reader asking "what is not caught here?" without knowing the retry logic existed -- exactly the framing the implementation session loses after writing the code.
+
+---
