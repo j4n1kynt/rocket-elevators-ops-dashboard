@@ -2278,3 +2278,51 @@ In this case the single reviewer happened to find all issues because the V3 prom
 The parallel worktree pattern for prompt review mirrors the fan-out reviewer pattern used for code review in AND-105 Task 5. The same principle applies: isolated sessions with no shared context each contribute a different perspective, and the merge step is where convergence (confirmed findings) and divergence (false positives to filter) become visible. For prompts, the three natural angles are hallucination triggers, instruction ambiguity, and missing guardrails — roughly analogous to security, correctness, and edge-case coverage in code review.
 
 ---
+
+## AND-106 Task 7: Bulk Risk Explanation Generation — Script Design and Model Selection
+
+**Date:** 2026-06-04
+
+### Context
+
+Task 7 required creating `intelligence/generate_explanations.py` — a standalone script (not a notebook) that:
+- Queries all HIGH-risk elevators (27,626 rows) from PostgreSQL
+- Gathers per-elevator context (inspections, incidents, alterations)
+- Calls Ollama to generate 2-3 sentence explanations using the V4 system prompt
+- Writes the result to `predictions.risk_explanation` via `UPDATE`
+- Reports progress and verifies completeness
+
+### Model selection: `mistral:7b`
+
+The tutor recommended switching from `llama3.1:8b` (used in the Task 6 notebook prototype) to `mistral:7b` for the production generation script. Both are 7-8B parameter models; `mistral:7b` uses grouped-query attention and a sliding window architecture that tends to produce more compact and direct outputs — well-suited to the 2-3 sentence structured explanation format.
+
+| Model | Params | Architecture | Notes |
+|-------|--------|--------------|-------|
+| `llama3.1:8b` | 8B | LLaMA 3 | Used in Task 6 prototype |
+| `mistral:7b` | 7B | Mistral v0.1 | Selected for Task 7 production run |
+
+The system prompt (V4, hardened) is identical between the prototype and production script — model selection does not affect the prompt design.
+
+### Design decisions surfaced during implementation
+
+**1. N+1 query problem avoided via batch context fetch**
+
+A naive approach would run 3 DB queries per elevator (inspections, incidents, alterations), totaling 82,878 docker exec psql calls for 27,626 elevators. At ~200ms per call, that is ~4.6 hours of DB overhead alone. The script instead processes elevators in batches of 100 and fetches all context for each batch in 3 queries using `IN (id1, id2, ...)` — reducing total DB round-trips from 82,878 to ~828 (3 × 276 batches).
+
+**2. Async concurrency via `asyncio.to_thread`**
+
+`httpx` and `aiohttp` are not installed in this environment; only `requests` is available. Rather than adding a dependency, the script uses `asyncio.to_thread` to run blocking `requests.post()` calls in a thread pool executor. A `asyncio.Semaphore(4)` bounds concurrency to 4 simultaneous Ollama requests. This achieves the same throughput as a native async HTTP client: estimated ~24 hours vs ~96 hours sequential for 27,626 elevators.
+
+**3. Checkpoint/resume by default**
+
+The script skips elevators where `risk_explanation IS NOT NULL`. If interrupted at row 15,000 and restarted, it resumes from where it left off. A `--force` flag regenerates all rows when the prompt version changes.
+
+**4. `--limit N` for testing**
+
+`py -3 intelligence/generate_explanations.py --limit 10` processes the 10 highest-risk elevators and verifies the DB update before committing to a full run.
+
+### API integration
+
+`RiskResponse` in `platform/api/models.go` was extended with `RiskExplanation *string` (nullable pointer — LOW and MEDIUM elevators will not have explanations populated). The SQL in `GetElevatorRisk` now selects `risk_explanation`. Documented in `docs/api_spec.md`.
+
+---

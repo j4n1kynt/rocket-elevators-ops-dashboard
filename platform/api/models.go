@@ -42,6 +42,7 @@ type RiskResponse struct {
 	Confidence           float64 `json:"confidence"`
 	ModelVersion         string  `json:"model_version"`
 	GeneratedAt          string  `json:"generated_at"`
+	RiskExplanation      *string `json:"risk_explanation"`
 }
 
 type ErrorResponse struct {

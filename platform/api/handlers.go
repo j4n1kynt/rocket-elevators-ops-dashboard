@@ -435,19 +435,21 @@ func GetElevatorRisk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		elevIDStr    string
-		riskScore    float64
-		riskLevel    string
-		modelVersion string
-		predDate     time.Time
+		elevIDStr       string
+		riskScore       float64
+		riskLevel       string
+		riskExplanation *string
+		modelVersion    string
+		predDate        time.Time
 	)
 
 	err := db.QueryRow(r.Context(), `
-		SELECT elevator_id::text, risk_score::float8, risk_level, model_version, prediction_date
+		SELECT elevator_id::text, risk_score::float8, risk_level,
+		       risk_explanation, model_version, prediction_date
 		FROM predictions
 		WHERE elevator_id = $1`,
 		elevID,
-	).Scan(&elevIDStr, &riskScore, &riskLevel, &modelVersion, &predDate)
+	).Scan(&elevIDStr, &riskScore, &riskLevel, &riskExplanation, &modelVersion, &predDate)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeJSON(w, 404, ErrorResponse{Error: "No prediction available for this elevator.", ElevatorID: id})
 		return
@@ -470,6 +472,7 @@ func GetElevatorRisk(w http.ResponseWriter, r *http.Request) {
 		Confidence:           confidence,
 		ModelVersion:         modelVersion,
 		GeneratedAt:          predDate.Format("2006-01-02"),
+		RiskExplanation:      riskExplanation,
 	})
 }
 
