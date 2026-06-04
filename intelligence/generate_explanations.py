@@ -1,5 +1,5 @@
 """
-AND-106 Task 7: generate_explanations.py
+AND-105 Task 7: generate_explanations.py
 Generates 2-3 sentence risk explanations for all HIGH-risk elevators using Ollama
 (mistral:7b) and writes them to the predictions.risk_explanation column.
 
@@ -9,7 +9,7 @@ Usage:
   py -3 intelligence/generate_explanations.py --force     # regenerate all (ignores existing)
   py -3 intelligence/generate_explanations.py --verify    # check results only, no generation
 """
-# AND-106 Task 7: bulk risk explanation generation
+# AND-105 Task 7: bulk risk explanation generation
 
 import argparse, asyncio, json, subprocess, sys, time
 from datetime import date, timedelta

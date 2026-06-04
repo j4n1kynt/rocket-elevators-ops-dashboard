@@ -1,4 +1,4 @@
-# AI Interaction Log — Module 101
+﻿# AI Interaction Log â€” Module 101
 
 ## Summary: Evolution of AI-Assisted Development Through Module 101
 
@@ -6,23 +6,23 @@ Over the course of Module 101, my understanding of how to effectively collaborat
 
 ### Prompting: From Open-Ended Requests to Constraint-Driven Precision
 
-Early interactions taught me that prompting quality directly correlates to output precision. My initial README prompt was loose—it generated features that hadn't been implemented yet and created unnecessary content. Reframing the task with explicit constraints (module scope, no future assumptions) eliminated over-generation. This pattern repeated across multiple tasks: structured prompts with clear boundaries consistently outperformed open-ended requests.
+Early interactions taught me that prompting quality directly correlates to output precision. My initial README prompt was looseâ€”it generated features that hadn't been implemented yet and created unnecessary content. Reframing the task with explicit constraints (module scope, no future assumptions) eliminated over-generation. This pattern repeated across multiple tasks: structured prompts with clear boundaries consistently outperformed open-ended requests.
 
-But prompting is not one-size-fits-all. I discovered that the three main techniques—zero-shot, few-shot, and chain-of-thought—serve different purposes. Zero-shot prompting provided fast baselines for straightforward classification tasks. Few-shot prompting excelled when edge cases required contextual grounding (e.g., interpreting ambiguous license statuses). Chain-of-thought prompting was essential for complex reasoning and for catching misinterpretations hidden in technically correct results.
+But prompting is not one-size-fits-all. I discovered that the three main techniquesâ€”zero-shot, few-shot, and chain-of-thoughtâ€”serve different purposes. Zero-shot prompting provided fast baselines for straightforward classification tasks. Few-shot prompting excelled when edge cases required contextual grounding (e.g., interpreting ambiguous license statuses). Chain-of-thought prompting was essential for complex reasoning and for catching misinterpretations hidden in technically correct results.
 
-This last lesson emerged painfully: my data analysis task produced a result claiming 100% of licenses were expired. The calculation was correct—mathematically sound—but operationally meaningless because the dataset is historical. Only chain-of-thought prompting surfaced this insight, forcing explicit reasoning about data provenance. Simpler techniques accepted the dataset as current. The lesson: data interpretation requires context, and reasoning-focused prompts help distinguish calculations from meaningful insights.
+This last lesson emerged painfully: my data analysis task produced a result claiming 100% of licenses were expired. The calculation was correctâ€”mathematically soundâ€”but operationally meaningless because the dataset is historical. Only chain-of-thought prompting surfaced this insight, forcing explicit reasoning about data provenance. Simpler techniques accepted the dataset as current. The lesson: data interpretation requires context, and reasoning-focused prompts help distinguish calculations from meaningful insights.
 
 ### From Specifications as Documents to Specifications as Control
 
 Specifications started as a way to document requirements. They evolved into something more powerful: a single source of truth that could drive both implementation and visual refinement without manual code edits.
 
-This evolution was enabled by a critical upstream shift: verifying data early. My initial dashboard specification assumed field names without checking the actual datasets. When I aligned the specification with real schemas—confirming which fields existed, how they were named, and what gaps existed—the specification became genuinely actionable. A specification grounded in real data constraints is more valuable than one built on reasonable assumptions.
+This evolution was enabled by a critical upstream shift: verifying data early. My initial dashboard specification assumed field names without checking the actual datasets. When I aligned the specification with real schemasâ€”confirming which fields existed, how they were named, and what gaps existedâ€”the specification became genuinely actionable. A specification grounded in real data constraints is more valuable than one built on reasonable assumptions.
 
 Once the specification was data-aware, it became an effective control mechanism. Instead of editing HTML directly when visual design needed improvement, I updated the specification with branding guidance and regenerated the entire dashboard. This kept intent and implementation aligned and prevented the inconsistencies that manual tweaks introduce. The specification became the single source of truth, and regeneration became the standard workflow.
 
 ### The Role of Data Verification as a Foundation
 
-Data exploration is not separate from downstream work—it is prerequisite work. When I verified `ElevatingDevicesNumber` as a unique identifier, validated that ACTIVE and BY REQUEST were the operational statuses, and confirmed schema alignment across datasets, I was not just exploring. I was establishing foundations that everything downstream depended on.
+Data exploration is not separate from downstream workâ€”it is prerequisite work. When I verified `ElevatingDevicesNumber` as a unique identifier, validated that ACTIVE and BY REQUEST were the operational statuses, and confirmed schema alignment across datasets, I was not just exploring. I was establishing foundations that everything downstream depended on.
 
 This upfront verification accelerated implementation. The dashboard specification could be written confidently because the data constraints were known. The static HTML could be generated without follow-up questions. The prompting lab analysis could be interpreted correctly because I understood the dataset's provenance.
 
@@ -50,13 +50,13 @@ These patterns will shape how I approach AI-assisted work going forward:
 
 4. **Iteration on AI output is more efficient than regeneration from scratch.** When feedback is clear and targeted, guiding AI through revisions produces better results than asking for a complete redo. This was true for the README and the dashboard specification alike.
 
-5. **Structured verification is not optional.** Before accepting AI-generated content—especially for data analysis or calculations—I should verify outputs against source data and ask clarifying questions about context and assumptions.
+5. **Structured verification is not optional.** Before accepting AI-generated contentâ€”especially for data analysis or calculationsâ€”I should verify outputs against source data and ask clarifying questions about context and assumptions.
 
 The overall shift is from treating AI as a tool that produces complete, polished artifacts to treating it as a collaborator in an iterative process where clarity of intent, early verification, and targeted feedback produce better results than hoping for the perfect first attempt.
 
 ---
 
-## Entry – Monorepo Setup: Defining Project Structure for Module 101
+## Entry â€“ Monorepo Setup: Defining Project Structure for Module 101
 
 **Task:** Set up the initial monorepo structure, directory layout, and project organization to support Module 101 work.
 
@@ -74,7 +74,7 @@ Upfront investment in project structure pays off quickly. Repository organizatio
 
 ---
 
-## Entry – Updating README with Claude Code
+## Entry â€“ Updating README with Claude Code
 
 **Task:** Update README.md to meet Task 1 requirements.
 
@@ -95,12 +95,12 @@ Structured, constraint-driven prompts lead to more accurate documentation update
 
 ---
 
-## Entry – Refining AI Workflow Baseline
+## Entry â€“ Refining AI Workflow Baseline
 
 **Task:** Create the AI workflow baseline document for Module 101.
 
 **Interaction summary:**
-While drafting the initial version of the AI workflow baseline, I realized the content felt too superficial and did not accurately reflect my real usage of AI tools. I reframed the task by answering more detailed, self‑reflective questions before structuring the document.
+While drafting the initial version of the AI workflow baseline, I realized the content felt too superficial and did not accurately reflect my real usage of AI tools. I reframed the task by answering more detailed, selfâ€‘reflective questions before structuring the document.
 
 **What worked:**
 Answering the questions in Spanish and from real experience resulted in a more honest and technically accurate baseline. This helped surface patterns in how I actually rely on AI during development work.
@@ -113,7 +113,7 @@ Baseline documentation is most valuable when it reflects real behavior, not an i
 
 ---
 
-## Entry – License Dataset Analysis: Identifier Selection, Filtering, and Validation
+## Entry â€“ License Dataset Analysis: Identifier Selection, Filtering, and Validation
 
 **Task:** Analyze the license dataset (intelligence/license_analysis.ipynb) to identify a unique elevator identifier and create a clean, operational subset of the data.
 
@@ -134,7 +134,7 @@ Data exploration should answer concrete operational questions before enabling do
 
 ---
 
-## Entry – Cross-Dataset Schema Alignment: Validating Join Fields Across Datasets
+## Entry â€“ Cross-Dataset Schema Alignment: Validating Join Fields Across Datasets
 
 **Task:** Validate schema relationships across license.csv, inspection.csv, and installed.json to support a data-aware dashboard specification.
 
@@ -155,7 +155,7 @@ Data schemas are constraints, not suggestions. Grounding specifications in real 
 
 ---
 
-## Entry – Dashboard Specification Iteration
+## Entry â€“ Dashboard Specification Iteration
 
 **Task:** Write a technical specification for the Rocket Elevators Operations Dashboard (Task 3).
 
@@ -176,7 +176,7 @@ AI can produce very complete outputs, but completion is not the same as correctn
 
 ---
 
-## Entry – Refining Dashboard Specification Based on Real Datasets
+## Entry â€“ Refining Dashboard Specification Based on Real Datasets
 
 **Task:** Write and finalize the technical dashboard specification for the Rocket Elevators Operations Dashboard (Task 3).
 
@@ -197,7 +197,7 @@ A dashboard specification should be business-driven but data-aware. Reviewing re
 
 ---
 
-## Entry – Iterating on Static Dashboard via Specification
+## Entry â€“ Iterating on Static Dashboard via Specification
 
 **Task:** Generate and refine a static HTML operations dashboard based on a written specification (Task 4).
 
@@ -218,7 +218,7 @@ Iteration does not stop at functionality. Visual clarity and branding are also p
 
 ---
 
-## Entry – Dashboard UI Polish: Specification-Driven Visual Refinement
+## Entry â€“ Dashboard UI Polish: Specification-Driven Visual Refinement
 
 **Task:** Refine the visual design of the static operations dashboard using specification-driven iteration.
 
@@ -239,12 +239,12 @@ Specifications should encode both functional and visual decisions. A spec-driven
 
 ---
 
-## Entry – Module 101 Prompting Lab: Three Tasks, Three Techniques
+## Entry â€“ Module 101 Prompting Lab: Three Tasks, Three Techniques
 
 **Task:** Develop a Module 101 prompting lab notebook (intelligence/prompting_lab.ipynb) comparing three prompting strategies (zero-shot, few-shot, and chain-of-thought) across three data analysis tasks using the Rocket Elevators license dataset.
 
 **Interaction approach:**
-For each of the three tasks — (1) classification of LICENSESTATUS values, (2) calculation of expired license percentage, and (3) open-ended geographic analysis — I ran the same task using all three prompting techniques. Each prompt and its corresponding output were copied into structured notebook cells, followed by a comparison and reflection section analyzing trade-offs between techniques.
+For each of the three tasks â€” (1) classification of LICENSESTATUS values, (2) calculation of expired license percentage, and (3) open-ended geographic analysis â€” I ran the same task using all three prompting techniques. Each prompt and its corresponding output were copied into structured notebook cells, followed by a comparison and reflection section analyzing trade-offs between techniques.
 
 **What worked:**
 Applying the same task across different prompting styles made the strengths of each technique visible. Zero-shot prompting provided fast, reasonable baselines. Few-shot prompting worked particularly well when edge cases existed (for example, interpreting ambiguous statuses like "BY REQUEST" or framing urban vs. rural observations). Chain-of-thought prompting was most effective for complex reasoning, as it forced explicit step-by-step logic and made conclusions easier to verify and explain.
@@ -264,7 +264,7 @@ Prompting techniques are complementary. Chain-of-thought excels at reasoning and
 
 ---
 
-## Entry – License Expiration Interpretation: Correct Results vs. Meaningful Insights
+## Entry â€“ License Expiration Interpretation: Correct Results vs. Meaningful Insights
 
 **Task:** Interpret the result that 100% of licenses appeared expired during the prompting lab analysis.
 
@@ -283,41 +283,41 @@ Explicitly include dataset context (timeframe, scope) in prompts for time-based 
 **Lesson learned:**
 Data interpretation requires context. Reasoning-focused prompting techniques help distinguish correct calculations from meaningful insights.
 
-## Entry – Evaluator Simulation as a Pre‑Submission Quality Gate
+## Entry â€“ Evaluator Simulation as a Preâ€‘Submission Quality Gate
 
-**Task:** Review Extra‑Mile tasks using an evaluator mindset prior to final submission.
+**Task:** Review Extraâ€‘Mile tasks using an evaluator mindset prior to final submission.
 
 **Interaction summary:**  
-Both Extra‑Mile tasks were submitted to Claude Code with explicit evaluator‑level constraints: strict checklist review, no invented work, and no overlap with mandatory tasks. The AI acted as an adversarial reviewer rather than a collaborator, confirming Extra‑Mile 1 as fully compliant and identifying a specific evaluation risk in Extra‑Mile 2.
+Both Extraâ€‘Mile tasks were submitted to Claude Code with explicit evaluatorâ€‘level constraints: strict checklist review, no invented work, and no overlap with mandatory tasks. The AI acted as an adversarial reviewer rather than a collaborator, confirming Extraâ€‘Mile 1 as fully compliant and identifying a specific evaluation risk in Extraâ€‘Mile 2.
 
 **What worked:**  
-Framing the AI as a critical assessor surfaced issues that were not obvious during implementation. The feedback went beyond syntax and structure, focusing on whether the task fulfilled the evaluator’s intent.
+Framing the AI as a critical assessor surfaced issues that were not obvious during implementation. The feedback went beyond syntax and structure, focusing on whether the task fulfilled the evaluatorâ€™s intent.
 
 **What was unexpected:**  
-Extra‑Mile 2 passed every formal requirement but still carried a substantive evaluation risk due to lack of variance in the second dimension. This distinction would likely have been missed without an evaluator‑style review.
+Extraâ€‘Mile 2 passed every formal requirement but still carried a substantive evaluation risk due to lack of variance in the second dimension. This distinction would likely have been missed without an evaluatorâ€‘style review.
 
 **Lesson learned:**  
 Using AI as a simulated evaluator is a powerful quality gate. It shifts the role of AI from builder to critic and helps identify risks that only appear when judging intent rather than correctness.
 
-## Entry – Diagnosing Structurally Correct but Conceptually Weak Designs
+## Entry â€“ Diagnosing Structurally Correct but Conceptually Weak Designs
 
-**Task:** Evaluate the intent of a two‑column visualization that was technically correct.
+**Task:** Evaluate the intent of a twoâ€‘column visualization that was technically correct.
 
 **Interaction summary:**  
-Extra‑Mile 2 initially met all structural requirements (groupby, unstack, labels, legend, paragraph) but failed to introduce meaningful variation because the second grouping column (Province) contained only one value after filtering.
+Extraâ€‘Mile 2 initially met all structural requirements (groupby, unstack, labels, legend, paragraph) but failed to introduce meaningful variation because the second grouping column (Province) contained only one value after filtering.
 
 **What worked:**  
-The evaluator‑style feedback correctly distinguished between structural compliance and analytical value. The chart was valid code, but it did not meaningfully extend insight beyond a single‑column view.
+The evaluatorâ€‘style feedback correctly distinguished between structural compliance and analytical value. The chart was valid code, but it did not meaningfully extend insight beyond a singleâ€‘column view.
 
 **What was unexpected:**  
-This revealed a subtle failure mode: code that is correct, well‑written, and fully compliant can still undermine the purpose of the task.
+This revealed a subtle failure mode: code that is correct, wellâ€‘written, and fully compliant can still undermine the purpose of the task.
 
 **Lesson learned:**  
 Meeting the letter of a requirement is not always sufficient. Visualizations must introduce real explanatory power, not just satisfy structural criteria.
 
-## Entry – Minimal Targeted Correction over Full Rewrite
+## Entry â€“ Minimal Targeted Correction over Full Rewrite
 
-**Task:** Correct Extra‑Mile 2 based on evaluator feedback with minimal scope change.
+**Task:** Correct Extraâ€‘Mile 2 based on evaluator feedback with minimal scope change.
 
 **Interaction summary:**  
 To resolve the identified risk, the second grouping dimension was changed from Province to ExpiryYear, a column already derived earlier in the notebook. No new logic or datasets were introduced.
@@ -331,20 +331,20 @@ A very small change completely eliminated the evaluation risk, reinforcing that 
 **Lesson learned:**  
 The smallest change that satisfies evaluator intent is often the best one. Targeted corrections preserve stability and reduce the chance of introducing new issues.
 
-## Entry – Final Re‑Review as a Submission Checkpoint
+## Entry â€“ Final Reâ€‘Review as a Submission Checkpoint
 
-**Task:** Re‑audit Extra‑Mile tasks after applying corrections.
+**Task:** Reâ€‘audit Extraâ€‘Mile tasks after applying corrections.
 
 **Interaction summary:**  
-After correcting Extra‑Mile 2, both bonus tasks were re‑reviewed against the full evaluation checklist. The re‑review confirmed that all requirements were now fully met, with no remaining risks.
+After correcting Extraâ€‘Mile 2, both bonus tasks were reâ€‘reviewed against the full evaluation checklist. The reâ€‘review confirmed that all requirements were now fully met, with no remaining risks.
 
 **What worked:**  
-The review‑correct‑re‑review loop ensured confidence that the fix was complete and did not introduce regressions, despite changes in grouping orientation.
+The reviewâ€‘correctâ€‘reâ€‘review loop ensured confidence that the fix was complete and did not introduce regressions, despite changes in grouping orientation.
 
 **Lesson learned:**  
-A deliberate submission workflow—review, identify risk, correct, re‑review—reduces uncertainty and prevents last‑minute surprises. Passing once is not the same as being submission‑ready.
+A deliberate submission workflowâ€”review, identify risk, correct, reâ€‘reviewâ€”reduces uncertainty and prevents lastâ€‘minute surprises. Passing once is not the same as being submissionâ€‘ready.
 
-## AND-2 Task 1: CLAUDE.md Setup — Subagent Explore for repo discovery
+## AND-2 Task 1: CLAUDE.md Setup â€” Subagent Explore for repo discovery
 
 **Date:** 2026-05-11
 
@@ -365,15 +365,15 @@ A deliberate submission workflow—review, identify risk, correct, re‑review�
 I used Explore to keep repo scanning, file reads, and any dead ends out of the main context window. I only brought back a short summary to draft the initial CLAUDE.md.
 
 **What I will change next time:**
-- Ask Explore to produce the purpose as a strict single sentence (max ~20–25 words).
+- Ask Explore to produce the purpose as a strict single sentence (max ~20â€“25 words).
 - Request the /data inventory in a fixed bullet format to copy directly into CLAUDE.md.
 
-## AND-2 Task 3: Dynamic Dashboard — Context Reset and Server-Rendered Summary Cards
+## AND-2 Task 3: Dynamic Dashboard â€” Context Reset and Server-Rendered Summary Cards
 
 **Date:** 2026-05-13
 
 **Context / Situation**  
-While implementing HTMX-based filtering and sorting for the dashboard table, the Summary Cards at the top of the page stopped displaying values and showed placeholder dashes ("—"). Table interactivity via HTMX was functioning correctly.
+While implementing HTMX-based filtering and sorting for the dashboard table, the Summary Cards at the top of the page stopped displaying values and showed placeholder dashes ("â€”"). Table interactivity via HTMX was functioning correctly.
 
 **Prompt (paraphrased)**  
 "Why did the summary cards stop showing values after migrating from a JavaScript-based prototype to an HTMX + server-rendered dashboard?"
@@ -396,7 +396,7 @@ To remain compliant with course constraints (no direct HTML edits, spec-driven w
 **What I would do differently next time**  
 When migrating from a static prototype to server-rendered interactivity, I would proactively audit which UI elements depend on client-side logic and plan equivalent server-rendered behavior earlier, instead of discovering missing functionality after removing JavaScript.
 
-## AND-2 Task 3: Context Management — Using /compact to Maintain Output Quality
+## AND-2 Task 3: Context Management â€” Using /compact to Maintain Output Quality
 
 **Date:** 2026-05-13
 
@@ -428,7 +428,7 @@ For long tasks involving multiple files and design decisions, proactive context 
 I asked Claude Code to design a Python data pipeline that:
 - Loads three source datasets (license.csv, inspection.csv, installed.json) with consistent string typing
 - Replicates the ACTIVE + BY REQUEST filtering from Module 1 Task 6c
-- Normalizes date formats (DD-MMM-YY → YYYY-MM-DD) for consistent sorting and display
+- Normalizes date formats (DD-MMM-YY â†’ YYYY-MM-DD) for consistent sorting and display
 - Deduplicates inspection records to keep only the most recent per elevator
 - Joins datasets on ElevatingDevicesNumber and outputs a clean CSV
 
@@ -439,7 +439,7 @@ I asked Claude Code to design a Python data pipeline that:
 - Output column naming aligned directly with template variable expectations in index.html
 
 **What was unexpected:**
-- The Unicode encoding issue (→ character in print statement) surfaced Windows PowerShell's cp1252 limitations; this required using plain ASCII (→ became ->) instead of assuming UTF-8 was available in terminal output
+- The Unicode encoding issue (â†’ character in print statement) surfaced Windows PowerShell's cp1252 limitations; this required using plain ASCII (â†’ became ->) instead of assuming UTF-8 was available in terminal output
 - Despite the encoding issue, the data pipeline itself executed successfully and produced correct output
 
 **Design decision:**
@@ -450,7 +450,7 @@ Data pipelines should be script-first, not ad hoc. Encoding issues are environme
 
 ---
 
-## AND-2 Task 3: HTMX Table Interactivity — Migration from JavaScript Prototype
+## AND-2 Task 3: HTMX Table Interactivity â€” Migration from JavaScript Prototype
 
 **Date:** 2026-05-13
 
@@ -470,7 +470,7 @@ I worked with Claude Code to redesign the dashboard interactivity model:
 
 **What was unexpected:**
 - The HTMX approach required no custom JavaScript whatsoever, eliminating an entire class of client-side state management bugs
-- Unicode arrow characters (↑↓↕) in Python required careful handling but rendered correctly in browser HTML (no terminal encoding issues)
+- Unicode arrow characters (â†‘â†“â†•) in Python required careful handling but rendered correctly in browser HTML (no terminal encoding issues)
 
 **Design decision:**
 Approach A (server returns updated button URLs) was chosen over Approach B (client remembers sort state) because it keeps all state on the server and requires zero client-side logic. Each sort button click toggles the URL parameter, and the server recalculates the opposite direction. This trades a full table HTML return for complete statelessness on the client.
@@ -480,7 +480,7 @@ HTMX shifts interactivity from client-side logic to server-side response shape. 
 
 ---
 
-## AND-2 Task 3: Flask Server Architecture — HTML Fragments Over JSON
+## AND-2 Task 3: Flask Server Architecture â€” HTML Fragments Over JSON
 
 **Date:** 2026-05-13
 
@@ -517,8 +517,8 @@ When the client is Hypertext (HTML), serving HTML fragments is simpler and more 
 
 **Interaction summary:**
 During spec refinement, I updated the dashboard title and subtitle to clarify scope:
-- Title: "Fleet Overview" → "Operational Fleet Overview"
-- Subtitle: "Ontario elevator registry — HTMX-driven, server-rendered" → "Active and by-request licensed devices — server-rendered, HTMX-driven"
+- Title: "Fleet Overview" â†’ "Operational Fleet Overview"
+- Subtitle: "Ontario elevator registry â€” HTMX-driven, server-rendered" â†’ "Active and by-request licensed devices â€” server-rendered, HTMX-driven"
 
 This was informed by earlier license_analysis.ipynb verification that confirmed ACTIVE and BY REQUEST were the only operational statuses included in the dashboard.
 
@@ -551,19 +551,19 @@ I provided a custom jq formatting script that transforms Claude Code's session J
 The jq script successfully formats all desired metrics in a concise, readable format. The script uses explicit null coalescing (`// default_value`) to gracefully handle missing fields, preventing errors when certain metrics are not yet available (e.g., before the first API call when context percentage is unknown). The statusline-setup agent discovered that configuration infrastructure already existed at a specific project location and applied two small improvements to handle edge cases better.
 
 **What didn't work or was unexpected:**
-Initial navigation required clarification—I had to provide the full file path because standard shell config files don't exist on Windows systems. The agent initially asked whether I was using WSL or wanted to manually define metrics, but once provided the jq script, it successfully integrated it into existing configuration.
+Initial navigation required clarificationâ€”I had to provide the full file path because standard shell config files don't exist on Windows systems. The agent initially asked whether I was using WSL or wanted to manually define metrics, but once provided the jq script, it successfully integrated it into existing configuration.
 
 **Design decision:**
 jq was chosen for the formatter because it allows flexible field extraction and transformation while remaining portable across platforms. The script returns "?" for metrics that haven't been calculated yet (e.g., `?%` before the first message), making the statusline useful throughout the session lifecycle rather than only after API calls.
 
 **Lesson learned:**
-Claude Code's configuration is highly customizable—status display can be driven by structured data transformation scripts. Using explicit null checks and default values in formatters makes them robust to evolving session states, where some metrics may be unavailable or null at different points in the conversation.
+Claude Code's configuration is highly customizableâ€”status display can be driven by structured data transformation scripts. Using explicit null checks and default values in formatters makes them robust to evolving session states, where some metrics may be unavailable or null at different points in the conversation.
 
 **What I'd change next time:**
 Include the full file path when requesting statusline configuration setup on Windows, rather than expecting the agent to locate standard shell config files that don't exist on that platform.
 ---
 
-## AND-2 Task 5: ETL Pipeline — Dataset Merging and Integration
+## AND-2 Task 5: ETL Pipeline â€” Dataset Merging and Integration
 
 **Date:** 2026-05-14
 
@@ -585,7 +585,7 @@ In ETL workflows, documenting reasoning and context-management decisions is as i
 
 ---
 
-## AND-2 Task 6: NLP Analysis — Subagent Research and Text Cleaning Implementation
+## AND-2 Task 6: NLP Analysis â€” Subagent Research and Text Cleaning Implementation
 
 **Date:** 2026-05-14
 
@@ -600,9 +600,9 @@ Build an NLP analysis notebook (intelligence/nlp_analysis.ipynb) that performs i
 
 1. **Research Phase (Subagent):** Spun up an Explore agent to compare LDA and TF-IDF + clustering for short incident narratives (avg 12.6 words). The subagent produced a detailed analysis covering all six required dimensions, concluding that TF-IDF + K-means was superior for this use case due to short document length incompatibility with LDA's assumptions.
 
-2. **Notebook Structure:** Created the research findings markdown cell at the top of the notebook, documenting the comparison and explicit justification for method choice (3–5 sentences referencing document length and hyperparameter robustness).
+2. **Notebook Structure:** Created the research findings markdown cell at the top of the notebook, documenting the comparison and explicit justification for method choice (3â€“5 sentences referencing document length and hyperparameter robustness).
 
-3. **Text Cleaning Implementation:** Added a complete text cleaning section (cells 5–8) before TF-IDF vectorization:
+3. **Text Cleaning Implementation:** Added a complete text cleaning section (cells 5â€“8) before TF-IDF vectorization:
    - NLTK setup cell with required downloads (stopwords, wordnet, pos_tagger)
    - clean_text() function implementing: lowercasing, punctuation removal, tokenization, stopword filtering, and **lemmatization** (not stemming) using WordNetLemmatizer
    - DataFrame creation and cleaning application with sample before/after display
@@ -627,7 +627,7 @@ Build an NLP analysis notebook (intelligence/nlp_analysis.ipynb) that performs i
 - Some incident records had None values for the narrative field, which TF-IDF couldn't process directly. The `or ''` fallback pattern prevented AttributeError without losing data integrity.
 
 **Design decision:**  
-Lemmatization was chosen over stemming because it normalizes words to meaningful base forms (e.g., "running" → "run") rather than truncating (e.g., "runn"). For short incident narratives (5–15 words on average), preserving semantic meaning is more important than aggressive reduction.
+Lemmatization was chosen over stemming because it normalizes words to meaningful base forms (e.g., "running" â†’ "run") rather than truncating (e.g., "runn"). For short incident narratives (5â€“15 words on average), preserving semantic meaning is more important than aggressive reduction.
 
 Text cleaning was implemented as an **explicit preprocessing step** before vectorization, rather than relying on TF-IDF's built-in stop_words parameter. This made the cleaning logic auditable, repeatable, and transparent for future analysis or refinement.
 
@@ -644,7 +644,7 @@ Text cleaning was implemented as an **explicit preprocessing step** before vecto
 
 ---
 
-## AND-2 Task 6: NLP Analysis — Context Management via /compact
+## AND-2 Task 6: NLP Analysis â€” Context Management via /compact
 
 **Date:** 2026-05-14
 
@@ -652,24 +652,24 @@ Text cleaning was implemented as an **explicit preprocessing step** before vecto
 Perform NLP analysis on incident narratives to identify operational safety patterns using clustering, while maintaining output quality across multiple iterative steps within the same task.
 
 **Context management decision**  
-During Task 6, the analysis required multiple stages (data exploration, NLP method selection, text cleaning, vectorization, clustering, and interpretation). As the session progressed, the context window began to fill with intermediate outputs (statistics, TF‑IDF shapes, silhouette scores, cluster term lists), which risked degrading response quality.
+During Task 6, the analysis required multiple stages (data exploration, NLP method selection, text cleaning, vectorization, clustering, and interpretation). As the session progressed, the context window began to fill with intermediate outputs (statistics, TFâ€‘IDF shapes, silhouette scores, cluster term lists), which risked degrading response quality.
 
-To ensure sufficient context for high‑quality reasoning while continuing work on the same task, `/compact` was deliberately used to reduce noise and preserve only the critical decisions and evidence needed to proceed.
+To ensure sufficient context for highâ€‘quality reasoning while continuing work on the same task, `/compact` was deliberately used to reduce noise and preserve only the critical decisions and evidence needed to proceed.
 
 **What was preserved after /compact**
-- Dataset characteristics: ~2,446 incident reports with ~2,445 non‑null narratives.
+- Dataset characteristics: ~2,446 incident reports with ~2,445 nonâ€‘null narratives.
 - Evidence that narratives are very short (average ~12.6 words), influencing method choice.
-- Chosen NLP approach: TF‑IDF vectorization combined with K‑Means clustering (not LDA).
-- Clustering configuration (TF‑IDF parameters, K selection via silhouette score).
-- Requirement to explicitly add a full text‑cleaning step (lowercasing, punctuation removal, stop‑word removal, lemmatization) before analysis.
+- Chosen NLP approach: TFâ€‘IDF vectorization combined with Kâ€‘Means clustering (not LDA).
+- Clustering configuration (TFâ€‘IDF parameters, K selection via silhouette score).
+- Requirement to explicitly add a full textâ€‘cleaning step (lowercasing, punctuation removal, stopâ€‘word removal, lemmatization) before analysis.
 - Need for labeled clusters, visualization, and a concrete operational summary.
 
 **Why /compact was appropriate**  
-The task was not complete, and clearing context entirely would have required re‑establishing decisions already justified by data evidence. Using `/compact` allowed continuation of the same analytical task with a clean context window while preserving the most important assumptions, parameters, and evaluation requirements.
+The task was not complete, and clearing context entirely would have required reâ€‘establishing decisions already justified by data evidence. Using `/compact` allowed continuation of the same analytical task with a clean context window while preserving the most important assumptions, parameters, and evaluation requirements.
 
 **Lesson learned**  
-For multi‑stage NLP workflows, proactive context management is essential. Strategic use of `/compact` helps maintain analytical quality when working with iterative exploration and modeling steps, without losing alignment with task requirements or previously validated decisions.
-## AND-2 Task 6: NLP Analysis — Cluster/Summary Alignment Fix
+For multiâ€‘stage NLP workflows, proactive context management is essential. Strategic use of `/compact` helps maintain analytical quality when working with iterative exploration and modeling steps, without losing alignment with task requirements or previously validated decisions.
+## AND-2 Task 6: NLP Analysis â€” Cluster/Summary Alignment Fix
 
 **Date:** 2026-05-14
 
@@ -678,23 +678,23 @@ Ensure that the incident pattern summary accurately reflects the actual clusteri
 
 **AI techniques used**  
 - Used Claude Code in a strict evaluation role to review the notebook for consistency between clustering outputs and the final summary section.
-- Leveraged iterative AI-assisted inspection of cluster characteristics (top TF‑IDF terms and cluster sizes) to realign interpretation with computed results.
+- Leveraged iterative AI-assisted inspection of cluster characteristics (top TFâ€‘IDF terms and cluster sizes) to realign interpretation with computed results.
 
 **What worked**  
 A strict evaluator-style review immediately exposed a mismatch between the cluster statistics displayed in the notebook and the summary narrative describing incident patterns. Re-extracting cluster sizes and top terms directly from the clustering output eliminated assumptions and ensured the summary was fully data-driven.
 
 **What was unexpected**  
-A minor preprocessing change (adding an NLTK tokenization dependency) propagated through tokenization, TF‑IDF vectorization, and K‑Means clustering, completely reorganizing cluster assignments without producing runtime errors. The notebook structure and parameters remained unchanged, but the semantic meaning of clusters shifted significantly.
+A minor preprocessing change (adding an NLTK tokenization dependency) propagated through tokenization, TFâ€‘IDF vectorization, and Kâ€‘Means clustering, completely reorganizing cluster assignments without producing runtime errors. The notebook structure and parameters remained unchanged, but the semantic meaning of clusters shifted significantly.
 
 **Design decision**  
 Rather than reverting preprocessing changes or forcing clusters to match an earlier interpretation, the summary was rewritten to describe the actual clustering results shown in the notebook. Clusters were grouped into four higher-level operational categories (falls & injuries, water & flooding, door system issues, and mechanical failures) based strictly on top terms and cluster sizes, ensuring that all reported counts summed exactly to the total number of incidents.
 
 **Lesson learned**  
-In NLP workflows, preprocessing choices have cascading effects that can silently alter downstream results. Narrative summaries must always be traceable to concrete model outputs, and any change to preprocessing requires revalidation of all interpretive sections. Treating the summary as a derived artifact—rather than a static explanation—prevents evaluation-blocking inconsistencies.
+In NLP workflows, preprocessing choices have cascading effects that can silently alter downstream results. Narrative summaries must always be traceable to concrete model outputs, and any change to preprocessing requires revalidation of all interpretive sections. Treating the summary as a derived artifactâ€”rather than a static explanationâ€”prevents evaluation-blocking inconsistencies.
 
 ---
 
-## AND-2 Task 7: Executive Report — 6-Phase Structured Report Production
+## AND-2 Task 7: Executive Report â€” 6-Phase Structured Report Production
 
 **Date:** 2026-05-15
 
@@ -702,31 +702,31 @@ In NLP workflows, preprocessing choices have cascading effects that can silently
 Produce a complete executive report and presentation for AND-2 Task 7, integrating findings from the ETL pipeline (Task 5) and NLP analysis (Task 6) into a single, evidence-based document with verified cost data, actionable recommendations, and a timed presentation script.
 
 **AI techniques used**  
-- **6-phase structured prompt** — The report task was decomposed into explicit phases: pre-work validation, outline and content plan, report writing, validation checklist, presentation script, and final review. Each phase produced a verifiable artifact before the next began.
-- **Evaluator-style validation** — Phase 4 used a 14-criterion checklist to simulate a grader review before finalizing the report, catching issues (generic language, placeholder text) before submission.
-- **Cross-session context continuity** — The task spanned multiple sessions; `/compact` was used to preserve critical decisions while discarding resolved exploration, and the session summary allowed seamless continuation without re-establishing context.
+- **6-phase structured prompt** â€” The report task was decomposed into explicit phases: pre-work validation, outline and content plan, report writing, validation checklist, presentation script, and final review. Each phase produced a verifiable artifact before the next began.
+- **Evaluator-style validation** â€” Phase 4 used a 14-criterion checklist to simulate a grader review before finalizing the report, catching issues (generic language, placeholder text) before submission.
+- **Cross-session context continuity** â€” The task spanned multiple sessions; `/compact` was used to preserve critical decisions while discarding resolved exploration, and the session summary allowed seamless continuation without re-establishing context.
 
 **Interaction summary**  
 The report was built in two distinct stages. In the first stage, a 6-phase prompt produced the full report and presentation as chat output, synthesizing verified statistics from `intelligence/etl_pipeline.ipynb` and `intelligence/nlp_analysis.ipynb` (52,031 rows, 2,446 incidents, 4 hazard categories, 51 high-alteration elevators). In the second stage, existing documents (`docs/executive_report.md` and `intelligence/executive_report_task7.ipynb`) contained fabricated cost numbers that had never been captured from the real status bar. These were identified, replaced with verified data extracted from status bar screenshots, and cross-validated to ensure both documents were consistent.
 
 **What worked**  
 - The 6-phase structure prevented scope creep: each phase had a defined output and a clear entry condition. This made it immediately visible when a phase was complete and what the next step required.  
-- The pre-work validation phase (Phase 1) surfaced that cost data for Tasks 1–6 had never been individually captured. Acknowledging this gap explicitly — rather than estimating — kept the report factually defensible.  
+- The pre-work validation phase (Phase 1) surfaced that cost data for Tasks 1â€“6 had never been individually captured. Acknowledging this gap explicitly â€” rather than estimating â€” kept the report factually defensible.  
 - Evaluator-style checklists (Phase 4) caught issues not visible during writing: recommendations that referenced data correctly but lacked a concrete action verb, and a visualization reference that pointed to the right notebook but not the specific cell.  
 - Status bar screenshots (`less_expended_session.png`, `more_expended_session.png`) provided exact verified values ($0.2412 and $3.5225) that replaced all fabricated cost figures across both documents simultaneously.
 
 **What was unexpected**  
 - Both `docs/executive_report.md` and `intelligence/executive_report_task7.ipynb` already contained a cost table with fabricated numbers (~$1.50, ~$1.80, ~$2.20 per task, totaling ~$7.90) that had never been verified against any real measurement. These figures appeared plausible but were entirely invented. Identifying and replacing them required reading every cost-related cell in both documents before making any edits.  
 - Markdown table formatting broke silently: row content was split across multiple lines during a prior edit, which rendered correctly in raw text but broke the table display entirely in markdown viewers. The fix was a full section rewrite rather than a targeted cell edit.  
-- The actual cost difference between the two sessions was larger than expected: $0.2412 (Haiku 4.5) vs. $3.5225 (Sonnet 4.6) — a 14x multiplier driven almost entirely by model selection, not session length or task complexity.
+- The actual cost difference between the two sessions was larger than expected: $0.2412 (Haiku 4.5) vs. $3.5225 (Sonnet 4.6) â€” a 14x multiplier driven almost entirely by model selection, not session length or task complexity.
 
 **Design decision**  
-Cost reporting was restricted to exactly two verified data points — the minimum and maximum — with no interpolation for Tasks 1–6. This was a deliberate choice to keep the report factually honest rather than statistically convenient. Any per-task estimate would have required labeling it as estimated, which would have undermined the report's credibility on the one dimension where real evidence existed.
+Cost reporting was restricted to exactly two verified data points â€” the minimum and maximum â€” with no interpolation for Tasks 1â€“6. This was a deliberate choice to keep the report factually honest rather than statistically convenient. Any per-task estimate would have required labeling it as estimated, which would have undermined the report's credibility on the one dimension where real evidence existed.
 
 Images were embedded directly in `docs/executive_report.md` (not just referenced) so that the visual evidence appears inline with the cost table rather than requiring the reader to locate a separate file. Both screenshots were copied to `docs/images/` to keep all report assets co-located with the document.
 
 **Lesson learned**  
-A document that looks complete can still contain fabricated data. Plausible-looking numbers that are never traced to a source measurement are indistinguishable from real ones until explicitly checked. For any section that cites metrics — especially cost, performance, or counts — tracing each value to its source before writing is more efficient than correcting fabricated values after the document exists.
+A document that looks complete can still contain fabricated data. Plausible-looking numbers that are never traced to a source measurement are indistinguishable from real ones until explicitly checked. For any section that cites metrics â€” especially cost, performance, or counts â€” tracing each value to its source before writing is more efficient than correcting fabricated values after the document exists.
 
 Model selection is the dominant cost variable in AI-assisted development workflows. The 14x cost difference between Haiku 4.5 and Sonnet 4.6 for comparable session scopes demonstrates that task-model matching (using the cheapest model sufficient for the task) has more cost impact than any context management technique. `/compact` and subagent delegation reduce secondary cost drivers but cannot compensate for an unnecessary model upgrade.
 
@@ -737,7 +737,7 @@ Model selection is the dominant cost variable in AI-assisted development workflo
 
 ---
 
-## AND-2 Task 7: Cost Data Integrity — Replacing Fabricated Numbers with Verified Evidence
+## AND-2 Task 7: Cost Data Integrity â€” Replacing Fabricated Numbers with Verified Evidence
 
 **Date:** 2026-05-15
 
@@ -745,21 +745,21 @@ Model selection is the dominant cost variable in AI-assisted development workflo
 Replace all fabricated cost estimates in `docs/executive_report.md` and `intelligence/executive_report_task7.ipynb` with the two verified data points extracted from actual status bar screenshots.
 
 **AI techniques used**  
-- **Cross-document consistency enforcement** — All 5 cost-related cells in the notebook (cell-3, cell-5, cell-7, cell-9, cell-11) and the corresponding section in the markdown file were updated in a single coordinated pass to eliminate the risk of partial updates leaving the two documents out of sync.
-- **Screenshot-as-evidence** — Status bar screenshots (`less_expended_session.png`, `more_expended_session.png`) were used as the authoritative source for cost values and context percentages, with exact figures read from the image rather than recalled from memory.
+- **Cross-document consistency enforcement** â€” All 5 cost-related cells in the notebook (cell-3, cell-5, cell-7, cell-9, cell-11) and the corresponding section in the markdown file were updated in a single coordinated pass to eliminate the risk of partial updates leaving the two documents out of sync.
+- **Screenshot-as-evidence** â€” Status bar screenshots (`less_expended_session.png`, `more_expended_session.png`) were used as the authoritative source for cost values and context percentages, with exact figures read from the image rather than recalled from memory.
 
 **What worked**  
 Updating all 5 notebook cells in parallel (using multiple `NotebookEdit` calls in a single pass) ensured that the placeholder `"Highest (in progress)"` was eliminated everywhere simultaneously. Sequential cell-by-cell updates would have created windows where the two documents were temporarily inconsistent.
 
 **What was unexpected**  
-The status bar screenshots revealed that the previously assumed final cost ($2.52) was incorrect. The actual captured value was $3.5225 for the Sonnet 4.6 session — a difference significant enough to matter in a cost analysis. Reading the value from the screenshot rather than relying on memory prevented this discrepancy from persisting into the final report.
+The status bar screenshots revealed that the previously assumed final cost ($2.52) was incorrect. The actual captured value was $3.5225 for the Sonnet 4.6 session â€” a difference significant enough to matter in a cost analysis. Reading the value from the screenshot rather than relying on memory prevented this discrepancy from persisting into the final report.
 
 **Lesson learned**  
-Screenshots are more reliable than memory for exact cost values. When the status bar captures a value like `$3.5225`, that precision matters — rounding to `$3.52` or misremembering as `$2.52` produces a factually wrong cost table. The correct workflow is: take the screenshot at session end, read the exact value from the image, then write it into the document.
+Screenshots are more reliable than memory for exact cost values. When the status bar captures a value like `$3.5225`, that precision matters â€” rounding to `$3.52` or misremembering as `$2.52` produces a factually wrong cost table. The correct workflow is: take the screenshot at session end, read the exact value from the image, then write it into the document.
 
 ---
 
-## AND-2 Task 2: Data Model — Field Selection and Join Key Validation
+## AND-2 Task 2: Data Model â€” Field Selection and Join Key Validation
 
 **Date:** 2026-05-11
 
@@ -797,7 +797,7 @@ Then improve the specification to make it precise and unambiguous without rewrit
 **What worked**
 Using a structured prompt that clearly defined constraints and scope allowed the specification to be built iteratively and remain aligned with the actual dashboard behavior. The process made it easier to identify missing details, particularly in interaction conflicts and UI structure.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 The initial version of the specification was conceptually correct but not precise enough for implementation. Some behaviors (like search matching and detail panel structure) were implicitly defined rather than explicitly specified, requiring an additional refinement step.
 
 **What I would change next time**
@@ -814,7 +814,7 @@ After tests are written, implement the endpoint to satisfy the tests using data 
 **What worked**
 Using clear, structured prompts enabled the creation of a comprehensive test suite that validated filtering, sorting, and search behavior. Writing tests before implementing the endpoint clarified requirements and ensured the implementation was guided by expected outcomes rather than assumptions.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 Some environment-related issues occurred (Flask installation, pytest setup), and initial assumptions about HTML parsing needed refinement to handle both fragment and full-table responses. However, these issues helped improve test robustness.
 
 **What I would change next time**
@@ -830,10 +830,10 @@ The audit clearly identified places where the specification unintentionally mixe
 
 This helped isolate a key issue: although the specification was structurally complete (all six SDD elements were present), it was not fully aligned with SDD principles because it prescribed HOW the system should work instead of describing observable behavior.
 
-**What didn’t work / issues**
-The initial specification incorrectly included implementation-level details such as HTMX attributes (e.g., hx-get, hx-swap), endpoint names, and backend concepts (e.g., “update backend”), particularly in Task Breakdown and Prior Decisions sections. This reduced the generality of the spec and tied it to a specific implementation approach.
+**What didnâ€™t work / issues**
+The initial specification incorrectly included implementation-level details such as HTMX attributes (e.g., hx-get, hx-swap), endpoint names, and backend concepts (e.g., â€œupdate backendâ€), particularly in Task Breakdown and Prior Decisions sections. This reduced the generality of the spec and tied it to a specific implementation approach.
 
-Additionally, some verification criteria referred to internal mechanics (e.g., “server calls”) instead of user-observable outcomes, making them less appropriate as SDD validation points.
+Additionally, some verification criteria referred to internal mechanics (e.g., â€œserver callsâ€) instead of user-observable outcomes, making them less appropriate as SDD validation points.
 
 **What I would change next time**
 I would ensure from the initial drafting phase that all interaction descriptions are written in terms of observable system behavior rather than implementation details. Specifically, I would avoid referencing tools, frameworks, endpoints, or code-level constructs and instead describe how the user experiences the system.
@@ -846,9 +846,9 @@ This task reinforced that a high-quality SDD spec must be technology-agnostic an
 "Implement the elevator detail panel interaction using HTMX, based on the interaction specification."
 
 **What worked**
-The detail panel was successfully implemented and correctly integrated with the backend endpoint. The interaction worked as expected: selecting a row displayed the elevator’s information dynamically without a full page reload.
+The detail panel was successfully implemented and correctly integrated with the backend endpoint. The interaction worked as expected: selecting a row displayed the elevatorâ€™s information dynamically without a full page reload.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 The implementation introduced unnecessary complexity beyond what the specification required. This included adding explicit state tracking (selected_id), out-of-band updates, and an additional endpoint to control panel behavior. 
 
 While these solutions worked technically, they were not required by the specification and made the system more complex than necessary. Additionally, I initially considered explicitly defining state tracking behavior in the specification itself.
@@ -856,7 +856,7 @@ While these solutions worked technically, they were not required by the specific
 However, I realized that including this kind of detail would introduce implementation concerns into the spec, violating the SDD principle of separating WHAT (behavior) from HOW (implementation).
 
 **What I would change next time**
-I would strictly follow the specification as a boundary and implement only the minimum behavior required. Instead of introducing state tracking or additional mechanisms, I would rely on the behavior already defined in the spec—specifically, that the panel closes when the selected elevator is no longer visible.
+I would strictly follow the specification as a boundary and implement only the minimum behavior required. Instead of introducing state tracking or additional mechanisms, I would rely on the behavior already defined in the specâ€”specifically, that the panel closes when the selected elevator is no longer visible.
 
 ## AND-103 Task 3: Inspection Outcome Visualization (Spec-driven implementation)
 
@@ -868,7 +868,7 @@ The implementation correctly followed the specification by applying visual indic
 
 Instead of relying on exact matches for outcomes, the implementation used substring matching (e.g., "Follow up" in outcome) to handle real-world variations such as "Follow up Major". This allowed the system to remain robust without modifying backend data or introducing unnecessary complexity.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 The initial approach considered applying direct equality checks for outcome values, which would not have been sufficient due to the variability in the dataset. This highlighted a gap between idealized behavior and real data conditions.
 
 **What I would change next time**
@@ -884,7 +884,7 @@ This task reinforced the importance of implementing behavior strictly from the s
 **What worked**
 The system already had a fully functional debounced search implementation using HTMX. Upon review, it met all requirements from the specification, including delayed updates, combination with filters, and dynamic table rendering without page reload.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 Initially, I assumed that the feature still needed to be implemented. However, after reviewing the existing code and comparing it against the specification, I realized that no changes were required. This highlighted the importance of validating current functionality before attempting to modify or extend the system.
 
 **What I would change next time**
@@ -901,7 +901,7 @@ Using Plan Mode helped break down a complex feature before implementation. The p
 
 This prevented over-engineering and ensured that the implementation remained aligned with the specification.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 Initially, there was a risk of introducing unnecessary complexity, such as additional state tracking or separate endpoints. However, reviewing the plan before implementation helped identify and avoid these issues.
 
 **What I would change next time**
@@ -917,7 +917,7 @@ Using Plan Mode allowed me to design the implementation before making any code c
 
 This approach prevented over-engineering and ensured that the implementation remained minimal and aligned with the specification. Reusing the existing compute_metrics() function further simplified the backend logic and ensured consistency.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 Initially, the specification did not include dynamic updates for summary cards, which caused a conflict with the Task 3 requirements. This required updating the specification first before implementing the feature.
 
 **What I would change next time**
@@ -931,7 +931,7 @@ I would ensure that all required behaviors are explicitly defined in the specifi
 **What worked**
 Updating the specification before implementation ensured that loading feedback behavior was clearly defined in terms of observable user experience. This allowed for a straightforward implementation using HTMX without introducing ambiguity or additional complexity.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 Initially, loading indicators were considered for implementation without being defined in the specification, which would have violated SDD principles. This required pausing implementation and updating the spec first.
 
 **What I would change next time**
@@ -947,7 +947,7 @@ Using Plan Mode helped isolate only the critical issues that affected evaluation
 
 This approach ensured that all functionality remained stable while addressing the final gaps required for full compliance.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 An earlier plan focused on cosmetic improvements rather than the actual evaluation blockers. This required refining the planning process to strictly target critical gaps.
 
 **What I would change next time**
@@ -969,15 +969,15 @@ The subagent provided key insights:
 
 This information directly informed decisions in the SDD interview, especially during the Constraints phase, where leakage risks were evaluated.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 Initially, it was unclear whether RISKSCORE could be used safely as a feature. Without the subagent analysis, it would have been easy to assume it was valid. The dataset structure revealed ambiguity about when the score is computed, requiring a conservative approach in the specification.
 
 **What I would change next time**
 I would use a subagent earlier in similar tasks involving unfamiliar datasets. This interaction showed that separating data exploration from design reasoning improves clarity and leads to more accurate, evidence-based decisions when defining features.
 
-![Subagent exploration of order.csv — structured output showing columns, row count, RISKSCORE distribution, and sample rows](images/SubAgent_Exploration_Task4.png)
+![Subagent exploration of order.csv â€” structured output showing columns, row count, RISKSCORE distribution, and sample rows](images/SubAgent_Exploration_Task4.png)
 
-![Subagent exploration of order.csv — continued output showing join key analysis and sample rows detail](images/SubAgent_Exploration_Task4_2.png)
+![Subagent exploration of order.csv â€” continued output showing join key analysis and sample rows detail](images/SubAgent_Exploration_Task4_2.png)
 
 ## AND-103 Task 4: SDD Interview and Feature Engineering Specification
 
@@ -987,10 +987,10 @@ I would use a subagent earlier in similar tasks involving unfamiliar datasets. T
 **What worked**
 The Task 4 interaction followed a structured three-phase process that ensured all decisions were grounded in data and aligned with SDD principles.
 
-**Phase 1 — Data Discovery**
+**Phase 1 â€” Data Discovery**
 A subagent was used to explore order.csv, which was the most complex and least understood dataset. This allowed us to identify key columns such as RISKSCORE, understand the one-to-many relationship with inspections, and detect early risks of data leakage. This step ensured that the specification was based on actual data characteristics rather than assumptions.
 
-**Phase 2 — SDD Interview**
+**Phase 2 â€” SDD Interview**
 A structured interview was conducted covering the six SDD elements in sequence:
 
 - Outcomes defined the prediction goal, target variable, and unit of analysis before any feature design.
@@ -1000,12 +1000,12 @@ A structured interview was conducted covering the six SDD elements in sequence:
 - Task breakdown translated decisions into an ordered, executable pipeline with clearly defined feature logic.
 - Verification criteria defined how correctness would be validated, including row counts, schema checks, and leakage assertions.
 
-The interview was intentionally sequential, meaning that earlier answers constrained later decisions. No implementation or spec writing occurred during this phase — only decisions were made and clarified.
+The interview was intentionally sequential, meaning that earlier answers constrained later decisions. No implementation or spec writing occurred during this phase â€” only decisions were made and clarified.
 
-**Phase 3 — Spec Generation**
+**Phase 3 â€” Spec Generation**
 After all decisions were finalized, the specification was generated. Because all design choices had already been explicitly defined, the spec writing process was deterministic and did not require introducing new assumptions. Each part of the specification can be traced back to a specific decision made during the interview.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 Initially, there was a risk of including features such as RISKSCORE or StatusofInspectionOrder without evaluating their temporal validity. Without the interview structure, these features could have introduced data leakage into the pipeline.
 
 **What I would change next time**
@@ -1021,7 +1021,7 @@ This interaction demonstrated that SDD-based interviews are highly effective for
 **What worked**
 Plan Mode surfaced a critical conflict before a single line of pipeline code was written: the existing test file read from `data/feature_matrix.csv`, while the spec's Stage 9 explicitly named `intelligence/features/inspection_features.csv`. Without the planning phase, the pipeline would have been implemented against the spec path, the tests would have continued to fail, and the root cause would not have been obvious.
 
-The subagent exploration in Phase 1 of Plan Mode provided a complete picture of the current state — the test file content, the absence of any pipeline implementation, and the actual column names in the source datasets. This meant the plan could reference exact file paths, column names, and edge cases rather than relying on assumptions.
+The subagent exploration in Phase 1 of Plan Mode provided a complete picture of the current state â€” the test file content, the absence of any pipeline implementation, and the actual column names in the source datasets. This meant the plan could reference exact file paths, column names, and edge cases rather than relying on assumptions.
 
 Using `AskUserQuestion` to resolve two ambiguities (output path, test coverage scope) before writing the plan eliminated the two most likely sources of rework. Both questions were answered in under a minute, and neither required revisiting after implementation began.
 
@@ -1044,23 +1044,23 @@ I would also review test assertion logic (not just file existence) during the ex
 The following is the full plan document produced by Plan Mode before any implementation began.
 
 ```markdown
-# Plan: AND-103 Task 5 — Feature Engineering Pipeline (TDD)
+# Plan: AND-103 Task 5 â€” Feature Engineering Pipeline (TDD)
 
 ## Context
 
 `docs/feature_engineering_spec.md` defines a 9-stage ML feature engineering pipeline. The terminal
-deliverable is `data/feature_matrix.csv` — a fully numerical feature table for a scikit-learn binary
+deliverable is `data/feature_matrix.csv` â€” a fully numerical feature table for a scikit-learn binary
 classifier predicting elevator inspection outcomes.
 
-`intelligence/test_features.py` already has 3 tests (all currently failing — output file does not
-exist). The plan expands test coverage to match spec §6.1–§6.5, then implements the 9-stage pipeline
+`intelligence/test_features.py` already has 3 tests (all currently failing â€” output file does not
+exist). The plan expands test coverage to match spec Â§6.1â€“Â§6.5, then implements the 9-stage pipeline
 in a Jupyter notebook.
 
-**Output path:** `data/feature_matrix.csv` (per existing tests — tests define behavior in TDD).
+**Output path:** `data/feature_matrix.csv` (per existing tests â€” tests define behavior in TDD).
 
 ---
 
-## Phase A — Expand Test Coverage (before any pipeline code)
+## Phase A â€” Expand Test Coverage (before any pipeline code)
 
 **File:** `intelligence/test_features.py`
 
@@ -1068,63 +1068,63 @@ Add 6 new tests after the 3 existing ones. All read from `data/feature_matrix.cs
 
 | Test | Spec criterion |
 |------|---------------|
-| `test_row_count_matches_inspection_base()` | §6.1 — zero-tolerance row count |
-| `test_no_duplicate_rows()` | §6.2 — no duplicate (ElevatingDevicesNumber, Latest_INSPECTION_Date) |
-| `test_both_target_classes_present()` | §6.3 — both 0 and 1 in `target`; warning if one class > 95% |
-| `test_leakage_inspection_features()` | §6.4 — all prior inspection dates < inspection date |
-| `test_leakage_order_features()` | §6.4 — max DateofIssue < inspection date for each sampled row |
-| `test_schema_contract()` | §6.5 — exactly the required columns, no extras |
+| `test_row_count_matches_inspection_base()` | Â§6.1 â€” zero-tolerance row count |
+| `test_no_duplicate_rows()` | Â§6.2 â€” no duplicate (ElevatingDevicesNumber, Latest_INSPECTION_Date) |
+| `test_both_target_classes_present()` | Â§6.3 â€” both 0 and 1 in `target`; warning if one class > 95% |
+| `test_leakage_inspection_features()` | Â§6.4 â€” all prior inspection dates < inspection date |
+| `test_leakage_order_features()` | Â§6.4 â€” max DateofIssue < inspection date for each sampled row |
+| `test_schema_contract()` | Â§6.5 â€” exactly the required columns, no extras |
 
-**Important for §6.1:** The expected row count is computed independently by reading `data/inspection.csv`,
+**Important for Â§6.1:** The expected row count is computed independently by reading `data/inspection.csv`,
 excluding null/empty `InspectionOutcome` rows, and counting unique `(ElevatingDevicesNumber,
 Latest_INSPECTION_Date)` pairs.
 
-Run `pytest intelligence/test_features.py -v` after Phase A — all 9 tests must fail with "file not
+Run `pytest intelligence/test_features.py -v` after Phase A â€” all 9 tests must fail with "file not
 found" or assertion errors (no import errors).
 
 ---
 
-## Phase B — Implement Pipeline (9 stages)
+## Phase B â€” Implement Pipeline (9 stages)
 
-**File:** `intelligence/feature_engineering_pipeline.ipynb` (NEW — greenfield, per spec §4.5)
+**File:** `intelligence/feature_engineering_pipeline.ipynb` (NEW â€” greenfield, per spec Â§4.5)
 
 The notebook runs top-to-bottom and ends by writing `data/feature_matrix.csv`.
 
-### Stage 1 — Load raw data
+### Stage 1 â€” Load raw data
 Load `inspection.csv`, `order.csv`, `merged_elevator_data.csv` with exact usecols lists.
 
-### Stage 2 — Normalize dates
+### Stage 2 â€” Normalize dates
 Convert `Latest_INSPECTION_Date`, `DateofIssue`, `ComplianceDate` to ISO `YYYY-MM-DD` strings
 using `pd.to_datetime(..., errors='coerce')`.
 
-### Stage 3 — Build base table
+### Stage 3 â€” Build base table
 1. Exclude rows where `InspectionOutcome` is empty/null
 2. Exclude rows with unparseable inspection dates
-3. Sort and deduplicate — keep first per (ElevatingDevicesNumber, Latest_INSPECTION_Date)
-4. Encode target: contains 'pass' (case-insensitive) → 0; else → 1
+3. Sort and deduplicate â€” keep first per (ElevatingDevicesNumber, Latest_INSPECTION_Date)
+4. Encode target: contains 'pass' (case-insensitive) â†’ 0; else â†’ 1
 
-### Stage 4 — Prior-inspection features
-Cross-join base × inspection history on ElevatingDevicesNumber, filter `history_date < current_date`.
+### Stage 4 â€” Prior-inspection features
+Cross-join base Ã— inspection history on ElevatingDevicesNumber, filter `history_date < current_date`.
 Features: prior_inspection_count, prior_pass_count, prior_fail_count, prior_pass_rate,
 days_since_last_inspection, prior_inspection_frequency.
-Edge case: first inspection → counts=0, time features=NaN.
+Edge case: first inspection â†’ counts=0, time features=NaN.
 
-### Stage 5 — Prior-order features
-Cross-join base × orders, filter `DateofIssue < current_inspection_date`.
+### Stage 5 â€” Prior-order features
+Cross-join base Ã— orders, filter `DateofIssue < current_inspection_date`.
 Features: prior_order_count, max_prior_riskscore, mean_prior_riskscore,
 prior_overdue_order_count, prior_unresolved_order_count, distinct_directive_count.
-Edge case: no prior orders → counts=0, stats=NaN.
+Edge case: no prior orders â†’ counts=0, stats=NaN.
 
-### Stage 6 — Join static attributes
+### Stage 6 â€” Join static attributes
 Left join `merged_elevator_data.csv` on ElevatingDevicesNumber. Retain `Device Type` only.
 
-### Stage 7 — Encode Device Type
-Label-encode → `device_type_encoded` integer. pd.Categorical.codes (-1 for NaN).
+### Stage 7 â€” Encode Device Type
+Label-encode â†’ `device_type_encoded` integer. pd.Categorical.codes (-1 for NaN).
 
-### Stage 8 — Drop excluded columns
+### Stage 8 â€” Drop excluded columns
 Keep only the schema columns. Drop InspectionOutcome, Device Type, intermediate columns.
 
-### Stage 9 — Save output
+### Stage 9 â€” Save output
 `df_final.to_csv(DATA / "feature_matrix.csv", index=False, encoding="utf-8")`
 Add validation: row count, class distribution (warn if >95%), schema check.
 
@@ -1134,18 +1134,18 @@ Add validation: row count, class distribution (warn if >95%), schema check.
 
 | File | Change |
 |------|--------|
-| `intelligence/test_features.py` | Add 6 new tests (§6.1–§6.5) |
-| `intelligence/feature_engineering_pipeline.ipynb` | NEW — 9-stage pipeline notebook |
+| `intelligence/test_features.py` | Add 6 new tests (Â§6.1â€“Â§6.5) |
+| `intelligence/feature_engineering_pipeline.ipynb` | NEW â€” 9-stage pipeline notebook |
 
-`data/feature_matrix.csv` is generated (not committed — it is a build artifact).
+`data/feature_matrix.csv` is generated (not committed â€” it is a build artifact).
 
 ---
 
 ## Verification
 
-1. After Phase A: `pytest intelligence/test_features.py -v` — all 9 tests fail (file not found)
-2. After Phase B: Run all notebook cells — no exceptions; `data/feature_matrix.csv` created
-3. `pytest intelligence/test_features.py -v` — all 9 tests pass
+1. After Phase A: `pytest intelligence/test_features.py -v` â€” all 9 tests fail (file not found)
+2. After Phase B: Run all notebook cells â€” no exceptions; `data/feature_matrix.csv` created
+3. `pytest intelligence/test_features.py -v` â€” all 9 tests pass
 4. Manual check: 16 column headers, non-zero rows, both 0 and 1 in `target`
 ```
 
@@ -1157,8 +1157,8 @@ Add validation: row count, class distribution (warn if >95%), schema check.
 **What worked**
 The pipeline passed all critical tests validating row consistency, feature correctness, schema compliance, and data leakage prevention. This confirmed that the implementation correctly follows the feature engineering specification.
 
-**What didn’t work / issues**
-One test (test_no_future_orders_used) failed due to an issue in the test itself. The test attempted to parse DateofIssue using pd.to_datetime without handling mixed formats, causing a parsing error before reaching its assertion logic. Additionally, the test contained only an ‘assert True’ placeholder, meaning it would not have detected any leakage issues even if it executed successfully.
+**What didnâ€™t work / issues**
+One test (test_no_future_orders_used) failed due to an issue in the test itself. The test attempted to parse DateofIssue using pd.to_datetime without handling mixed formats, causing a parsing error before reaching its assertion logic. Additionally, the test contained only an â€˜assert Trueâ€™ placeholder, meaning it would not have detected any leakage issues even if it executed successfully.
 
 **What I would change next time**
 I would review test implementations more carefully before trusting their results. This experience reinforced that not all test failures indicate issues in the code under test, and distinguishing between implementation errors and test defects is an important skill in TDD workflows.
@@ -1173,12 +1173,12 @@ I would review test implementations more carefully before trusting their results
 "Fix everything to make the ML pipeline notebook committable based on these task requirements [10 criteria including Pipeline class, time-based split, baseline, SelectKBest, best model report]."
 
 **What worked**
-Using Plan Mode before touching the notebook forced an explicit enumeration of every audit-blocking issue before any edit was made. Four distinct problems were identified upfront: blank feature names in the best-model justification, a missing printed baseline ROC-AUC, metric inconsistency in two interpretation cells, and a missing `## Data Loading` section header. Having this list prevented partial fixes — each problem was addressed deliberately rather than discovered mid-edit.
+Using Plan Mode before touching the notebook forced an explicit enumeration of every audit-blocking issue before any edit was made. Four distinct problems were identified upfront: blank feature names in the best-model justification, a missing printed baseline ROC-AUC, metric inconsistency in two interpretation cells, and a missing `## Data Loading` section header. Having this list prevented partial fixes â€” each problem was addressed deliberately rather than discovered mid-edit.
 
 The plan also exposed a deeper inconsistency: the notebook used ROC-AUC as the primary metric in several cells while the task specification requires F1 macro. Catching this before implementation meant the fix could be applied consistently across all six affected locations in a single pass.
 
-**What didn’t work / issues**
-Four `NotebookEdit` calls issued simultaneously failed with "File has been modified since read" errors because all four targeted the same notebook file. The fix was to re-read the notebook after each edit before issuing the next one — parallel edits to a single notebook file are not supported.
+**What didnâ€™t work / issues**
+Four `NotebookEdit` calls issued simultaneously failed with "File has been modified since read" errors because all four targeted the same notebook file. The fix was to re-read the notebook after each edit before issuing the next one â€” parallel edits to a single notebook file are not supported.
 
 **What I would change next time**
 I would read the notebook once, plan all edits, then issue them sequentially (not in parallel) from the start. Attempting parallel edits to a single `.ipynb` file is a reliable way to lose all changes and restart from scratch.
@@ -1188,7 +1188,7 @@ Plan Mode is most valuable for audit tasks where the number of issues is unknown
 
 ---
 
-## AND-103 Task 6: Primary Metric Alignment — F1 Macro vs ROC-AUC
+## AND-103 Task 6: Primary Metric Alignment â€” F1 Macro vs ROC-AUC
 
 **Date:** 2026-05-22
 
@@ -1199,22 +1199,22 @@ Align the entire ML pipeline notebook and methodology report around a single, co
 The initial notebook used ROC-AUC as the primary metric in the Target Variable Analysis cell, the Baseline Model cell, and the Best Model justification. The task specification requires F1 macro. After identifying the inconsistency, I asked Claude Code to update every location that stated or implied the primary metric, rather than just the most visible one.
 
 **What worked**
-Treating metric alignment as a cross-file audit — rather than a single-cell fix — produced consistent results. Six locations were updated in a single planned pass: the Target Variable Analysis markdown, the Baseline Model markdown, the LR interpretation cell, the RF interpretation cell, the Best Model markdown, and the methodology report results section. Each location now explicitly states "F1 macro is the primary evaluation metric" and positions ROC-AUC as supplementary.
+Treating metric alignment as a cross-file audit â€” rather than a single-cell fix â€” produced consistent results. Six locations were updated in a single planned pass: the Target Variable Analysis markdown, the Baseline Model markdown, the LR interpretation cell, the RF interpretation cell, the Best Model markdown, and the methodology report results section. Each location now explicitly states "F1 macro is the primary evaluation metric" and positions ROC-AUC as supplementary.
 
-The rationale for F1 macro was also written explicitly: under 80/20 class imbalance, a majority-class predictor reaches 80.96% accuracy but scores 0 for class-0 F1 — accuracy hides this failure completely. F1 macro penalizes it by including class-0 F1 in the average.
+The rationale for F1 macro was also written explicitly: under 80/20 class imbalance, a majority-class predictor reaches 80.96% accuracy but scores 0 for class-0 F1 â€” accuracy hides this failure completely. F1 macro penalizes it by including class-0 F1 in the average.
 
-**What didn’t work / issues**
-The GB interpretation cell was not fully aligned in the same pass — it still compared RF vs GB by ROC-AUC rather than F1 macro. This was identified in a subsequent audit. A complete metric alignment requires reviewing every model interpretation cell independently, not just the cells that explicitly declare the primary metric.
+**What didnâ€™t work / issues**
+The GB interpretation cell was not fully aligned in the same pass â€” it still compared RF vs GB by ROC-AUC rather than F1 macro. This was identified in a subsequent audit. A complete metric alignment requires reviewing every model interpretation cell independently, not just the cells that explicitly declare the primary metric.
 
 **What I would change next time**
 I would define the primary metric in a single markdown cell at the top of the notebook and reference it explicitly in each model section, rather than repeating the definition in each interpretation cell independently. A single source of truth for the metric choice is harder to miss than distributed declarations.
 
 **Lesson learned**
-Metric consistency is a cross-cutting concern in ML notebooks. Changing the primary metric requires auditing narrative cells, printed outputs, comparison tables, and the best-model justification as a coordinated set — not just the cell where the metric is first named.
+Metric consistency is a cross-cutting concern in ML notebooks. Changing the primary metric requires auditing narrative cells, printed outputs, comparison tables, and the best-model justification as a coordinated set â€” not just the cell where the metric is first named.
 
 ---
 
-## AND-103 Task 6: Baseline Comparator Design — DummyClassifier over Hardcoded Values
+## AND-103 Task 6: Baseline Comparator Design â€” DummyClassifier over Hardcoded Values
 
 **Date:** 2026-05-22
 
@@ -1222,14 +1222,14 @@ Metric consistency is a cross-cutting concern in ML notebooks. Changing the prim
 Produce a traceable, reproducible baseline that an evaluator can verify by re-running the notebook, rather than citing a hardcoded constant.
 
 **Interaction summary**
-The initial notebook computed a majority-class accuracy (0.8096) from the full dataset but stated the baseline ROC-AUC as 0.50 without any code to demonstrate it. I asked Claude Code to replace the asserted constant with a `DummyClassifier(strategy=’most_frequent’)` fitted on the training set and evaluated on the test set, so all three baseline values (accuracy, F1 macro, ROC-AUC) would be printed from a single traceable source.
+The initial notebook computed a majority-class accuracy (0.8096) from the full dataset but stated the baseline ROC-AUC as 0.50 without any code to demonstrate it. I asked Claude Code to replace the asserted constant with a `DummyClassifier(strategy=â€™most_frequentâ€™)` fitted on the training set and evaluated on the test set, so all three baseline values (accuracy, F1 macro, ROC-AUC) would be printed from a single traceable source.
 
 **What worked**
-The DummyClassifier approach produced all three baseline values from actual test-set predictions. `baseline_f1_macro = 0.4964` confirmed that the majority-class predictor achieves near-zero class-0 F1 (0.993 class-1, 0.000 class-0 → 0.4964 macro average), making the F1 macro baseline more meaningful than accuracy alone. `baseline_roc_auc = 0.5000` confirmed mathematically what was asserted — constant probability scores produce a diagonal ROC curve — but now with code evidence rather than a comment.
+The DummyClassifier approach produced all three baseline values from actual test-set predictions. `baseline_f1_macro = 0.4964` confirmed that the majority-class predictor achieves near-zero class-0 F1 (0.993 class-1, 0.000 class-0 â†’ 0.4964 macro average), making the F1 macro baseline more meaningful than accuracy alone. `baseline_roc_auc = 0.5000` confirmed mathematically what was asserted â€” constant probability scores produce a diagonal ROC curve â€” but now with code evidence rather than a comment.
 
 Using `DummyClassifier` also forced the baseline to be evaluated on the same test split as the trained models, ensuring a fair comparison. A full-dataset majority-class accuracy would have been a slightly different number.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 The DummyClassifier cell was inserted after the train/test split cell but had no stored output after insertion. The notebook needed to be re-run in full to populate the output. Until re-run, an evaluator reading the notebook would see an empty output cell where the baseline numbers should appear.
 
 **What I would change next time**
@@ -1248,25 +1248,25 @@ Baseline values should always be computed from the same split as the trained mod
 Implement a temporally valid train/test split that reflects real-world prediction conditions and includes a programmatic leakage check.
 
 **Interaction summary**
-The split sorts all rows by `Latest_INSPECTION_Date` and cuts at the 80th percentile row — no random shuffling. I asked Claude Code to add an explicit assertion verifying that no training date is later than any test date, and to explain the boundary condition where the same date (2015-12-14) appears as both `max(train)` and `min(test)`.
+The split sorts all rows by `Latest_INSPECTION_Date` and cuts at the 80th percentile row â€” no random shuffling. I asked Claude Code to add an explicit assertion verifying that no training date is later than any test date, and to explain the boundary condition where the same date (2015-12-14) appears as both `max(train)` and `min(test)`.
 
 **What worked**
-The assertion `assert train_df[date_col].max() <= test_df[date_col].min()` provides a hard stop if the split ever violates temporal order. Using `<=` (not `<`) is correct because the boundary date 2015-12-14 appears in both sets — this is a row-count artifact of an 80/20 cut on a chronologically sorted dataset, not a data leak. The markdown cell explaining this distinction prevents a future reader from incorrectly flagging a false positive.
+The assertion `assert train_df[date_col].max() <= test_df[date_col].min()` provides a hard stop if the split ever violates temporal order. Using `<=` (not `<`) is correct because the boundary date 2015-12-14 appears in both sets â€” this is a row-count artifact of an 80/20 cut on a chronologically sorted dataset, not a data leak. The markdown cell explaining this distinction prevents a future reader from incorrectly flagging a false positive.
 
-A markdown cell describing the split rationale was also added: the split simulates real prediction conditions — the model is trained on historical data and evaluated on inspections it could not have seen during training.
+A markdown cell describing the split rationale was also added: the split simulates real prediction conditions â€” the model is trained on historical data and evaluated on inspections it could not have seen during training.
 
-**What didn’t work / issues**
-The assertion cell initially used strict `<` which caused it to fail immediately because the boundary date is shared. Changing to `<=` required understanding why the boundary date appears in both sets — the row-based 80/20 cut does not guarantee a clean date boundary.
+**What didnâ€™t work / issues**
+The assertion cell initially used strict `<` which caused it to fail immediately because the boundary date is shared. Changing to `<=` required understanding why the boundary date appears in both sets â€” the row-based 80/20 cut does not guarantee a clean date boundary.
 
 **What I would change next time**
 For time-based splits I would always print both `max(train_date)` and `min(test_date)` and the assertion in adjacent cells so the relationship is visible without re-running the notebook. This makes the boundary condition self-documenting.
 
 **Lesson learned**
-A row-based percentage cut on a sorted dataset does not produce a clean date boundary — the same date can appear on both sides if multiple rows share that date. The assertion that validates the split must use `<=` in this case, not `<`. This distinction is easy to get wrong and worth documenting explicitly in the notebook.
+A row-based percentage cut on a sorted dataset does not produce a clean date boundary â€” the same date can appear on both sides if multiple rows share that date. The assertion that validates the split must use `<=` in this case, not `<`. This distinction is easy to get wrong and worth documenting explicitly in the notebook.
 
 ---
 
-## AND-103 Task 6: Feature Selection Analysis — SelectKBest and the Case for All Features
+## AND-103 Task 6: Feature Selection Analysis â€” SelectKBest and the Case for All Features
 
 **Date:** 2026-05-22
 
@@ -1274,26 +1274,26 @@ A row-based percentage cut on a sorted dataset does not produce a clean date bou
 Apply `SelectKBest` feature selection to all three model pipelines and use the results to justify the final feature set for the best model.
 
 **Interaction summary**
-Feature selection was implemented using `SelectKBest(mutual_info_classif, k=8)` — k set to 50% of the 17 available features (rounded to integer). All three models were evaluated with and without feature selection. The results showed that feature selection decreased F1 macro for every model. I asked Claude Code to use this finding as the justification for retaining all 17 features in the final model.
+Feature selection was implemented using `SelectKBest(mutual_info_classif, k=8)` â€” k set to 50% of the 17 available features (rounded to integer). All three models were evaluated with and without feature selection. The results showed that feature selection decreased F1 macro for every model. I asked Claude Code to use this finding as the justification for retaining all 17 features in the final model.
 
 **What worked**
-The side-by-side comparison table made the feature selection outcome unambiguous: RF all features F1 macro 0.5187 vs RF SelectKBest 0.5096, GB all features 0.5092 vs GB SelectKBest 0.4896, LR all features 0.5058 vs LR SelectKBest 0.5040. Every model performed better with all features. This made the justification concrete: feature selection was not omitted — it was tried and found to hurt performance.
+The side-by-side comparison table made the feature selection outcome unambiguous: RF all features F1 macro 0.5187 vs RF SelectKBest 0.5096, GB all features 0.5092 vs GB SelectKBest 0.4896, LR all features 0.5058 vs LR SelectKBest 0.5040. Every model performed better with all features. This made the justification concrete: feature selection was not omitted â€” it was tried and found to hurt performance.
 
-Printing the selected feature names (e.g., `prior_order_count` replacing `insp_type_Followup` on one run) also surfaced that `mutual_info_classif` is non-deterministic without a `random_state` — the same k=8 selection can produce different feature sets across runs.
+Printing the selected feature names (e.g., `prior_order_count` replacing `insp_type_Followup` on one run) also surfaced that `mutual_info_classif` is non-deterministic without a `random_state` â€” the same k=8 selection can produce different feature sets across runs.
 
-**What didn’t work / issues**
+**What didnâ€™t work / issues**
 The non-determinism of `mutual_info_classif` caused the selected feature list to differ between runs, creating a discrepancy between the feature names in the best-model justification cell and the printed output of the feature selection cell. The working decision was not to set `random_state` (which `mutual_info_classif` does not support) but to acknowledge the non-determinism explicitly in the best-model justification.
 
 **What I would change next time**
 I would set `random_state` on the `SelectKBest` estimator if the scorer supports it, or use a scorer that is deterministic by default, to make the selected feature list stable across re-runs. Non-deterministic feature selection makes the notebook harder to reproduce and introduces unnecessary variability in results tables.
 
 **Lesson learned**
-Feature selection is not always beneficial. When the dropped features carry real signal that the scoring criterion underestimates — as `mutual_info_classif` did with the order-related features — removing them hurts performance. The correct conclusion from a feature selection experiment is not always "use the selected subset"; sometimes it is "all features are necessary and the selection criterion is insufficient for this dataset."
+Feature selection is not always beneficial. When the dropped features carry real signal that the scoring criterion underestimates â€” as `mutual_info_classif` did with the order-related features â€” removing them hurts performance. The correct conclusion from a feature selection experiment is not always "use the selected subset"; sometimes it is "all features are necessary and the selection criterion is insufficient for this dataset."
 
 ## AND-104 Task 1: CLAUDE.md Audit and Platform Conventions Skill
 
 **Context:**  
-CLAUDE.md had grown to include both cross-cutting architectural rules and implementation-specific platform conventions (Flask, HTMX patterns, API contracts). This mixed context caused all rules to load in every session, regardless of whether the work was on ML, ETL, backend, or documentation. The task required restructuring these rules into three categories — Always relevant (CLAUDE.md), Skill (platform-conventions), and Hook (pre-commit) — to establish proper context control in Claude Code.
+CLAUDE.md had grown to include both cross-cutting architectural rules and implementation-specific platform conventions (Flask, HTMX patterns, API contracts). This mixed context caused all rules to load in every session, regardless of whether the work was on ML, ETL, backend, or documentation. The task required restructuring these rules into three categories â€” Always relevant (CLAUDE.md), Skill (platform-conventions), and Hook (pre-commit) â€” to establish proper context control in Claude Code.
 
 **Prompt used**
 "Audit CLAUDE.md and classify each rule as Always relevant, Hook, or Skill. For each rule, explain whether it applies across all work contexts or only within specific directories, and whether it requires automated enforcement or passive documentation."
@@ -1311,7 +1311,7 @@ CLAUDE.md was simplified to four cross-cutting conventions that apply across all
 CLAUDE.md now loads 4 rules per session instead of 12, reducing unnecessary context and improving response relevance. Platform conventions are loaded on demand only when working in `platform/`, providing highly focused guidance for backend and frontend implementation without polluting ML or analysis tasks. Data integrity is strengthened by transitioning the `/data` rule from a passive convention to an enforceable mechanism via hooks. The audit document (`docs/claude_md_audit.md`) serves as a clear and auditable record of how rules were categorized, ensuring that the system remains maintainable and extensible as the project evolves.
 
 **What didn't work / issues**
-The hook for JSON Response Enforcement was initially referenced in the audit document but not yet implemented in settings.json, creating a mismatch between documented and actual behavior that required a correction pass in Task 4. The initial hook count was also understated — the Stop event hook was present in settings.json but not documented in the audit.
+The hook for JSON Response Enforcement was initially referenced in the audit document but not yet implemented in settings.json, creating a mismatch between documented and actual behavior that required a correction pass in Task 4. The initial hook count was also understated â€” the Stop event hook was present in settings.json but not documented in the audit.
 
 **What I would change next time**
 Finalize the complete hook list in settings.json before writing the audit document. Documenting hooks as implemented before verifying them in settings.json introduces drift that compounds across tasks.
@@ -1381,7 +1381,7 @@ The Go API needed to implement all four endpoints defined in `docs/api_spec.md` 
 "Act as a Go backend engineer. From the provided api_spec.md, generate: Go structs for all response models, function signatures for all handlers, pseudocode for each endpoint, and a data layer design. Use only standard Go (net/http). JSON must match the spec exactly."
 
 **Decision:**  
-Role-based prompting anchored the output in a specific engineering context and enforced spec adherence by explicitly prohibiting field invention. The design was generated first, then compared against the existing files — rather than editing the existing files blindly — to expose gaps before any code changes.
+Role-based prompting anchored the output in a specific engineering context and enforced spec adherence by explicitly prohibiting field invention. The design was generated first, then compared against the existing files â€” rather than editing the existing files blindly â€” to expose gaps before any code changes.
 
 **What worked**
 
@@ -1400,27 +1400,27 @@ Read the existing implementation files before generating a design. This would sh
 ## AND-104 Task 3B: Spec-First Correction Cycle
 
 **Context:**  
-The audit of `platform/api/` against the evaluation criteria revealed three issues beyond the missing types and handlers: a concurrency risk in `GetElevatorInspections` (shared slice mutation under sort), an undocumented `predictions.csv` column schema assumption, and a working directory dependency for CSV path resolution. Each required a different fix document — not all belonged in the same place.
+The audit of `platform/api/` against the evaluation criteria revealed three issues beyond the missing types and handlers: a concurrency risk in `GetElevatorInspections` (shared slice mutation under sort), an undocumented `predictions.csv` column schema assumption, and a working directory dependency for CSV path resolution. Each required a different fix document â€” not all belonged in the same place.
 
 **Prompt used:**  
 "Those changes are documented on the api_spec? If not, we have to change first the api_spec and then fix each behavior. Always following SDD patterns."
 
 **Decision:**  
 The three issues were routed to their correct documents before any code was touched:  
-- `predictions.csv` column schema → `docs/api_spec.md` §3 (PENDING constraint blocking premature implementation)  
-- Working directory dependency → `CLAUDE.md` Commands section (operational, not contract)  
-- Concurrency / defensive copy → direct code fix (pure implementation detail, not a contract concern)
+- `predictions.csv` column schema â†’ `docs/api_spec.md` Â§3 (PENDING constraint blocking premature implementation)  
+- Working directory dependency â†’ `CLAUDE.md` Commands section (operational, not contract)  
+- Concurrency / defensive copy â†’ direct code fix (pure implementation detail, not a contract concern)
 
 This enforced the spec-first rule: no code change is made for a behavioral issue unless the spec already defines or acknowledges that behavior.
 
 **What worked**
 
-- The PENDING constraint in §3 correctly blocks implementation of `LoadPredictionsCSV` column mapping until the ML pipeline task is reached  
-- The `*(TBD — see §3 pending constraint)*` markers in the Appendix create a traceable link back to the blocking note  
-- The `CLAUDE.md` go run command documents the working directory assumption where it belongs — in the operational runbook, not the API contract
+- The PENDING constraint in Â§3 correctly blocks implementation of `LoadPredictionsCSV` column mapping until the ML pipeline task is reached  
+- The `*(TBD â€” see Â§3 pending constraint)*` markers in the Appendix create a traceable link back to the blocking note  
+- The `CLAUDE.md` go run command documents the working directory assumption where it belongs â€” in the operational runbook, not the API contract
 
 **What didn't work / issues:**  
-The `go.mod` file was missing entirely — a compilation blocker that should have been part of the initial design output. It was only discovered during the evaluation criteria audit (`go build succeeds` criterion), not during design. Similarly, the `mian.go` filename typo was present from the start and not flagged until the final audit pass.
+The `go.mod` file was missing entirely â€” a compilation blocker that should have been part of the initial design output. It was only discovered during the evaluation criteria audit (`go build succeeds` criterion), not during design. Similarly, the `mian.go` filename typo was present from the start and not flagged until the final audit pass.
 
 **What I would change next time:**  
 Include `go.mod` initialization as a mandatory first deliverable in any Go project design prompt, before handlers or models. Also run a file listing (`ls platform/api/`) as the first step of any implementation audit to catch missing infrastructure files before reviewing logic.
@@ -1467,14 +1467,14 @@ All critical issues were resolved through minimal, targeted updates to `handlers
 - Correct minor maintainability issues (e.g., filename typo in `main.go`) to improve code clarity and project hygiene.
 
 **Lesson learned**
-A detailed API specification (exact field names, error codes, error messages) makes static code analysis viable as a substitute for runtime testing. Having the spec as authoritative truth enables precise gap identification without executing the code — every discrepancy is a spec violation, not an ambiguity.
+A detailed API specification (exact field names, error codes, error messages) makes static code analysis viable as a substitute for runtime testing. Having the spec as authoritative truth enables precise gap identification without executing the code â€” every discrepancy is a spec violation, not an ambiguity.
 
 ---
 
 ## AND-104 Task 4: Hook Implementation and Audit Consistency
 
 **Prompt used**
-"The docs/claude_md_audit.md and .claude/settings.json are inconsistent. Finalize the set of Claude Code hooks, update settings.json with the complete and correct hook definitions, and rewrite the audit document to match exactly — no hook documented without being implemented."
+"The docs/claude_md_audit.md and .claude/settings.json are inconsistent. Finalize the set of Claude Code hooks, update settings.json with the complete and correct hook definitions, and rewrite the audit document to match exactly â€” no hook documented without being implemented."
 
 **Context:**  
 The initial audit and hooks implementation were inconsistent. The `docs/claude_md_audit.md` described hook behaviors that did not match the actual configuration in `.claude/settings.json`. Additionally, one hook (JSON Response Enforcement) was referenced but not implemented. This created ambiguity about which workflow rules were actually enforced versus theoretical.
@@ -1482,10 +1482,10 @@ The initial audit and hooks implementation were inconsistent. The `docs/claude_m
 **Decision:**  
 A structured approach was used to resolve these inconsistencies by first finalizing the set of hooks before making any changes. Four hooks were explicitly defined:
 
-- Formatting (PostToolUse → gofmt)
-- File Protection (PreToolUse → block `/data`)
-- Task Completion Awareness (Stop → notify)
-- Query Parameter Validation (PreToolUse → prevent unsafe inputs)
+- Formatting (PostToolUse â†’ gofmt)
+- File Protection (PreToolUse â†’ block `/data`)
+- Task Completion Awareness (Stop â†’ notify)
+- Query Parameter Validation (PreToolUse â†’ prevent unsafe inputs)
 
 Rather than redesigning the system, the decision was to align all artifacts (settings.json and audit document) strictly to these finalized definitions. 
 
@@ -1508,7 +1508,7 @@ The Query Parameter Validation hook was added based on real friction observed du
 - Ensure documentation reflects actual system behavior, not intended behavior.
 
 **Lesson learned**
-Hook configuration and audit documentation must be updated in the same session. A settings.json that doesn't match its audit document is more confusing than having no documentation at all — it creates false confidence in the wrong behavior. Write the hook first, verify it works, then document it.
+Hook configuration and audit documentation must be updated in the same session. A settings.json that doesn't match its audit document is more confusing than having no documentation at all â€” it creates false confidence in the wrong behavior. Write the hook first, verify it works, then document it.
 
 ---
 
@@ -1521,66 +1521,66 @@ After completing the Go REST API (Task 3) and Claude Code workflow tooling (Task
 
 Two integration strategies were evaluated:
 
-- **Client-side (browser → Go API directly):** HTMX could call `http://localhost:8081` from the browser. Rejected: violates the project's no-custom-JavaScript constraint, requires CORS headers on the Go API, and exposes the internal service address to the browser.
-- **Server-side proxy (Flask → Go API → client):** The Flask route `/elevator/<id>` calls the Go API on behalf of the browser using `requests.get()`, maps the response, and passes it to the existing Jinja2 template. Chosen because it requires zero JavaScript, keeps the frontend architecture unchanged, and is consistent with the spec-driven server-rendered workflow.
+- **Client-side (browser â†’ Go API directly):** HTMX could call `http://localhost:8081` from the browser. Rejected: violates the project's no-custom-JavaScript constraint, requires CORS headers on the Go API, and exposes the internal service address to the browser.
+- **Server-side proxy (Flask â†’ Go API â†’ client):** The Flask route `/elevator/<id>` calls the Go API on behalf of the browser using `requests.get()`, maps the response, and passes it to the existing Jinja2 template. Chosen because it requires zero JavaScript, keeps the frontend architecture unchanged, and is consistent with the spec-driven server-rendered workflow.
 
 **Prompt used**
 "Wire the Flask frontend to the Go REST API for the /elevator/<id> detail panel. Evaluate client-side vs server-side proxy patterns and implement the chosen approach. Then validate all four Go API endpoints against docs/api_spec.md using /validate-api."
 
 **Decision:**
-Server-side proxy was implemented in `platform/server.py` for the `/elevator/<id>` route. The route now calls `/api/elevators/<id>` and `/api/elevators/<id>/inspections` on the Go API. Go API field names (`inspection_date`, `outcome`) are remapped to template-expected keys in the handler — no template changes required. `incident_count` and `alteration_count` are not available via the Go API and remain CSV-sourced. All Go API calls are wrapped in `try/except`: if the API is unreachable, Flask returns HTTP 503 and the detail panel renders a user-visible error message instead of crashing.
+Server-side proxy was implemented in `platform/server.py` for the `/elevator/<id>` route. The route now calls `/api/elevators/<id>` and `/api/elevators/<id>/inspections` on the Go API. Go API field names (`inspection_date`, `outcome`) are remapped to template-expected keys in the handler â€” no template changes required. `incident_count` and `alteration_count` are not available via the Go API and remain CSV-sourced. All Go API calls are wrapped in `try/except`: if the API is unreachable, Flask returns HTTP 503 and the detail panel renders a user-visible error message instead of crashing.
 
 **System configuration:**
-- Go API: `go run ./platform/api` → `:8081`
-- Flask: `py -3 platform/server.py` → `:5000`
+- Go API: `go run ./platform/api` â†’ `:8081`
+- Flask: `py -3 platform/server.py` â†’ `:5000`
 - No shared ports; no conflicts running simultaneously.
 - Go API unavailability: `/elevator/<id>` returns 503 with message "Unable to fetch elevator data from API."
 
-**API Validation — `/validate-api` results:**
+**API Validation â€” `/validate-api` results:**
 
 Validation was conducted by delegating each endpoint to the `api-validator` subagent via the `validate-api` skill (`context: fork`, `agent: api-validator`), which read `docs/api_spec.md` as the authoritative contract and tested each scenario defined per endpoint.
 
-### ✅ PASS: /api/elevators
-- Default request: 200 OK, all fields present (`elevator_id`, `location`, `license_number`, `status`, `elevator_type`, `license_expiration_date`, `latest_inspection_date`, `latest_inspection_outcome`) ✓
-- Pagination: `?page=1&limit=50` → `total`, `page`, `limit`, `results` present; offset math correct ✓
-- Status filter: `?status=ACTIVE` → only ACTIVE records returned ✓
-- Invalid status: `?status=INVALID` → 400 Bad Request ✓
-- Sorting: `?sort=license_expiration_date&order=asc` → correct ascending order ✓
-- Invalid limit: `?limit=-1` → 400 Bad Request ✓
-- Invalid limit: `?limit=0` → 400 Bad Request ✓
-- Content-Type: `application/json` on all responses ✓
+### âœ… PASS: /api/elevators
+- Default request: 200 OK, all fields present (`elevator_id`, `location`, `license_number`, `status`, `elevator_type`, `license_expiration_date`, `latest_inspection_date`, `latest_inspection_outcome`) âœ“
+- Pagination: `?page=1&limit=50` â†’ `total`, `page`, `limit`, `results` present; offset math correct âœ“
+- Status filter: `?status=ACTIVE` â†’ only ACTIVE records returned âœ“
+- Invalid status: `?status=INVALID` â†’ 400 Bad Request âœ“
+- Sorting: `?sort=license_expiration_date&order=asc` â†’ correct ascending order âœ“
+- Invalid limit: `?limit=-1` â†’ 400 Bad Request âœ“
+- Invalid limit: `?limit=0` â†’ 400 Bad Request âœ“
+- Content-Type: `application/json` on all responses âœ“
 
-### ✅ PASS: /api/elevators/{id}
-- Valid numeric ID: 200 OK, all 8 required fields present ✓
-- Non-numeric ID: 400 Bad Request ✓
-- Unknown numeric ID: 404 Not Found ✓
-- Content-Type: `application/json` ✓
+### âœ… PASS: /api/elevators/{id}
+- Valid numeric ID: 200 OK, all 8 required fields present âœ“
+- Non-numeric ID: 400 Bad Request âœ“
+- Unknown numeric ID: 404 Not Found âœ“
+- Content-Type: `application/json` âœ“
 
-### ✅ PASS: /api/elevators/{id}/inspections
-- Valid elevator with inspections: 200 OK, `inspections` array present ✓
-- Pagination: `?page=1&limit=10` → correct offset and total ✓
-- Invalid limit: `?limit=-1` → 400 Bad Request ✓
-- Unknown elevator ID: 404 Not Found ✓
-- Content-Type: `application/json` ✓
+### âœ… PASS: /api/elevators/{id}/inspections
+- Valid elevator with inspections: 200 OK, `inspections` array present âœ“
+- Pagination: `?page=1&limit=10` â†’ correct offset and total âœ“
+- Invalid limit: `?limit=-1` â†’ 400 Bad Request âœ“
+- Unknown elevator ID: 404 Not Found âœ“
+- Content-Type: `application/json` âœ“
 
-### ✅ PASS: /api/elevators/{id}/risk
-- Unknown elevator ID: 404 Not Found (404 precedes 503 per spec §5) ✓
-- Known elevator, predictions unavailable: 503 Service Unavailable ✓
-- 503 body contains `"error"` and `"endpoint"` fields ✓
-- Content-Type: `application/json` ✓
+### âœ… PASS: /api/elevators/{id}/risk
+- Unknown elevator ID: 404 Not Found (404 precedes 503 per spec Â§5) âœ“
+- Known elevator, predictions unavailable: 503 Service Unavailable âœ“
+- 503 body contains `"error"` and `"endpoint"` fields âœ“
+- Content-Type: `application/json` âœ“
 
 **What worked**
 The server-side proxy pattern required zero template changes and no custom JavaScript. All Go API calls are wrapped in `try/except`, so the detail panel degrades gracefully to a user-visible error message rather than crashing. All four endpoints validated against `docs/api_spec.md` with no contract violations detected. Both servers run simultaneously without conflict.
 
 **What didn't work / issues**
-The field mapping step in `server.py` (remapping Go API field names like `inspection_date` → `Latest_INSPECTION_Date` for the template) was an unexpected extra layer caused by designing the template with CSV column names independently of the API field name conventions.
+The field mapping step in `server.py` (remapping Go API field names like `inspection_date` â†’ `Latest_INSPECTION_Date` for the template) was an unexpected extra layer caused by designing the template with CSV column names independently of the API field name conventions.
 
 **What I would change next time:**
-The field mapping step (remapping `inspection_date` → `Latest_INSPECTION_Date`) would be unnecessary if the template had been written using the API field names from the start. Aligning template variable names to API schema during initial implementation avoids an extra transformation layer at integration time.
+The field mapping step (remapping `inspection_date` â†’ `Latest_INSPECTION_Date`) would be unnecessary if the template had been written using the API field names from the start. Aligning template variable names to API schema during initial implementation avoids an extra transformation layer at integration time.
 
 ---
 
-## AND-104 Task 5: Extension Mechanism Selection — Validators as Subagents
+## AND-104 Task 5: Extension Mechanism Selection â€” Validators as Subagents
 
 **Date:** 2026-05-28
 
@@ -1592,8 +1592,8 @@ Both `api-validator` and `csv-validator` were implemented as subagents rather th
 
 The alternatives were ruled out for concrete reasons:
 
-- **Hook**: hooks are reactive — they fire in response to a tool use event (Edit, Bash, Stop). A validator that needs to read files, run Python, compare schemas, and produce a structured report cannot be expressed as a hook. Hooks also cannot be invoked on demand by the user.
-- **Skill**: a skill is a thin invocation wrapper — it delegates to an agent or provides prompt context. Skills don't have their own tools, model, or context window. A validator that needs to execute Bash commands, parse 143k-row CSVs, and reason across multiple datasets requires independent execution — that is a subagent, not a skill.
+- **Hook**: hooks are reactive â€” they fire in response to a tool use event (Edit, Bash, Stop). A validator that needs to read files, run Python, compare schemas, and produce a structured report cannot be expressed as a hook. Hooks also cannot be invoked on demand by the user.
+- **Skill**: a skill is a thin invocation wrapper â€” it delegates to an agent or provides prompt context. Skills don't have their own tools, model, or context window. A validator that needs to execute Bash commands, parse 143k-row CSVs, and reason across multiple datasets requires independent execution â€” that is a subagent, not a skill.
 - **CLAUDE.md convention**: a passive rule stating "validate CSVs before deploying" relies on human compliance and provides no enforcement. It also doesn't produce a structured report or catch specific issues automatically.
 
 A subagent is the right mechanism when the task requires: (1) autonomous tool use across multiple steps, (2) its own context window isolated from the main session, and (3) a bounded, well-defined output format. Both validators satisfy all three criteria.
@@ -1602,7 +1602,7 @@ A subagent is the right mechanism when the task requires: (1) autonomous tool us
 Choosing the wrong mechanism would have produced something that looks like a validator but isn't. A hook that echoes a reminder is not validation. A CLAUDE.md rule that says "check for schema issues" does not check for schema issues. The subagent mechanism ensures the validation actually runs and produces verifiable evidence.
 
 **What worked**
-The subagent isolation (separate context window per run, haiku model for cost efficiency) allowed exhaustive multi-scenario testing without consuming the main session context. The bounded output format (✅ PASS / ❌ FAIL with severity) made results immediately actionable without requiring interpretation.
+The subagent isolation (separate context window per run, haiku model for cost efficiency) allowed exhaustive multi-scenario testing without consuming the main session context. The bounded output format (âœ… PASS / âŒ FAIL with severity) made results immediately actionable without requiring interpretation.
 
 **What didn't work / issues**
 The output schema of the validators was not specified upfront and emerged from the agent's own judgment. The report format varied slightly between runs, making it harder to compare results across validation sessions.
@@ -1612,7 +1612,7 @@ Define the output schema before implementing the subagent. A typed output contra
 
 ---
 
-## AND-104 Task 5: Extension Mechanism Selection — Validators as Skills
+## AND-104 Task 5: Extension Mechanism Selection â€” Validators as Skills
 
 **Date:** 2026-05-28
 
@@ -1624,20 +1624,20 @@ Define the output schema before implementing the subagent. A typed output contra
 
 The alternatives were ruled out:
 
-- **Hook**: hooks fire on events (file edits, session stop) — not on explicit user intent. Validation is not something that should run automatically on every edit; it is a deliberate action a developer takes before a deploy or after a data change. A hook that runs validation on every `.go` edit would be noisy and slow.
+- **Hook**: hooks fire on events (file edits, session stop) â€” not on explicit user intent. Validation is not something that should run automatically on every edit; it is a deliberate action a developer takes before a deploy or after a data change. A hook that runs validation on every `.go` edit would be noisy and slow.
 - **Subagent**: a subagent has no entry point a user can invoke directly. It must be spawned by a skill, a hook, or the main agent. Exposing validation as a bare subagent would require the user to know to type `Agent(api-validator)` in a prompt, which is not a user-facing interface.
-- **CLAUDE.md convention**: same problem as above — passive documentation does not give the user an executable command. Writing "run validation before submitting" in CLAUDE.md does not create `/validate-api`.
+- **CLAUDE.md convention**: same problem as above â€” passive documentation does not give the user an executable command. Writing "run validation before submitting" in CLAUDE.md does not create `/validate-api`.
 
 A skill is the right mechanism when the task: (1) should be triggered by the user explicitly, (2) has a stable, named entry point (`/validate-api`, `/validate-csv`), and (3) needs to delegate to an agent for the actual execution. The skill provides the user-facing interface; the subagent provides the execution engine.
 
 **Why this separation matters:**
-Skill + subagent is a two-layer design: the skill handles invocation and argument passing, the subagent handles reasoning and tool use. This separation means the skill stays simple (under 20 lines) while the subagent can evolve independently. If the validation logic changes, only the subagent needs to be updated — the user-facing interface stays the same.
+Skill + subagent is a two-layer design: the skill handles invocation and argument passing, the subagent handles reasoning and tool use. This separation means the skill stays simple (under 20 lines) while the subagent can evolve independently. If the validation logic changes, only the subagent needs to be updated â€” the user-facing interface stays the same.
 
 **What worked**
-The `/validate-api` skill lowered invocation friction enough that validation ran routinely across Tasks 5, 7, and 8 — not just once at the end. A one-line command that produces a ✅ PASS / ❌ FAIL verdict creates a tight feedback loop that catches regressions before they reach integration.
+The `/validate-api` skill lowered invocation friction enough that validation ran routinely across Tasks 5, 7, and 8 â€” not just once at the end. A one-line command that produces a âœ… PASS / âŒ FAIL verdict creates a tight feedback loop that catches regressions before they reach integration.
 
 **What didn't work / issues**
-The skill and subagent were designed concurrently without first defining the argument-passing interface. The skill passes the endpoint path as a raw argument string, and the subagent infers from context how to interpret it — a pattern that works but is implicit rather than enforced.
+The skill and subagent were designed concurrently without first defining the argument-passing interface. The skill passes the endpoint path as a raw argument string, and the subagent infers from context how to interpret it â€” a pattern that works but is implicit rather than enforced.
 
 **What I would change next time**
 Define the skill invocation interface (argument names, types, and expected behavior) before implementing the subagent. The skill is the contract; the subagent is the implementation. Designing them in the wrong order inverts this relationship.
@@ -1656,10 +1656,10 @@ Re-trained the Module 3 RandomForestClassifier on `data/feature_matrix.csv` (132
 
 **What didn't work / issues**
 
-**Problem 1 — Wrong initial implementation (script instead of notebook, wrong columns, wrong version):**
-The first implementation produced a `.py` script with 7 CSV columns (`elevator_id`, `risk_score`, `risk_level`, `predicted_failure_date`, `confidence`, `model_version`, `generated_at`) and `MODEL_VERSION = "random_forest_v1"`. The task required a Jupyter notebook as the primary deliverable, 5 CSV columns only, and `MODEL_VERSION = "v4.1"`. The columns `predicted_failure_date` and `confidence` should not be in the CSV — `predicted_failure_date` is not yet modeled (always `null`), and `confidence` is derived server-side in Go. The `.py` script was repurposed as a CLI mirror of the notebook and corrected to match the 5-column format.
+**Problem 1 â€” Wrong initial implementation (script instead of notebook, wrong columns, wrong version):**
+The first implementation produced a `.py` script with 7 CSV columns (`elevator_id`, `risk_score`, `risk_level`, `predicted_failure_date`, `confidence`, `model_version`, `generated_at`) and `MODEL_VERSION = "random_forest_v1"`. The task required a Jupyter notebook as the primary deliverable, 5 CSV columns only, and `MODEL_VERSION = "v4.1"`. The columns `predicted_failure_date` and `confidence` should not be in the CSV â€” `predicted_failure_date` is not yet modeled (always `null`), and `confidence` is derived server-side in Go. The `.py` script was repurposed as a CLI mirror of the notebook and corrected to match the 5-column format.
 
-**Problem 2 — Jupyter working directory inconsistency:**
+**Problem 2 â€” Jupyter working directory inconsistency:**
 `pd.read_csv("./data/feature_matrix.csv")` failed when the notebook was opened in VS Code because VS Code's Jupyter extension sets `cwd` to the notebook's folder (`intelligence/`), not the project root. The path `./data/` resolves to `intelligence/data/`, which does not exist. The first attempted fix (`../data/`) only worked in VS Code and broke in classic Jupyter. The correct fix was to add an `os.chdir` cell at the top of the notebook:
 
 ```python
@@ -1670,24 +1670,24 @@ if _cwd.name == "intelligence":
 
 This normalizes the working directory to the project root regardless of how the notebook server was launched, allowing all subsequent cells to use plain `data/` paths.
 
-**Problem 3 — Pre-commit hook blocking predictions.csv:**
+**Problem 3 â€” Pre-commit hook blocking predictions.csv:**
 The `.git/hooks/pre-commit` hook blocks all commits to `data/` (source datasets are read-only). `data/predictions.csv` is a generated artifact, not a source dataset. The hook was updated with a targeted exception: `grep -v "^data/predictions\.csv$"` so that committing the generated predictions does not trigger the read-only protection.
 
-**Problem 4 — Misleading 404 error message in handlers.go:**
-`GetElevatorRisk` returned `"Elevator not found."` when a valid elevator ID had no prediction entry. The elevator exists in the fleet — it simply has no prediction in `riskIdx`. The message was corrected to `"No prediction available for this elevator."` to distinguish a missing-prediction 404 from a missing-elevator 404.
+**Problem 4 â€” Misleading 404 error message in handlers.go:**
+`GetElevatorRisk` returned `"Elevator not found."` when a valid elevator ID had no prediction entry. The elevator exists in the fleet â€” it simply has no prediction in `riskIdx`. The message was corrected to `"No prediction available for this elevator."` to distinguish a missing-prediction 404 from a missing-elevator 404.
 
 **What worked**
-- The RandomForestClassifier training and prediction pipeline ran without issues on the first attempt — the model, feature list, temporal split, and `predict_proba` indexing were all correct.
+- The RandomForestClassifier training and prediction pipeline ran without issues on the first attempt â€” the model, feature list, temporal split, and `predict_proba` indexing were all correct.
 - All three validation assertions passed immediately: 100% elevator coverage (40,954 of 40,954), risk scores fully within [0, 1], and distribution non-degenerate (HIGH 69.8%, MEDIUM 17.8%, LOW 12.4%).
-- The Go API integration was clean: `LoadPredictionsCSV` was updated to the 5-column format in a single pass, `EnrichElevatorsWithRisk()` correctly injected `risk_level` into all list responses, and the 404/503 precedence logic for `/risk` was already correct per spec §5.
-- The pre-commit hook exception was surgical — one `grep -v` line protecting the generated artifact without weakening the broader read-only rule.
+- The Go API integration was clean: `LoadPredictionsCSV` was updated to the 5-column format in a single pass, `EnrichElevatorsWithRisk()` correctly injected `risk_level` into all list responses, and the 404/503 precedence logic for `/risk` was already correct per spec Â§5.
+- The pre-commit hook exception was surgical â€” one `grep -v` line protecting the generated artifact without weakening the broader read-only rule.
 - The platform conventions skill update and CLAUDE.md documentation were done in the same session, keeping tooling and documentation in sync.
 
 **Lesson learned:**
-When the task says "notebook," deliver a notebook — not a script. The notebook is the primary artifact; a `.py` mirror is optional scaffolding. Read the column count and values in the spec before writing CSV output code; computing derived fields (confidence, null dates) belongs in the consumer (Go), not the producer (Python). For Jupyter path issues, a conditional `os.chdir` at the top of the notebook is the only cross-environment solution — relative paths that assume a fixed cwd will always break in at least one launch environment.
+When the task says "notebook," deliver a notebook â€” not a script. The notebook is the primary artifact; a `.py` mirror is optional scaffolding. Read the column count and values in the spec before writing CSV output code; computing derived fields (confidence, null dates) belongs in the consumer (Go), not the producer (Python). For Jupyter path issues, a conditional `os.chdir` at the top of the notebook is the only cross-environment solution â€” relative paths that assume a fixed cwd will always break in at least one launch environment.
 
 **What I would change next time**
-Read the deliverable spec in full before writing any code. All four problems in this entry — wrong format, wrong column count, path inconsistency, wrong model version label — were recoverable but avoidable. Each was explicitly stated in the task requirements and could have been caught with a 2-minute spec review before starting.
+Read the deliverable spec in full before writing any code. All four problems in this entry â€” wrong format, wrong column count, path inconsistency, wrong model version label â€” were recoverable but avoidable. Each was explicitly stated in the task requirements and could have been caught with a 2-minute spec review before starting.
 
 ---
 
@@ -1699,41 +1699,41 @@ Read the deliverable spec in full before writing any code. All four problems in 
 "Create /new-endpoint as a user-invocable Claude Code skill enforcing a 5-step spec-first workflow. Use it to implement GET /api/fleet/stats and GET /api/fleet/alerts in the Go API. Validate both endpoints with /validate-api."
 
 **What was done:**
-- Created `/new-endpoint` as a user-invocable skill (custom extension) to scaffold Go API endpoints via a 5-step spec-first workflow: spec update → handler → route registration → data layer check → `/validate-api`
+- Created `/new-endpoint` as a user-invocable skill (custom extension) to scaffold Go API endpoints via a 5-step spec-first workflow: spec update â†’ handler â†’ route registration â†’ data layer check â†’ `/validate-api`
 - Implemented `GET /api/fleet/stats` using the skill: total elevators, risk distribution (low/medium/high/unknown), inspection pass rate, equipment type distribution
 - Implemented `GET /api/fleet/alerts`: joins `riskIdx`, `inspectionIdx`, and `elevatorIdx` in-memory; filters `risk_level = HIGH` + failed most-recent inspection; sorted by `risk_score` DESC
 - Changed default API port from 8081 to 8080 across all project files (`main.go`, `server.py`, agent configs, skills, README, `CLAUDE.md`)
 
 **What worked**
-The `/new-endpoint` skill made the spec-first workflow explicit and executable — both fleet endpoints were built without skipping or reordering any step. The risk distribution `unknown` bucket correctly satisfied the `total_elevators` invariant. Both endpoints passed `/validate-api` with no contract violations after corrections.
+The `/new-endpoint` skill made the spec-first workflow explicit and executable â€” both fleet endpoints were built without skipping or reordering any step. The risk distribution `unknown` bucket correctly satisfied the `total_elevators` invariant. Both endpoints passed `/validate-api` with no contract violations after corrections.
 
 **What didn't work / issues**
 
-**Problem 1 — Risk distribution under-count:**
+**Problem 1 â€” Risk distribution under-count:**
 `predictions.csv` covers ~40,954 of 43,002 elevators. Elevators with `RiskLevel = nil` were silently skipped in the risk-counting loop, producing a `risk_distribution` sum ~3,650 short of `total_elevators`. Fixed by adding an `"unknown"` bucket to `RiskDistribution` and routing nil RiskLevel into it. Invariant enforced: `low + medium + high + unknown == total_elevators`.
 
-**Problem 2 — Port inconsistency across tooling:**
-The API was initially configured on port 8081. Port 8081 is blocked by the company firewall, preventing the dashboard from reaching the Go API. Port was changed to 8080 in `main.go`. After the change, the `api-validator` subagent continued hitting port 8081 because it has its own hardcoded base URL in its agent config. The validator appeared to work (it connected and got responses) but was talking to a stale server instance. Fixed by grepping all files for "8081" and updating every remaining reference — 7 files total. Port 8080 must not be changed back.
+**Problem 2 â€” Port inconsistency across tooling:**
+The API was initially configured on port 8081. Port 8081 is blocked by the company firewall, preventing the dashboard from reaching the Go API. Port was changed to 8080 in `main.go`. After the change, the `api-validator` subagent continued hitting port 8081 because it has its own hardcoded base URL in its agent config. The validator appeared to work (it connected and got responses) but was talking to a stale server instance. Fixed by grepping all files for "8081" and updating every remaining reference â€” 7 files total. Port 8080 must not be changed back.
 
-**Problem 3 — Spec example drift:**
-`equipment_type_distribution` counts in `api_spec.md` were from an earlier dataset snapshot. The validator was treating these stale counts as contractual and failing on count mismatches. Fixed by updating spec example values to current live data and adding an illustrative note. The `api-validator` agent config was also updated with an explicit rule: for aggregate endpoints, validate structure and invariants — not exact numeric values.
+**Problem 3 â€” Spec example drift:**
+`equipment_type_distribution` counts in `api_spec.md` were from an earlier dataset snapshot. The validator was treating these stale counts as contractual and failing on count mismatches. Fixed by updating spec example values to current live data and adding an illustrative note. The `api-validator` agent config was also updated with an explicit rule: for aggregate endpoints, validate structure and invariants â€” not exact numeric values.
 
-**Problem 4 — `risk_level` undocumented in elevator responses:**
+**Problem 4 â€” `risk_level` undocumented in elevator responses:**
 The `Elevator` struct serializes `risk_level` in both `GET /api/elevators` and `GET /api/elevators/{id}` responses (injected by `EnrichElevatorsWithRisk()` at startup). The spec did not document this field, causing the validator to flag it as an undocumented extra field. Fixed by adding `risk_level` to the field tables in both spec sections rather than removing the field from the struct (which would have broken the alerts endpoint join logic).
 
 **Custom extension: `/new-endpoint` skill**
-Created `.claude/skills/new-endpoint/SKILL.md` to address repeated friction in the spec-first workflow. Without the skill, each new endpoint required manually remembering the 5-step order: write spec section → implement handler → register route → confirm data layer → run `/validate-api`. Steps were frequently skipped or reordered, causing validator failures late in the cycle. The skill makes the workflow explicit and executable via `/new-endpoint <path> "<description>"`.
+Created `.claude/skills/new-endpoint/SKILL.md` to address repeated friction in the spec-first workflow. Without the skill, each new endpoint required manually remembering the 5-step order: write spec section â†’ implement handler â†’ register route â†’ confirm data layer â†’ run `/validate-api`. Steps were frequently skipped or reordered, causing validator failures late in the cycle. The skill makes the workflow explicit and executable via `/new-endpoint <path> "<description>"`.
 
 **Validation results:**
-- `/validate-api /api/fleet/stats` → ✅ PASS
-- `/validate-api /api/fleet/alerts` → ✅ PASS
-- `/validate-api /api/elevators` → ✅ PASS (after adding `risk_level` to spec)
+- `/validate-api /api/fleet/stats` â†’ âœ… PASS
+- `/validate-api /api/fleet/alerts` â†’ âœ… PASS
+- `/validate-api /api/elevators` â†’ âœ… PASS (after adding `risk_level` to spec)
 
 **What I would change next time**
 Define the API port as a project-wide constant from the start. A port number hardcoded in 7 separate files means a single change requires a 7-file grep-and-replace. A single environment variable or config value would make the change atomic.
 
 **Lesson learned**
-A custom skill only delivers value if it changes actual behavior. Before `/new-endpoint` existed, steps were frequently skipped or reordered. After creating it, both fleet endpoints were built spec-first without deviation. The skill's value was not automation — it was encoding the correct sequence as a constraint.
+A custom skill only delivers value if it changes actual behavior. Before `/new-endpoint` existed, steps were frequently skipped or reordered. After creating it, both fleet endpoints were built spec-first without deviation. The skill's value was not automation â€” it was encoding the correct sequence as a constraint.
 
 ---
 
@@ -1745,53 +1745,53 @@ A custom skill only delivers value if it changes actual behavior. Before `/new-e
 "Complete the AND-104 dashboard integration: migrate the fleet table to a Go API proxy, add a Risk Level badge column, implement pagination, add a fleet health panel from /api/fleet/stats, and a critical alerts section from /api/fleet/alerts. Validate all 6 Go API endpoints before writing any frontend code."
 
 **What was done:**
-- Validated all 6 Go API endpoints before touching frontend code — one spec gap found (`GET /api/elevators/{id}/risk` did not document the "elevator exists but no prediction" 404 case). Fixed in spec, re-validated ✅ PASS.
+- Validated all 6 Go API endpoints before touching frontend code â€” one spec gap found (`GET /api/elevators/{id}/risk` did not document the "elevator exists but no prediction" 404 case). Fixed in spec, re-validated âœ… PASS.
 - Updated `docs/dashboard_spec.md` with AND-104 Task 8 section before any HTML changes (CLAUDE.md constraint: spec first, always).
-- Migrated the fleet table from CSV-based pandas filtering to a Go API proxy: Flask `/table` route now calls `GET /api/elevators` with the same filter/sort params (with param name mapping: `type` → `elevator_type`, `license_expiry` → `license_expiration_date`). The `risk_level` field from the Go API response populates the new Risk Level badge column.
+- Migrated the fleet table from CSV-based pandas filtering to a Go API proxy: Flask `/table` route now calls `GET /api/elevators` with the same filter/sort params (with param name mapping: `type` â†’ `elevator_type`, `license_expiry` â†’ `license_expiration_date`). The `risk_level` field from the Go API response populates the new Risk Level badge column.
 - Added pagination (50 rows/page) to the fleet table. Pagination controls are HTMX-driven with `hx-include="#controls"` to preserve active filters. An OOB swap updates `#pagination` div outside the `<table>` element so sort's outerHTML swap doesn't erase it.
 - Added fleet health panel (from `GET /api/fleet/stats`) and critical alerts section (top 20 from `GET /api/fleet/alerts`) as HTMX `hx-trigger="load"` sections with skeleton placeholders.
 - Added risk assessment section to the elevator detail panel, calling `GET /api/elevators/{id}/risk` per panel load. Graceful fallback for 404 (no prediction), 503 (pipeline not deployed), or request exception.
 - Refined `protect-data.sh` hook: added early-exit for `data/predictions.csv` before the blocking check. Source data files (`inspection.csv`, `incident.json`, etc.) remain protected; generated artifact `predictions.csv` is no longer blocked.
 
 **What worked**
-Validating all 6 endpoints before writing any frontend code caught a spec gap (the missing `/risk` 404 case for "elevator exists but no prediction") before it could cause integration bugs. The `hx-trigger="load"` pattern loaded fleet health and alerts asynchronously without blocking the initial page. The pagination OOB swap sibling placement correctly survived outerHTML sort swaps — a design that would have been easy to get wrong without the platform-conventions skill constraint.
+Validating all 6 endpoints before writing any frontend code caught a spec gap (the missing `/risk` 404 case for "elevator exists but no prediction") before it could cause integration bugs. The `hx-trigger="load"` pattern loaded fleet health and alerts asynchronously without blocking the initial page. The pagination OOB swap sibling placement correctly survived outerHTML sort swaps â€” a design that would have been easy to get wrong without the platform-conventions skill constraint.
 
 **What didn't work / issues**
 
-**Problem 1 — Table data source conflict:**
-Task 8 requires all displayed elevator data to come from the Go API. But the summary cards (overdue inspections, expiring soon) require date arithmetic across all 43K records — a computation the Go API does not expose. Resolution: table display rows come from Go API (pagination + risk_level); overdue/expiring cards are computed from `df_fleet` CSV at startup using the same filter logic applied to the subset matching the current controls. The cards update correctly per-filter; the table displays Go API data. No new CSV reads added for display data.
+**Problem 1 â€” Table data source conflict:**
+Task 8 requires all displayed elevator data to come from the Go API. But the summary cards (overdue inspections, expiring soon) require date arithmetic across all 43K records â€” a computation the Go API does not expose. Resolution: table display rows come from Go API (pagination + risk_level); overdue/expiring cards are computed from `df_fleet` CSV at startup using the same filter logic applied to the subset matching the current controls. The cards update correctly per-filter; the table displays Go API data. No new CSV reads added for display data.
 
-**Problem 2 — Pagination OOB placement:**
+**Problem 2 â€” Pagination OOB placement:**
 Sort buttons do `hx-swap="outerHTML"` on `#fleetTable`. If the `#pagination` div is inside `#fleetTable`, it gets erased on every sort. Fix: place `#pagination` as a sibling AFTER the `overflow-x-auto` div but still inside the white card container. Every `/table` response appends a pagination OOB swap snippet, which HTMX processes regardless of whether the main target is `#tableBody` or `#fleetTable`.
 
-**Problem 3 — Risk spec gap for "no prediction" case:**
-`GET /api/elevators/{id}/risk` returned 404 `{"error": "No prediction available for this elevator."}` for elevators that exist but lack a predictions.csv entry. The spec only documented one 404 case (elevator not found). The `api-validator` subagent caught this during the pre-integration validation pass. Fix: added the second 404 case to `docs/api_spec.md`. No code change required — the handler was already correct.
+**Problem 3 â€” Risk spec gap for "no prediction" case:**
+`GET /api/elevators/{id}/risk` returned 404 `{"error": "No prediction available for this elevator."}` for elevators that exist but lack a predictions.csv entry. The spec only documented one 404 case (elevator not found). The `api-validator` subagent caught this during the pre-integration validation pass. Fix: added the second 404 case to `docs/api_spec.md`. No code change required â€” the handler was already correct.
 
-**Hook refinement — `protect-data.sh`:**
+**Hook refinement â€” `protect-data.sh`:**
 The original hook blocked ALL edits to `data/*` using a single glob. This is correct for source datasets (`inspection.csv`, `incident.json`, `merged_elevator_data.csv`) but wrong for `predictions.csv`, which is a generated output of `generate_predictions.py`. If Claude ever needs to update or replace the predictions file, the hook would block it. Refined to allow `predictions.csv` with an early-exit, preserving protection for all other data files.
 
 **Extension reflection:**
 
-*Most valuable extension across Tasks 4–8:* The `validate-api` skill backed by the `api-validator` subagent. Across three tasks (Tasks 5, 7, 8), it caught:
+*Most valuable extension across Tasks 4â€“8:* The `validate-api` skill backed by the `api-validator` subagent. Across three tasks (Tasks 5, 7, 8), it caught:
 - Missing fields in responses
 - Undocumented extra fields (`risk_level` in elevator list)
 - Spec example drift (stale equipment_type counts)
 - Missing 404 variant for no-prediction case
 - Port mismatches (8081 vs 8080)
-Without automated validation, these would have surfaced only when the dashboard broke in unexpected ways. The subagent's isolation (separate context per run, haiku model for speed) meant it could run exhaustive test cases without consuming the main conversation context. The `validate-api` skill made it invocable with one line, lowering the friction enough that I ran it routinely — not just once at the end.
+Without automated validation, these would have surfaced only when the dashboard broke in unexpected ways. The subagent's isolation (separate context per run, haiku model for speed) meant it could run exhaustive test cases without consuming the main conversation context. The `validate-api` skill made it invocable with one line, lowering the friction enough that I ran it routinely â€” not just once at the end.
 
-*Extension I would design differently:* `protect-data.sh`. The initial design used a single glob (`data/*`) to block everything under `data/`. This was intentionally broad to catch accidental edits to source datasets. But the glob is too coarse — it doesn't distinguish between source files (never change) and generated outputs (expected to change). A better design would explicitly list the files to protect: `data/inspection.csv`, `data/incident.json`, `data/merged_elevator_data.csv`, etc., rather than using a directory glob. This avoids the false positive on `predictions.csv` without weakening protection on the actual source data. The lesson: hooks that protect by exclusion (block all except...) are more maintainable than hooks that protect by inclusion (block all of...) when the directory contains mixed file types.
+*Extension I would design differently:* `protect-data.sh`. The initial design used a single glob (`data/*`) to block everything under `data/`. This was intentionally broad to catch accidental edits to source datasets. But the glob is too coarse â€” it doesn't distinguish between source files (never change) and generated outputs (expected to change). A better design would explicitly list the files to protect: `data/inspection.csv`, `data/incident.json`, `data/merged_elevator_data.csv`, etc., rather than using a directory glob. This avoids the false positive on `predictions.csv` without weakening protection on the actual source data. The lesson: hooks that protect by exclusion (block all except...) are more maintainable than hooks that protect by inclusion (block all of...) when the directory contains mixed file types.
 
 **Validation results (all endpoints, pre-integration):**
-- `/validate-api /api/elevators` → ✅ PASS
-- `/validate-api /api/elevators/{id}` → ✅ PASS
-- `/validate-api /api/elevators/{id}/inspections` → ✅ PASS
-- `/validate-api /api/elevators/{id}/risk` → ✅ PASS (after spec fix)
-- `/validate-api /api/fleet/stats` → ✅ PASS
-- `/validate-api /api/fleet/alerts` → ✅ PASS (note: `risk_score: 1` vs `1.0` is a Go JSON serialization quirk; semantically valid, documented as known limitation)
+- `/validate-api /api/elevators` â†’ âœ… PASS
+- `/validate-api /api/elevators/{id}` â†’ âœ… PASS
+- `/validate-api /api/elevators/{id}/inspections` â†’ âœ… PASS
+- `/validate-api /api/elevators/{id}/risk` â†’ âœ… PASS (after spec fix)
+- `/validate-api /api/fleet/stats` â†’ âœ… PASS
+- `/validate-api /api/fleet/alerts` â†’ âœ… PASS (note: `risk_score: 1` vs `1.0` is a Go JSON serialization quirk; semantically valid, documented as known limitation)
 
 **What I would change next time**
-The overdue/expiring summary cards still rely on `df_fleet` CSV because the Go API has no date-arithmetic aggregate endpoint. This remaining CSV dependency should be documented as a known gap in `docs/api_spec.md` — a future endpoint that would make the dashboard fully API-driven.
+The overdue/expiring summary cards still rely on `df_fleet` CSV because the Go API has no date-arithmetic aggregate endpoint. This remaining CSV dependency should be documented as a known gap in `docs/api_spec.md` â€” a future endpoint that would make the dashboard fully API-driven.
 
 **Lesson learned**
 Validating all endpoints before writing any frontend code is strictly better than validating after integration. Spec gaps caught pre-integration require only a spec edit and re-validation. The same gap caught post-integration also requires tracing through frontend error handling to verify no broken assumptions.
@@ -1811,40 +1811,40 @@ Validating all endpoints before writing any frontend code is strictly better tha
 - Removed the obsolete `version: "3.9"` top-level key after Docker Compose v2 emitted a deprecation warning.
 - Verified the stack with `docker compose up --build`: both containers started, `api` loaded 43,002 elevators and activated the `/risk` endpoint, `db` initialized the `rocket_elevators` database.
 - Confirmed end-to-end DB connectivity from the `api` container using `nc -zv db 5432` (TCP open) and an authenticated `psql` session (`SELECT version()` returned PostgreSQL 16.14).
-- Confirmed the API is functional via `curl http://localhost:8080/api/elevators?limit=1` — correct JSON with pagination fields and all elevator fields present.
+- Confirmed the API is functional via `curl http://localhost:8080/api/elevators?limit=1` â€” correct JSON with pagination fields and all elevator fields present.
 
 **What worked:**
 - Multi-stage build kept the final image minimal: no Go toolchain, no source files, only the binary and CSV data.
-- Setting build `context: .` (project root) was necessary and correct — the Dockerfile needs access to both `platform/elevator_fleet.csv` and `data/` which live outside the `platform/api/` directory.
+- Setting build `context: .` (project root) was necessary and correct â€” the Dockerfile needs access to both `platform/elevator_fleet.csv` and `data/` which live outside the `platform/api/` directory.
 - `DB_HOST: db` (service name, not `localhost`) correctly leveraged Docker's internal DNS for container-to-container networking. Confirmed with `nc` from inside the `api` container.
 
 **What didn't work / issues:**
 - Docker Desktop was not running on first attempt, causing a "Docker Desktop is unable to start" daemon error. The engine started successfully after a manual launch from the system tray.
 - PowerShell's `curl` alias (`Invoke-WebRequest`) failed in non-interactive mode; switched to Bash `curl -s` for the endpoint test.
-- `version: "3.9"` triggered a deprecation warning in Docker Compose v5 — removed immediately.
+- `version: "3.9"` triggered a deprecation warning in Docker Compose v5 â€” removed immediately.
 
 **What I would change next time:**
 - Add a `healthcheck` to the `db` service and use `condition: service_healthy` in `api`'s `depends_on` block. The current setup starts `api` as soon as the `db` container starts, not when Postgres is actually ready to accept connections. For a future task where the API opens a real DB connection at startup, this race condition will cause crashes.
 
 **AI-generated vs manually written:**
-- `docker-compose.yml` — fully AI-generated. Service names, image versions, port mappings, volume name, env var names and values, and the `depends_on` wiring were all produced by Claude from the task requirements. The only post-generation edit was removing the deprecated `version: "3.9"` key after Docker Compose v5 flagged it.
-- `platform/api/Dockerfile` — fully AI-generated. Both stages (builder and runtime), the `CGO_ENABLED=0 GOOS=linux` build flags, the `ca-certificates` install, and the CSV file copy paths were all AI-produced. The task header comment was added manually after the audit.
-- Connectivity verification commands (`nc -zv db 5432`, `psql` session) — AI-generated and run interactively. No manual shell work was required.
+- `docker-compose.yml` â€” fully AI-generated. Service names, image versions, port mappings, volume name, env var names and values, and the `depends_on` wiring were all produced by Claude from the task requirements. The only post-generation edit was removing the deprecated `version: "3.9"` key after Docker Compose v5 flagged it.
+- `platform/api/Dockerfile` â€” fully AI-generated. Both stages (builder and runtime), the `CGO_ENABLED=0 GOOS=linux` build flags, the `ca-certificates` install, and the CSV file copy paths were all AI-produced. The task header comment was added manually after the audit.
+- Connectivity verification commands (`nc -zv db 5432`, `psql` session) â€” AI-generated and run interactively. No manual shell work was required.
 - Nothing in this task was written by hand from scratch; all directives were AI-generated and then reviewed, run, and verified.
 
 **Docker/Compose directives learned:**
-- `depends_on` with a service name starts the dependent container after the dependency container starts — not after it is healthy. A `healthcheck` + `condition: service_healthy` is needed for true readiness gating.
-- Build `context: .` sets the root from which `COPY` paths in the Dockerfile are resolved. When a Dockerfile lives in a subdirectory but needs files from the project root, the context must be the root — not the Dockerfile's directory.
+- `depends_on` with a service name starts the dependent container after the dependency container starts â€” not after it is healthy. A `healthcheck` + `condition: service_healthy` is needed for true readiness gating.
+- Build `context: .` sets the root from which `COPY` paths in the Dockerfile are resolved. When a Dockerfile lives in a subdirectory but needs files from the project root, the context must be the root â€” not the Dockerfile's directory.
 - Docker Compose uses service names as internal DNS hostnames. Any inter-container address must use the service name (e.g., `db`), not `localhost` or an IP.
 - Named volumes (`pgdata`) survive `docker compose down` but are removed by `docker compose down -v`. Using a named volume (rather than a bind mount) is the correct pattern for database persistence in Compose.
 - `CGO_ENABLED=0 GOOS=linux` produces a fully static binary that runs on any Linux image, including minimal Alpine, with no libc dependency.
 
 **Lesson learned:**
-Docker networking uses service names as hostnames — `DB_HOST: db` is correct, `localhost` would silently fail. Verifying connectivity at the TCP level (`nc`) before attempting an authenticated connection isolates network issues from credential issues, making failures easier to diagnose.
+Docker networking uses service names as hostnames â€” `DB_HOST: db` is correct, `localhost` would silently fail. Verifying connectivity at the TCP level (`nc`) before attempting an authenticated connection isolates network issues from credential issues, making failures easier to diagnose.
 
 ---
 
-## AND-105 Task 2: Relational Data Model — Schema Design and Production Hardening
+## AND-105 Task 2: Relational Data Model â€” Schema Design and Production Hardening
 
 **Date:** 2026-06-02
 
@@ -1854,7 +1854,7 @@ Docker networking uses service names as hostnames — `DB_HOST: db` is correct, 
 "Design a complete relational data model for the elevator platform. Entities: elevators (license.csv), inspections (inspection.csv), incidents (incident.json), alterations (altered.json), predictions (predictions.csv). Generate a Markdown section for docs/dashboard_spec.md and a SQL file at platform/api/migrations/001_initial_schema.sql. predictions table MUST include risk_explanation TEXT. elevators is the central entity. All others reference elevators."
 
 *Second prompt (hardening):*
-"Apply targeted refinements to improve robustness: ON DELETE CASCADE for FK → elevators, ON DELETE SET NULL for alterations.inspection_number, NOT NULL on inspections.outcome if always present, DEFAULT 'none' on incidents.injury_severity, and an index on predictions(elevator_id). Do NOT redesign the schema."
+"Apply targeted refinements to improve robustness: ON DELETE CASCADE for FK â†’ elevators, ON DELETE SET NULL for alterations.inspection_number, NOT NULL on inspections.outcome if always present, DEFAULT 'none' on incidents.injury_severity, and an index on predictions(elevator_id). Do NOT redesign the schema."
 
 **What was done:**
 
@@ -1867,11 +1867,11 @@ Docker networking uses service names as hostnames — `DB_HOST: db` is correct, 
 - Documented every column with source field name, type transformation, and justification in `docs/dashboard_spec.md`.
 
 *Production hardening:*
-- Verified `inspections.outcome` null rate programmatically (`py -3`) before adding `NOT NULL` — confirmed 0 nulls across 143,181 rows. This is the correct pre-constraint check; blindly adding NOT NULL without data verification would break the migration on import.
-- Added `ON DELETE CASCADE` to `inspections`, `incidents`, `predictions`, and `alterations.elevator_id` — all of these are meaningless without their parent elevator.
-- Added `ON DELETE SET NULL` to `alterations.inspection_number` — an alteration record remains valid even if its linked inspection is removed.
-- Added `DEFAULT 'none'` + `NOT NULL` to `injury_severity` — eliminates NULLs at insert time when no injury classification is present, making the CHECK constraint fully effective.
-- Added `idx_predictions_elevator_id` — the PK index on a single-column INTEGER PK covers lookups by PK, but an explicit index is needed when `predictions` is joined from the many side (e.g., `JOIN predictions ON elevators.elevator_id = predictions.elevator_id`).
+- Verified `inspections.outcome` null rate programmatically (`py -3`) before adding `NOT NULL` â€” confirmed 0 nulls across 143,181 rows. This is the correct pre-constraint check; blindly adding NOT NULL without data verification would break the migration on import.
+- Added `ON DELETE CASCADE` to `inspections`, `incidents`, `predictions`, and `alterations.elevator_id` â€” all of these are meaningless without their parent elevator.
+- Added `ON DELETE SET NULL` to `alterations.inspection_number` â€” an alteration record remains valid even if its linked inspection is removed.
+- Added `DEFAULT 'none'` + `NOT NULL` to `injury_severity` â€” eliminates NULLs at insert time when no injury classification is present, making the CHECK constraint fully effective.
+- Added `idx_predictions_elevator_id` â€” the PK index on a single-column INTEGER PK covers lookups by PK, but an explicit index is needed when `predictions` is joined from the many side (e.g., `JOIN predictions ON elevators.elevator_id = predictions.elevator_id`).
 
 **What worked:**
 - Inspecting source files before writing SQL surfaced two non-obvious issues: the lack of a natural PK in `altered.json` (leading to SERIAL) and the 30-column injury boolean problem (leading to the severity collapse). Both would have required schema changes post-design if discovered later.
@@ -1883,30 +1883,30 @@ Docker networking uses service names as hostnames — `DB_HOST: db` is correct, 
 - The `predictions` table uses `elevator_id` as PK, which works for the current "one prediction per elevator" model. If the pipeline is ever extended to store prediction history, this design will require a schema change (add `prediction_id SERIAL PK`, demote `elevator_id` to FK). This is a known future migration risk.
 
 **AI-generated vs manually written:**
-- `platform/api/migrations/001_initial_schema.sql` — fully AI-generated in both passes (initial schema and hardening). The only human action was reviewing and approving each version before committing.
-- `docs/dashboard_spec.md` "Relational Data Model" section — fully AI-generated. Column mapping tables, cardinality descriptions, and orphan behavior notes were all produced by Claude from the source file inspection output.
-- Data verification command (`py -3 -c "..."`) — AI-generated and run to confirm the `outcome NOT NULL` assumption before applying the constraint.
+- `platform/api/migrations/001_initial_schema.sql` â€” fully AI-generated in both passes (initial schema and hardening). The only human action was reviewing and approving each version before committing.
+- `docs/dashboard_spec.md` "Relational Data Model" section â€” fully AI-generated. Column mapping tables, cardinality descriptions, and orphan behavior notes were all produced by Claude from the source file inspection output.
+- Data verification command (`py -3 -c "..."`) â€” AI-generated and run to confirm the `outcome NOT NULL` assumption before applying the constraint.
 - Nothing in this task was written by hand from scratch; all SQL, documentation, and verification steps were AI-generated and then reviewed.
 
 **SQL/schema design directives learned:**
 - `ON DELETE CASCADE` vs `ON DELETE SET NULL` is a semantic choice, not a default. Cascade is correct when the child row is meaningless without its parent; SET NULL is correct when the child row retains independent value but the relationship becomes optional.
-- Using `elevator_id` as both PK and FK in `predictions` is a valid pattern for enforcing a 1:1 optional relationship in PostgreSQL — it prevents duplicate rows while allowing the relationship to be absent.
+- Using `elevator_id` as both PK and FK in `predictions` is a valid pattern for enforcing a 1:1 optional relationship in PostgreSQL â€” it prevents duplicate rows while allowing the relationship to be absent.
 - A surrogate SERIAL PK is appropriate when no stable, unique natural key exists in the source data. The trade-off is that the surrogate has no business meaning; `service_request_number` is retained as an indexed searchable column.
 - `DEFAULT 'none' NOT NULL` on a TEXT column with a CHECK constraint is the correct pattern for an enumerated field where "unknown" is a valid, explicit state rather than an absence of data.
 - Always verify null rates in source data before adding NOT NULL constraints to columns that were previously nullable. A constraint that passes in development but breaks on production import is worse than no constraint.
 
 **Lesson learned:**
-Schema design decisions are hard to reverse once data is loaded. Inspecting source files before writing DDL — not after — is the correct order of operations. Two of the five most significant design choices in this schema (SERIAL for alterations, severity collapse for incidents) would have been missed without upfront source inspection.
+Schema design decisions are hard to reverse once data is loaded. Inspecting source files before writing DDL â€” not after â€” is the correct order of operations. Two of the five most significant design choices in this schema (SERIAL for alterations, severity collapse for incidents) would have been missed without upfront source inspection.
 
-### Review workflow decision: two-stage prompt approach (design → hardening)
+### Review workflow decision: two-stage prompt approach (design â†’ hardening)
 
 Rather than requesting a production-ready schema in a single prompt, the work was split into two sequential stages: an initial design pass, then a targeted hardening pass. This is a deliberate review workflow decision, not just a convenience.
 
-**Reasoning:** A single comprehensive prompt for schema design tends to produce a schema that satisfies stated requirements but skips hardening decisions that require separate judgment — ON DELETE behavior, null enforcement, defaults, and index placement are secondary concerns during the modeling pass and primary concerns during a hardening pass. Mixing them in one prompt causes the model to make constraint decisions at the same time as entity-relationship decisions, which produces inconsistent results: some columns get NOT NULL, others don't, without a principled rationale.
+**Reasoning:** A single comprehensive prompt for schema design tends to produce a schema that satisfies stated requirements but skips hardening decisions that require separate judgment â€” ON DELETE behavior, null enforcement, defaults, and index placement are secondary concerns during the modeling pass and primary concerns during a hardening pass. Mixing them in one prompt causes the model to make constraint decisions at the same time as entity-relationship decisions, which produces inconsistent results: some columns get NOT NULL, others don't, without a principled rationale.
 
-Splitting the work preserves the design pass as a first draft that can be evaluated structurally before constraints are layered on. The hardening prompt was deliberately scoped to exactly the five refinements needed (CASCADE behavior, NOT NULL on outcome, DEFAULT on injury_severity, predictions index) — it did not reopen modeling decisions. This mirrors the Writer/Reviewer split used in Task 5: the first pass generates without constraint pressure, the second pass reviews and enforces production requirements. The reviewer's job is easier when the design is stable; the designer's job is easier when they're not simultaneously thinking about production hardening.
+Splitting the work preserves the design pass as a first draft that can be evaluated structurally before constraints are layered on. The hardening prompt was deliberately scoped to exactly the five refinements needed (CASCADE behavior, NOT NULL on outcome, DEFAULT on injury_severity, predictions index) â€” it did not reopen modeling decisions. This mirrors the Writer/Reviewer split used in Task 5: the first pass generates without constraint pressure, the second pass reviews and enforces production requirements. The reviewer's job is easier when the design is stable; the designer's job is easier when they're not simultaneously thinking about production hardening.
 
-**Outcome:** The two-pass approach caught the `NOT NULL` constraint on `inspections.outcome` correctly — the hardening pass verified the null rate before adding the constraint, which the initial design pass would have applied optimistically. A single-pass approach would likely have added `NOT NULL` without the programmatic verification step.
+**Outcome:** The two-pass approach caught the `NOT NULL` constraint on `inspections.outcome` correctly â€” the hardening pass verified the null rate before adding the constraint, which the initial design pass would have applied optimistically. A single-pass approach would likely have added `NOT NULL` without the programmatic verification step.
 
 ---
 
@@ -1921,9 +1921,9 @@ Splitting the work preserves the design pass as a first draft that can be evalua
 - Inspected all five source files before writing any ETL code to capture exact field names, date formats, and data quirks. Each source uses a different date format: `28-Apr-17` (license.csv), `1/10/2011` (inspection.csv), `14-Jan-11` (incident.json), `2026-05-29` (predictions.csv).
 - Wrote `parse_date()` with a four-format fallback list and `parse_time()` for the `6:30:00 AM` format in incident.json.
 - Filtered `elevators` to `ACTIVE` and `BY REQUEST` statuses only (CLAUDE.md pipeline requirement + schema CHECK constraint). All other statuses (EXPIRED, CANCELLED, PENDING_RENEWAL, etc.) are skipped with a warning.
-- Skipped 43 null-location rows in license.csv before inserting — confirmed the count programmatically before applying the NOT NULL constraint filter.
+- Skipped 43 null-location rows in license.csv before inserting â€” confirmed the count programmatically before applying the NOT NULL constraint filter.
 - Collapsed incident.json's 30 sparse boolean injury columns into `injury_severity` using the four summary columns (`fatal injury`, `permanent (serious) injury`, `non-permanent (minor) injury`, `No Injury`). Default is `'none'`.
-- Built a `valid_elevator_ids` set after loading elevators and used it to pre-validate all child rows (inspections, incidents, alterations, predictions) before insert — avoids per-row FK exception handling.
+- Built a `valid_elevator_ids` set after loading elevators and used it to pre-validate all child rows (inspections, incidents, alterations, predictions) before insert â€” avoids per-row FK exception handling.
 - Used `alterations` row-count guard for idempotency because its SERIAL PK has no natural conflict key; re-runs skip loading if the table is already populated.
 - Used `psycopg2.extras.execute_values` for batch inserts; counts rows before/after each batch to get accurate inserted counts under `ON CONFLICT DO NOTHING`.
 - Ran a dry-run of all type helpers against real data before connecting to the DB; confirmed `parse_date`, `parse_time`, `derive_injury_severity`, and the license.csv status filter all behaved correctly.
@@ -1945,31 +1945,31 @@ Elapsed: 16.17s
 **What worked:**
 - Inspecting source files before writing the ETL caught every data quirk upfront: duplicate header row in license.csv, four different date formats across files, 30 sparse boolean columns in incidents, and the missing natural PK in alterations. None of these required rework after the script was written.
 - The `valid_elevator_ids` FK guard was cleaner than catching psycopg2 FK exceptions per row. It also made skip counts accurate and traceable.
-- Running inside Docker (`python:3.12-alpine`) was the correct deployment pattern — the ETL connects to `db` by service name, the same way the Go API does, rather than relying on host-side port forwarding.
+- Running inside Docker (`python:3.12-alpine`) was the correct deployment pattern â€” the ETL connects to `db` by service name, the same way the Go API does, rather than relying on host-side port forwarding.
 
 **What didn't work / issues:**
-- **Windows CP-1252 locale crash:** psycopg2 on Windows with a Spanish system locale (`LICENSESTATUS` contains non-ASCII in error messages from libpq) caused a `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf3` inside `_connect`. Byte `0xf3` is `ó` in Windows-1252 — libpq returns connection error messages in the system locale ("falló la conexión..."), and psycopg2 tries to decode them as UTF-8. Setting `PYTHONUTF8=1` and `PGCLIENTENCODING=UTF8` did not fix it because the issue is in libpq's C layer, not Python's I/O. Fix: run inside Docker where locale is `en_US.UTF-8`. This is the correct production approach regardless.
-- **Unicode print crash:** The `→` character in the opening print statement caused a `UnicodeEncodeError` on Windows CP-1252 console. Fixed by replacing with `--` (ASCII). A minor but real portability issue with non-ASCII in print strings on Windows.
+- **Windows CP-1252 locale crash:** psycopg2 on Windows with a Spanish system locale (`LICENSESTATUS` contains non-ASCII in error messages from libpq) caused a `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf3` inside `_connect`. Byte `0xf3` is `Ã³` in Windows-1252 â€” libpq returns connection error messages in the system locale ("fallÃ³ la conexiÃ³n..."), and psycopg2 tries to decode them as UTF-8. Setting `PYTHONUTF8=1` and `PGCLIENTENCODING=UTF8` did not fix it because the issue is in libpq's C layer, not Python's I/O. Fix: run inside Docker where locale is `en_US.UTF-8`. This is the correct production approach regardless.
+- **Unicode print crash:** The `â†’` character in the opening print statement caused a `UnicodeEncodeError` on Windows CP-1252 console. Fixed by replacing with `--` (ASCII). A minor but real portability issue with non-ASCII in print strings on Windows.
 
 **AI-generated vs manually written:**
-- `intelligence/etl_to_database.py` — fully AI-generated. All parsing logic, type helpers, FK guard, idempotency guard, batch insert SQL, and summary report were produced by Claude from the source file inspection results and task requirements.
-- `requirements.txt` — AI-generated (`psycopg2-binary==2.9.9`). Only one dependency needed; no ORM.
-- The dry-run verification script (`py -3 -c "..."`) — AI-generated and run interactively to confirm helper correctness before the live DB run.
-- The Docker run command used to execute the ETL — AI-generated. The `--network` flag, volume mount, and service name `db` for `DB_HOST` were all part of the generated command.
+- `intelligence/etl_to_database.py` â€” fully AI-generated. All parsing logic, type helpers, FK guard, idempotency guard, batch insert SQL, and summary report were produced by Claude from the source file inspection results and task requirements.
+- `requirements.txt` â€” AI-generated (`psycopg2-binary==2.9.9`). Only one dependency needed; no ORM.
+- The dry-run verification script (`py -3 -c "..."`) â€” AI-generated and run interactively to confirm helper correctness before the live DB run.
+- The Docker run command used to execute the ETL â€” AI-generated. The `--network` flag, volume mount, and service name `db` for `DB_HOST` were all part of the generated command.
 - Nothing in this task was written by hand; all code, commands, and verification steps were AI-generated and reviewed.
 
 **Data transformations learned from reading the migration code:**
-- The schema's `outcome TEXT NOT NULL` constraint (added after verifying 0 nulls in the source) means the ETL must explicitly skip any inspection row where `InspectionOutcome` is empty — it cannot rely on the DB to accept NULL and then reject it. The NOT NULL constraint in the DDL directly shaped the ETL's skip logic.
-- The `injury_severity CHECK (injury_severity IN ('fatal','permanent','minor','none'))` constraint means the ETL's `derive_injury_severity()` function must always return one of those four values — never NULL and never an arbitrary string. The CHECK constraint in the DDL is the contract the ETL must satisfy.
+- The schema's `outcome TEXT NOT NULL` constraint (added after verifying 0 nulls in the source) means the ETL must explicitly skip any inspection row where `InspectionOutcome` is empty â€” it cannot rely on the DB to accept NULL and then reject it. The NOT NULL constraint in the DDL directly shaped the ETL's skip logic.
+- The `injury_severity CHECK (injury_severity IN ('fatal','permanent','minor','none'))` constraint means the ETL's `derive_injury_severity()` function must always return one of those four values â€” never NULL and never an arbitrary string. The CHECK constraint in the DDL is the contract the ETL must satisfy.
 - The `predictions.elevator_id PRIMARY KEY REFERENCES elevators(elevator_id)` (1:1 pattern) means a re-run would conflict on the PK for already-loaded predictions. `ON CONFLICT (elevator_id) DO NOTHING` handles this correctly because the PK is also the conflict target.
-- The `alterations.inspection_number REFERENCES inspections(inspection_id) ON DELETE SET NULL` FK means the ETL must resolve the `inspection_number` against actually-loaded inspection IDs — not just the raw source value. An alteration referencing an inspection that was skipped (because its elevator was filtered out) must have its `inspection_number` set to NULL, or the FK insert will fail.
+- The `alterations.inspection_number REFERENCES inspections(inspection_id) ON DELETE SET NULL` FK means the ETL must resolve the `inspection_number` against actually-loaded inspection IDs â€” not just the raw source value. An alteration referencing an inspection that was skipped (because its elevator was filtered out) must have its `inspection_number` set to NULL, or the FK insert will fail.
 
 **Lesson learned:**
-Reading the migration DDL before writing the ETL is not optional — it is the spec for the ETL. Every NOT NULL, CHECK, and FK constraint in the schema is a requirement the ETL must satisfy. Writing the ETL without reading the DDL first leads to FK violations, constraint failures, and silent data loss.
+Reading the migration DDL before writing the ETL is not optional â€” it is the spec for the ETL. Every NOT NULL, CHECK, and FK constraint in the schema is a requirement the ETL must satisfy. Writing the ETL without reading the DDL first leads to FK violations, constraint failures, and silent data loss.
 
 ---
 
-## AND-105 Task 4: Go API Migration — CSV to PostgreSQL
+## AND-105 Task 4: Go API Migration â€” CSV to PostgreSQL
 
 **Date:** 2026-06-03
 
@@ -1978,14 +1978,14 @@ Reading the migration DDL before writing the ETL is not optional — it is the s
 
 **What was done:**
 - Added `github.com/jackc/pgx/v5/pgxpool` to `go.mod` / `go.sum` via `go get`.
-- Created `platform/api/db.go`: initializes a `pgxpool.Pool` from `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME` env vars; retries up to 10 times with 2-second backoff; calls `pool.Ping()` after each attempt; assigns to package-level `db` pointer; returns a wrapped error after all retries fail — the API does not start if the DB is unreachable.
+- Created `platform/api/db.go`: initializes a `pgxpool.Pool` from `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME` env vars; retries up to 10 times with 2-second backoff; calls `pool.Ping()` after each attempt; assigns to package-level `db` pointer; returns a wrapped error after all retries fail â€” the API does not start if the DB is unreachable.
 - Rewrote `platform/api/main.go`: removed all three CSV loading calls (`LoadFleetCSV`, `LoadInspectionCSV`, `LoadPredictionsCSV`) and `EnrichElevatorsWithRisk()`; replaced with a single `InitDB()` call that fails fast on error. Route registration and port binding unchanged.
 - Rewrote `platform/api/data.go`: removed all in-memory state (`elevators []Elevator`, `elevatorIdx`, `inspectionIdx`, `riskIdx`, `predictionsAvailable`) and all CSV parsing functions. Retained only two pure helper functions (`isNumeric`, `nullableString`) that are still used by handlers.
 - Rewrote `platform/api/handlers.go`: all six handlers migrated to parameterized SQL via `db.Query` / `db.QueryRow`. `pgx.ErrNoRows` used for 404 detection. `r.Context()` passed to all DB calls for request cancellation.
-- Updated `platform/api/Dockerfile`: bumped builder stage from `golang:1.22-alpine` to `golang:1.25-alpine` (pgx v5.10.0 requires Go ≥ 1.25); added `go.sum` to the COPY command; removed CSV file copies from the runtime stage — the final image now contains only the binary.
-- Updated `docker-compose.yml`: added `healthcheck` to `db` service (`pg_isready -U api_user -d rocket_elevators`, interval 5s, 10 retries); changed `api.depends_on` from a plain list entry to `condition: service_healthy` — the API container no longer starts until PostgreSQL is accepting connections.
+- Updated `platform/api/Dockerfile`: bumped builder stage from `golang:1.22-alpine` to `golang:1.25-alpine` (pgx v5.10.0 requires Go â‰¥ 1.25); added `go.sum` to the COPY command; removed CSV file copies from the runtime stage â€” the final image now contains only the binary.
+- Updated `docker-compose.yml`: added `healthcheck` to `db` service (`pg_isready -U api_user -d rocket_elevators`, interval 5s, 10 retries); changed `api.depends_on` from a plain list entry to `condition: service_healthy` â€” the API container no longer starts until PostgreSQL is accepting connections.
 - Ran `docker compose up --build -d`; confirmed startup log: `database connection established` then `server running on :8080`.
-- Validated all 6 endpoints via `/validate-api` subagent — all ✅ PASS.
+- Validated all 6 endpoints via `/validate-api` subagent â€” all âœ… PASS.
 
 **SQL query design per endpoint:**
 
@@ -2006,114 +2006,114 @@ Reading the migration DDL before writing the ETL is not optional — it is the s
 
 **What didn't work / issues:**
 
-**Problem 1 — pgx v5.10.0 requires Go 1.25; Dockerfile used golang:1.22-alpine:**
+**Problem 1 â€” pgx v5.10.0 requires Go 1.25; Dockerfile used golang:1.22-alpine:**
 `go get github.com/jackc/pgx/v5` on the local Go 1.25 toolchain bumped `go.mod` to `go 1.25.0`. The Dockerfile builder stage was `golang:1.22-alpine`, which rejected it with "module requires go >= 1.25.0 (running go 1.22.12; GOTOOLCHAIN=local)". Fix: bumped builder to `golang:1.25-alpine` (released Aug 2025, available on Docker Hub). Note: downgrading `go.mod` to `go 1.22` also fails because pgx v5.10.0's own `go.mod` declares `go 1.25.0`.
 
-**Problem 2 — go.sum missing `github.com/jackc/puddle/v2` (pgxpool transitive dependency):**
+**Problem 2 â€” go.sum missing `github.com/jackc/puddle/v2` (pgxpool transitive dependency):**
 `go get github.com/jackc/pgx/v5` added pgx to go.sum but not its pool-specific transitive dependency (`puddle/v2`). The Docker build compiled successfully until it hit the `pgxpool` import, then failed with "missing go.sum entry for github.com/jackc/puddle/v2". Fix: ran `go get github.com/jackc/pgx/v5/pgxpool@v5.10.0` explicitly to pull the transitive dep into go.sum.
 
-**Problem 3 — API fails fast before PostgreSQL ready (depends_on race):**
-Even with `condition: service_healthy`, the API container started and reached `InitDB()` immediately, but PostgreSQL needed ~2 seconds after passing the health check before accepting authenticated connections. The original `InitDB()` had no retry logic and exited on the first failed ping. Fixed by adding a retry loop (10 attempts, 2-second backoff) — the API now tolerates a brief post-healthy window before Postgres accepts connections.
+**Problem 3 â€” API fails fast before PostgreSQL ready (depends_on race):**
+Even with `condition: service_healthy`, the API container started and reached `InitDB()` immediately, but PostgreSQL needed ~2 seconds after passing the health check before accepting authenticated connections. The original `InitDB()` had no retry logic and exited on the first failed ping. Fixed by adding a retry loop (10 attempts, 2-second backoff) â€” the API now tolerates a brief post-healthy window before Postgres accepts connections.
 
-**Problem 4 — 503 path removed from /risk:**
-The CSV-based API checked `predictionsAvailable` (a boolean set at startup) before querying predictions, returning 503 if `predictions.csv` did not exist. In the DB version this flag is gone — `predictions` is always a table. The 503 path is no longer reachable. The validator confirmed this is correct behavior for the current architecture: if the DB is up and predictions were loaded by the ETL, all valid elevators either have a prediction (200) or don't (404).
+**Problem 4 â€” 503 path removed from /risk:**
+The CSV-based API checked `predictionsAvailable` (a boolean set at startup) before querying predictions, returning 503 if `predictions.csv` did not exist. In the DB version this flag is gone â€” `predictions` is always a table. The 503 path is no longer reachable. The validator confirmed this is correct behavior for the current architecture: if the DB is up and predictions were loaded by the ETL, all valid elevators either have a prediction (200) or don't (404).
 
 **AI-generated vs manually written:**
-- `platform/api/db.go` — fully AI-generated. Connection DSN, retry loop, ping check, and pool assignment were all produced by Claude from the task requirements.
-- `platform/api/main.go` — AI-generated rewrite. CSV loading removed; `InitDB()` substituted; route registration copied verbatim from the original.
-- `platform/api/data.go` — AI-generated. Stripped to two helper functions; all CSV state removed.
-- `platform/api/handlers.go` — fully AI-generated. All SQL queries, dynamic WHERE clause builder, date formatting helpers, and pgx scan patterns were produced by Claude. No SQL was written by hand.
-- `docker-compose.yml` healthcheck and `condition: service_healthy` — AI-generated.
-- `platform/api/Dockerfile` builder stage bump and go.sum COPY — AI-generated; no manual edits.
+- `platform/api/db.go` â€” fully AI-generated. Connection DSN, retry loop, ping check, and pool assignment were all produced by Claude from the task requirements.
+- `platform/api/main.go` â€” AI-generated rewrite. CSV loading removed; `InitDB()` substituted; route registration copied verbatim from the original.
+- `platform/api/data.go` â€” AI-generated. Stripped to two helper functions; all CSV state removed.
+- `platform/api/handlers.go` â€” fully AI-generated. All SQL queries, dynamic WHERE clause builder, date formatting helpers, and pgx scan patterns were produced by Claude. No SQL was written by hand.
+- `docker-compose.yml` healthcheck and `condition: service_healthy` â€” AI-generated.
+- `platform/api/Dockerfile` builder stage bump and go.sum COPY â€” AI-generated; no manual edits.
 
 **pgxpool / pgx v5 patterns learned:**
 - `pgxpool.New` creates the pool but does not open connections until first use. `pool.Ping()` forces an actual connection, which is needed for the fail-fast startup check.
-- `db.QueryRow(...).Scan(...)` returns `pgx.ErrNoRows` (not `sql.ErrNoRows`) when no row is found — must import `github.com/jackc/pgx/v5` for the sentinel value.
+- `db.QueryRow(...).Scan(...)` returns `pgx.ErrNoRows` (not `sql.ErrNoRows`) when no row is found â€” must import `github.com/jackc/pgx/v5` for the sentinel value.
 - pgx v5 scans PostgreSQL `DATE` columns into `*time.Time` automatically. `NUMERIC` columns can be scanned into `float64` when cast explicitly with `::float8` in SQL.
 - `DISTINCT ON (col) ORDER BY col, sort_key DESC NULLS LAST` is the idiomatic PostgreSQL pattern for "most recent per group." It is efficient (index-scannable with the right index) and avoids lateral subquery overhead on large scans.
 - Dynamic WHERE clause construction in Go: build a `[]string` of condition fragments and a `[]any` arg slice. Condition fragments are hardcoded strings (not user input); only the bound values come from user input. `fmt.Sprintf("e.status = $%d", len(args))` after appending the value produces correct positional placeholders. The same arg index can appear multiple times in a single query (e.g., `LIKE $3 OR LIKE $3`).
 
 **Validation results:**
-- `GET /api/elevators` → ✅ PASS (filtering, sorting, pagination, error codes all verified)
-- `GET /api/elevators/{id}` → ✅ PASS (200, 404, 400 all verified)
-- `GET /api/elevators/{id}/inspections` → ✅ PASS (pagination, empty array for no inspections, 404 all verified)
-- `GET /api/elevators/{id}/risk` → ✅ PASS (200 with confidence formula, 404 for no prediction, 400 for non-numeric ID)
-- `GET /api/fleet/stats` → ✅ PASS (risk distribution invariant: low + medium + high + unknown = total_elevators)
-- `GET /api/fleet/alerts` → ✅ PASS (17,088 HIGH-risk alerts, sorted by risk_score DESC, correct inspection outcome filtering)
+- `GET /api/elevators` â†’ âœ… PASS (filtering, sorting, pagination, error codes all verified)
+- `GET /api/elevators/{id}` â†’ âœ… PASS (200, 404, 400 all verified)
+- `GET /api/elevators/{id}/inspections` â†’ âœ… PASS (pagination, empty array for no inspections, 404 all verified)
+- `GET /api/elevators/{id}/risk` â†’ âœ… PASS (200 with confidence formula, 404 for no prediction, 400 for non-numeric ID)
+- `GET /api/fleet/stats` â†’ âœ… PASS (risk distribution invariant: low + medium + high + unknown = total_elevators)
+- `GET /api/fleet/alerts` â†’ âœ… PASS (17,088 HIGH-risk alerts, sorted by risk_score DESC, correct inspection outcome filtering)
 
 **Known data finding (not an API bug):**
-`equipment_type_distribution` only returns `{"null": 42962}` — all 42,962 elevator rows in PostgreSQL have `elevator_type = NULL` because the ETL reads `license.csv` (no type column). Type data lives in `installed.json` / `elevator_fleet.csv`. This is an ETL gap, not an API contract violation. The API correctly returns what is in the DB.
+`equipment_type_distribution` only returns `{"null": 42962}` â€” all 42,962 elevator rows in PostgreSQL have `elevator_type = NULL` because the ETL reads `license.csv` (no type column). Type data lives in `installed.json` / `elevator_fleet.csv`. This is an ETL gap, not an API contract violation. The API correctly returns what is in the DB.
 
 **Lesson learned:**
-When migrating from in-memory data to a database, the hardest part is not the SQL — it is managing the startup dependency order. A container that "started" is not the same as a service that is "ready." Retry loops in application code and health checks in Compose are both needed: health checks gate container startup, retry loops handle the post-healthy transient window. Relying on `depends_on` alone, without both layers, will produce intermittent startup failures.
+When migrating from in-memory data to a database, the hardest part is not the SQL â€” it is managing the startup dependency order. A container that "started" is not the same as a service that is "ready." Retry loops in application code and health checks in Compose are both needed: health checks gate container startup, retry loops handle the post-healthy transient window. Relying on `depends_on` alone, without both layers, will produce intermittent startup failures.
 
 ### Review workflow decision: fresh-context api-validator subagent for endpoint contract verification
 
 Post-implementation validation used a dedicated `api-validator` subagent rather than manual testing within the writer session. This was a deliberate review workflow decision.
 
-**Reasoning:** The session that wrote the SQL queries holds a mental model of what each query should return. Manual testing in that session checks whether the API behaves as intended — but "intended" is shaped by implementation assumptions that may not match the spec. A fresh-context subagent with only the API spec and the live endpoint responses can surface discrepancies that the writer's mental model papers over. If `GET /api/elevators/{id}` returns a field named `license_expiry` but the spec says `license_expiry_date`, the writer's session may accept it as "close enough"; the subagent has no such context and flags the mismatch.
+**Reasoning:** The session that wrote the SQL queries holds a mental model of what each query should return. Manual testing in that session checks whether the API behaves as intended â€” but "intended" is shaped by implementation assumptions that may not match the spec. A fresh-context subagent with only the API spec and the live endpoint responses can surface discrepancies that the writer's mental model papers over. If `GET /api/elevators/{id}` returns a field named `license_expiry` but the spec says `license_expiry_date`, the writer's session may accept it as "close enough"; the subagent has no such context and flags the mismatch.
 
-The `api-validator` subagent was given the spec (`docs/api_spec.md`) and told to test each endpoint against a live server. It had no knowledge of the implementation, no awareness of what queries were used, and no context from the writing session. All six endpoints passed (✅), which confirmed not just that the server responded but that response shapes, field names, status codes, and pagination behavior all matched the contract.
+The `api-validator` subagent was given the spec (`docs/api_spec.md`) and told to test each endpoint against a live server. It had no knowledge of the implementation, no awareness of what queries were used, and no context from the writing session. All six endpoints passed (âœ…), which confirmed not just that the server responded but that response shapes, field names, status codes, and pagination behavior all matched the contract.
 
-**This is the same principle that drives the Task 5 worktree reviewer:** implementation context is a liability during review. The subagent pattern used here to verify API contracts is the same isolation approach later formalized as the Writer/Reviewer workflow — the difference is tooling (`claude -p` / `--worktree` in Task 5 vs. a subagent in Task 4) not principle.
+**This is the same principle that drives the Task 5 worktree reviewer:** implementation context is a liability during review. The subagent pattern used here to verify API contracts is the same isolation approach later formalized as the Writer/Reviewer workflow â€” the difference is tooling (`claude -p` / `--worktree` in Task 5 vs. a subagent in Task 4) not principle.
 
 ---
 
-## AND-105 Task 5: Structured Code Review — PostgreSQL Integration
+## AND-105 Task 5: Structured Code Review â€” PostgreSQL Integration
 
 **Date:** 2026-06-03
 **Branch:** `database-integration`
 
 ### Session management features used
 
-**`/rename db-writer`** — Labels the current session as the implementation session before creating the isolated reviewer. The point is separation of context: the reviewer should have no memory of design decisions, tradeoffs considered, or false starts from the writing session. Labeling the writer session makes the workflow self-documenting and helps identify which session produced which outputs if findings are compared later.
+**`/rename db-writer`** â€” Labels the current session as the implementation session before creating the isolated reviewer. The point is separation of context: the reviewer should have no memory of design decisions, tradeoffs considered, or false starts from the writing session. Labeling the writer session makes the workflow self-documenting and helps identify which session produced which outputs if findings are compared later.
 
-**`claude --worktree db-reviewer`** — Creates an isolated git worktree from the current branch and opens a new Claude Code session in it. The reviewer session has no conversation history and no knowledge of what the writer session tried or discarded. This simulates an independent human code reviewer — someone who sees only the code, not the thought process behind it. The worktree isolation also means the reviewer can modify files, run the server, or test fixes without affecting the main workspace. After review, the worktree is cleaned up with `claude --rm db-reviewer`.
+**`claude --worktree db-reviewer`** â€” Creates an isolated git worktree from the current branch and opens a new Claude Code session in it. The reviewer session has no conversation history and no knowledge of what the writer session tried or discarded. This simulates an independent human code reviewer â€” someone who sees only the code, not the thought process behind it. The worktree isolation also means the reviewer can modify files, run the server, or test fixes without affecting the main workspace. After review, the worktree is cleaned up with `claude --rm db-reviewer`.
 
-**`claude -p` fan-out** — Runs non-interactive (`-p` = print mode) Claude Code passes on specific files. Unlike an interactive session, each `-p` invocation starts fresh with no prior context, processes one file, and exits. This is useful for catching issues that might be missed when reviewing all files together — a reviewer who has been reading `handlers.go` for 10 minutes may normalize patterns that seem fine only because they appear consistently. Fan-out on individual files surfaces issues per-file. Note: `claude -p` uses Agent SDK credits from the Pro plan's separate allowance, not the interactive session quota.
+**`claude -p` fan-out** â€” Runs non-interactive (`-p` = print mode) Claude Code passes on specific files. Unlike an interactive session, each `-p` invocation starts fresh with no prior context, processes one file, and exits. This is useful for catching issues that might be missed when reviewing all files together â€” a reviewer who has been reading `handlers.go` for 10 minutes may normalize patterns that seem fine only because they appear consistently. Fan-out on individual files surfaces issues per-file. Note: `claude -p` uses Agent SDK credits from the Pro plan's separate allowance, not the interactive session quota.
 
 ### Parallel workflow decision: domain-split Explore agents
 
 The initial code audit used two parallel Explore agents with split responsibilities rather than one sequential reviewer covering all concerns. Agent A reviewed SQL construction for injection risks; Agent B reviewed connection lifecycle, error flow, and pooling. Both ran simultaneously.
 
-**Reasoning for parallelism:** Running a single agent over 700 lines of Go API code covering both SQL safety and connection handling produces context saturation — by the time the agent reaches connection lifecycle questions, it has normalized the patterns it spent the first 400 lines reading. Splitting concerns means each agent enters its domain fresh and applies maximum sensitivity throughout. A SQL-safety reviewer that never reads the pool initialization code cannot normalize the retry loop; a connection-handling reviewer that never reads the query builder cannot normalize the WHERE clause construction.
+**Reasoning for parallelism:** Running a single agent over 700 lines of Go API code covering both SQL safety and connection handling produces context saturation â€” by the time the agent reaches connection lifecycle questions, it has normalized the patterns it spent the first 400 lines reading. Splitting concerns means each agent enters its domain fresh and applies maximum sensitivity throughout. A SQL-safety reviewer that never reads the pool initialization code cannot normalize the retry loop; a connection-handling reviewer that never reads the query builder cannot normalize the WHERE clause construction.
 
-**Reasoning for splitting SQL safety vs. connection handling specifically:** These two domains have different false-positive profiles. SQL safety reviewers tend to flag any string concatenation near a query as injection risk — including hardcoded Go literals. Connection handling reviewers tend to flag any unclosed resource as a leak — including `pool.Close()` calls that are present but not in the expected position. Running them as separate agents meant their false positives were domain-specific and easier to triage: four of the SQL agent's CRITICAL findings were false positives (it confused hardcoded strings with user input); the connection agent's false positives were fewer but required tracing control flow to refute.
+**Reasoning for splitting SQL safety vs. connection handling specifically:** These two domains have different false-positive profiles. SQL safety reviewers tend to flag any string concatenation near a query as injection risk â€” including hardcoded Go literals. Connection handling reviewers tend to flag any unclosed resource as a leak â€” including `pool.Close()` calls that are present but not in the expected position. Running them as separate agents meant their false positives were domain-specific and easier to triage: four of the SQL agent's CRITICAL findings were false positives (it confused hardcoded strings with user input); the connection agent's false positives were fewer but required tracing control flow to refute.
 
-**Observed outcome:** Three findings appeared in both agents' output (W1, W2, S3) — the overlap confirmed those as real. Findings from only one agent were held to a higher verification bar. This cross-validation pattern would not have been possible with a single sequential reviewer.
+**Observed outcome:** Three findings appeared in both agents' output (W1, W2, S3) â€” the overlap confirmed those as real. Findings from only one agent were held to a higher verification bar. This cross-validation pattern would not have been possible with a single sequential reviewer.
 
 ### Review methods comparison
 
 | Method | New findings | False positives produced | Unique catch |
 |--------|-------------|--------------------------|--------------|
-| Explore agents (parallel A+B) | W1 (errors.Is), W2 (InitDB timeout), S1–S5 | 4 CRITICAL false positives (SQL injection, double WriteHeader, rows.Close, connection leak) | S2 (LIKE wildcards), S4 (json.Encode silenced) |
-| `/code-review` (7-angle + verifier) | S6 (formatDate inconsistency), confirmed S1–S3 | 1 (non-deterministic sort REFUTED) | Correctly identified EXISTS round-trip issue |
+| Explore agents (parallel A+B) | W1 (errors.Is), W2 (InitDB timeout), S1â€“S5 | 4 CRITICAL false positives (SQL injection, double WriteHeader, rows.Close, connection leak) | S2 (LIKE wildcards), S4 (json.Encode silenced) |
+| `/code-review` (7-angle + verifier) | S6 (formatDate inconsistency), confirmed S1â€“S3 | 1 (non-deterministic sort REFUTED) | Correctly identified EXISTS round-trip issue |
 | `/security-review` (vuln + FP filter) | Ruled out DSN password logging, ruled out docker-compose credentials | Both candidates filtered as FP | Confirmed pgx v5 redactPW() behavior |
 | `claude -p` fan-out handlers.go | Confirmed S3, confirmed SQL safety, no new findings | rows.Close concern (defer already covers it) | Clean SQL injection verdict from fresh context |
-| `claude -p` fan-out db.go | **W3 (DSN URL encoding)** — missed by all other methods | DSN password in logs (FP — pgx redacts) | Surfaced special-character password failure |
+| `claude -p` fan-out db.go | **W3 (DSN URL encoding)** â€” missed by all other methods | DSN password in logs (FP â€” pgx redacts) | Surfaced special-character password failure |
 
-**Key observation:** W3 (DSN URL encoding at `db.go:28`) was found only by the `claude -p` fan-out on `db.go`. The Explore agents and `/code-review` skill both missed it. The focused, file-specific prompt ("review only this file") caused the reviewer to examine the DSN construction in isolation and ask "what happens if the password contains `@`?" — a question that was not asked when reviewing the full handlers + db + main context together.
+**Key observation:** W3 (DSN URL encoding at `db.go:28`) was found only by the `claude -p` fan-out on `db.go`. The Explore agents and `/code-review` skill both missed it. The focused, file-specific prompt ("review only this file") caused the reviewer to examine the DSN construction in isolation and ask "what happens if the password contains `@`?" â€” a question that was not asked when reviewing the full handlers + db + main context together.
 
-### Worktree reviewer session — actual output
+### Worktree reviewer session â€” actual output
 
 The `claude --worktree db-reviewer` session received only file paths with no implementation context. It produced:
 
-**Confirmed clean:** SQL injection — independently verified the sort whitelist and parameterized values. No injection risk found.
+**Confirmed clean:** SQL injection â€” independently verified the sort whitelist and parameterized values. No injection risk found.
 
 **New findings (missed by all prior methods):**
 
 | ID | Severity | File | Finding |
 |----|----------|------|---------|
-| W3 | WARNING | db.go:28 | Special chars in password corrupt URL DSN — independently confirmed; recommended key=value format over URL encoding |
-| W4 | WARNING | main.go:30 | No HTTP server timeouts — Slowloris / goroutine leak under load |
-| W5 | WARNING | main.go:9–33 | No graceful shutdown; `db.Close()` never called on SIGTERM |
-| W6 | WARNING | db.go:34–49 | Default `MaxConns = max(4, numCPU)` too low for multi-query handlers under concurrency |
-| S7 | SUGGESTION | handlers.go:93–95 | Invalid `order` param silently defaults to ASC |
-| S8 | SUGGESTION | handlers.go:499–514 | `GetFleetStats` pass rate counts historical passes, not current inspection status |
+| W3 | WARNING | db.go:28 | Special chars in password corrupt URL DSN â€” independently confirmed; recommended key=value format over URL encoding |
+| W4 | WARNING | main.go:30 | No HTTP server timeouts â€” Slowloris / goroutine leak under load |
+| W5 | WARNING | main.go:9â€“33 | No graceful shutdown; `db.Close()` never called on SIGTERM |
+| W6 | WARNING | db.go:34â€“49 | Default `MaxConns = max(4, numCPU)` too low for multi-query handlers under concurrency |
+| S7 | SUGGESTION | handlers.go:93â€“95 | Invalid `order` param silently defaults to ASC |
+| S8 | SUGGESTION | handlers.go:499â€“514 | `GetFleetStats` pass rate counts historical passes, not current inspection status |
 
 **Previously found and confirmed by worktree session:** S2 (LIKE wildcards), S4 (json.Encode error discarded).
 
-**Value of the worktree approach:** W4 (HTTP timeouts), W5, W6, S7, S8 were all missed by Explore agents, `/code-review`, `/security-review`, and `claude -p` fan-out. The no-context, file-paths-only constraint forced the reviewer to approach the code without any assumptions from the implementation session — it examined `main.go` as a standalone server binary and asked "what happens when a client is slow?" rather than focusing on database correctness.
+**Value of the worktree approach:** W4 (HTTP timeouts), W5, W6, S7, S8 were all missed by Explore agents, `/code-review`, `/security-review`, and `claude -p` fan-out. The no-context, file-paths-only constraint forced the reviewer to approach the code without any assumptions from the implementation session â€” it examined `main.go` as a standalone server binary and asked "what happens when a client is slow?" rather than focusing on database correctness.
 
 W3 was independently rediscovered and the reviewer recommended the key=value DSN format (superior to `url.QueryEscape` since it requires no encoding at all). The writer session adopted this approach.
 
@@ -2121,10 +2121,10 @@ W3 was independently rediscovered and the reviewer recommended the key=value DSN
 
 | ID | Severity | Description | Status |
 |----|----------|-------------|--------|
-| W1 | WARNING | `err == pgx.ErrNoRows` should use `errors.Is` | ✅ Fixed in `c8e468a` |
-| W2 | WARNING | No per-attempt timeout in `InitDB` retry loop | Open — mitigated by `service_healthy` gate |
-| W3 | WARNING | DSN password breaks on special characters | ✅ Fixed — key=value DSN format |
-| W4 | WARNING | No HTTP server timeouts | ✅ Fixed — `ReadTimeout`/`WriteTimeout`/`IdleTimeout` |
+| W1 | WARNING | `err == pgx.ErrNoRows` should use `errors.Is` | âœ… Fixed in `c8e468a` |
+| W2 | WARNING | No per-attempt timeout in `InitDB` retry loop | Open â€” mitigated by `service_healthy` gate |
+| W3 | WARNING | DSN password breaks on special characters | âœ… Fixed â€” key=value DSN format |
+| W4 | WARNING | No HTTP server timeouts | âœ… Fixed â€” `ReadTimeout`/`WriteTimeout`/`IdleTimeout` |
 | W5 | WARNING | No graceful shutdown; `db.Close()` never called | Open |
 | W6 | WARNING | Default `MaxConns` low under concurrent load | Open |
 | S1 | SUGGESTION | `nullableString()` dead code in `data.go` | Open |
@@ -2139,30 +2139,30 @@ W3 was independently rediscovered and the reviewer recommended the key=value DSN
 ### Fix choice: W1 (`errors.Is` over custom wrapper)
 
 The fix for W1 was to replace `err == pgx.ErrNoRows` with `errors.Is(err, pgx.ErrNoRows)` at both comparison sites. An alternative would have been to write a helper like `isNotFound(err) bool` that wraps `errors.Is`. The direct `errors.Is` approach was chosen because:
-- The call site is already explicit — no ambiguity about what error is being tested
+- The call site is already explicit â€” no ambiguity about what error is being tested
 - A wrapper adds indirection without adding clarity
 - The idiom is standard Go; any Go developer reading the code will recognize it immediately
 
 ### False positive analysis
 
 The Explore agents produced four CRITICAL false positives that would have been alarming without verification:
-1. "SQL injection via `fmt.Sprintf(where)`" — the WHERE clause fragment strings come from hardcoded Go source code, not user input. Only values reach SQL via `$N` placeholders. The agent confused *string interpolation into SQL* with *user input reaching SQL structure*.
-2. "Connection leak in InitDB" — every `pgxpool.New` success followed by a ping failure explicitly calls `pool.Close()`. The agent didn't trace the control flow carefully enough.
-3. "Double WriteHeader" — there is no code path where `writeJSON` is called twice in the same request. The agent generalized a pattern it had seen elsewhere.
-4. "`rows.Close()` error discarded" — pgx v5's `Rows.Close()` has no return value. The agent applied a `database/sql` expectation to a different library.
+1. "SQL injection via `fmt.Sprintf(where)`" â€” the WHERE clause fragment strings come from hardcoded Go source code, not user input. Only values reach SQL via `$N` placeholders. The agent confused *string interpolation into SQL* with *user input reaching SQL structure*.
+2. "Connection leak in InitDB" â€” every `pgxpool.New` success followed by a ping failure explicitly calls `pool.Close()`. The agent didn't trace the control flow carefully enough.
+3. "Double WriteHeader" â€” there is no code path where `writeJSON` is called twice in the same request. The agent generalized a pattern it had seen elsewhere.
+4. "`rows.Close()` error discarded" â€” pgx v5's `Rows.Close()` has no return value. The agent applied a `database/sql` expectation to a different library.
 
 The `/security-review` skill's false-positive filter phase (separate verifier agent) correctly dismissed both security candidates: pgx v5's `redactPW()` makes the DSN password log safe, and the docker-compose credentials are development-only and scoped to the local Docker network.
 
-The lesson: automated reviewers err on the side of surfacing. The human analyst's role is to verify — not to rubber-stamp findings, but to trace each claim back to actual code behavior. Four of the five CRITICAL findings were false positives; the one true critical (W1, errors.Is) was the quietest of the five.
+The lesson: automated reviewers err on the side of surfacing. The human analyst's role is to verify â€” not to rubber-stamp findings, but to trace each claim back to actual code behavior. Four of the five CRITICAL findings were false positives; the one true critical (W1, errors.Is) was the quietest of the five.
 
 ---
-## AND-106 Task 6: LLM Risk Explanation Prototype
+## AND-105 Task 6: LLM Risk Explanation Prototype
 
 **Date:** 2026-06-03
 
 ### Model choice
 
-`llama3.1:8b` — 8B parameters provides the best local inference speed/quality tradeoff for structured text generation. Smaller models (3B) lose coherence on multi-field prompts; 70B models exceed available GPU memory. llama3.1:8b has strong instruction-following for constrained outputs and is available under a permissive community licence via Ollama.
+`llama3.1:8b` â€” 8B parameters provides the best local inference speed/quality tradeoff for structured text generation. Smaller models (3B) lose coherence on multi-field prompts; 70B models exceed available GPU memory. llama3.1:8b has strong instruction-following for constrained outputs and is available under a permissive community licence via Ollama.
 
 ### /branch exploration: three prompt directions
 
@@ -2170,41 +2170,41 @@ Three `/branch` directions were explored from the same context point, each teste
 
 | Branch | Direction | Result |
 |--------|-----------|--------|
-| **Branch 1 — V1** | Baseline minimal | Generic output; hedging phrases ("may indicate", "could suggest") in 2/3 outputs; inconsistent specificity |
-| **Branch 2 — V2** | Explicit format rules + prohibitions | Reduced hedging; model satisfied rules mechanically — cited counts regardless of significance |
-| **Branch 3 — V3** | Ontario TSSA domain context | Most accurate; model interpreted Followup inspections as evidence of unresolved prior orders; led with operationally significant factors naturally |
+| **Branch 1 â€” V1** | Baseline minimal | Generic output; hedging phrases ("may indicate", "could suggest") in 2/3 outputs; inconsistent specificity |
+| **Branch 2 â€” V2** | Explicit format rules + prohibitions | Reduced hedging; model satisfied rules mechanically â€” cited counts regardless of significance |
+| **Branch 3 â€” V3** | Ontario TSSA domain context | Most accurate; model interpreted Followup inspections as evidence of unresolved prior orders; led with operationally significant factors naturally |
 
-**Branch chosen:** Branch 3 (V3 — domain context). The regulatory background gave the model the vocabulary to explain *why* a pattern matters (unresolved compliance orders), not just *that* it exists. Format rules alone cannot substitute for missing domain knowledge.
+**Branch chosen:** Branch 3 (V3 â€” domain context). The regulatory background gave the model the vocabulary to explain *why* a pattern matters (unresolved compliance orders), not just *that* it exists. Format rules alone cannot substitute for missing domain knowledge.
 
 ### Writer/Reviewer session on prompt engineering
 
 **Writer session (this session):** Developed V3 through the three `/branch` explorations. The prompt includes TSSA regulatory background, explicit task framing ("write for the servicing technician"), and output constraints without mechanical rule-counting.
 
-**Reviewer session (`claude -p`, fresh context — no project history, only the V3 prompt text):**
+**Reviewer session (`claude -p`, fresh context â€” no project history, only the V3 prompt text):**
 
 The reviewer identified three categories of issues the Writer session had normalized:
 
 **Hallucination triggers found by reviewer (missed by writer):**
-1. *Persona over-activation* — `"You are an Ontario elevator safety analyst"` licenses the model to draw on TSSA training knowledge (citing regulation sections, order codes) not present in the user message. The writer had framed this as grounding; the reviewer saw it as a hallucination license.
-2. *Forced ranking without a rubric* — `"Lead with the single most operationally significant risk factor"` requires the model to rank without criteria. When factors aren't clearly ranked in the data, the model invents a rationale rather than surfacing ambiguity.
-3. *Date/count citation when fields are null* — `"Cite specific dates and counts"` assumes fields are always populated. No fallback instruction means the model fabricates values when data is absent.
+1. *Persona over-activation* â€” `"You are an Ontario elevator safety analyst"` licenses the model to draw on TSSA training knowledge (citing regulation sections, order codes) not present in the user message. The writer had framed this as grounding; the reviewer saw it as a hallucination license.
+2. *Forced ranking without a rubric* â€” `"Lead with the single most operationally significant risk factor"` requires the model to rank without criteria. When factors aren't clearly ranked in the data, the model invents a rationale rather than surfacing ambiguity.
+3. *Date/count citation when fields are null* â€” `"Cite specific dates and counts"` assumes fields are always populated. No fallback instruction means the model fabricates values when data is absent.
 
 **Ambiguous instructions found by reviewer:**
-- `"Operationally significant"` is undefined — no rubric for recency vs. count vs. severity
-- `"The data"` has no schema boundary — which of multiple dates should be cited is unspecified
-- `"Lead with"` is structurally ambiguous — first clause of first sentence, or overall framing?
+- `"Operationally significant"` is undefined â€” no rubric for recency vs. count vs. severity
+- `"The data"` has no schema boundary â€” which of multiple dates should be cited is unspecified
+- `"Lead with"` is structurally ambiguous â€” first clause of first sentence, or overall framing?
 
 **Missing guardrails found by reviewer:**
-- No explicit data-scope fence (`"use only the information in this message"`) — model can supplement with training knowledge
-- No handling instruction for missing/null fields — model will fabricate or silently skip
+- No explicit data-scope fence (`"use only the information in this message"`) â€” model can supplement with training knowledge
+- No handling instruction for missing/null fields â€” model will fabricate or silently skip
 - No prohibition on speculation (mechanical cause diagnosis, consequence prediction)
-- No low-risk case instruction — model must produce 2–3 sentences even when all indicators are benign, leading to manufactured concerns
+- No low-risk case instruction â€” model must produce 2â€“3 sentences even when all indicators are benign, leading to manufactured concerns
 
 **What the reviewer surfaced that the writer missed:** The persona framing (`"You are an Ontario elevator safety analyst with expertise in TSSA compliance"`) was the most significant gap. The writer intended this to improve domain accuracy. The reviewer correctly identified that expertise personas are hallucination licenses: a model told it "has expertise" in a domain will apply that expertise even when the user message doesn't support it. The writer had seen this as grounding; the reviewer (with no prior context) saw it as an open invitation to invent TSSA procedure details.
 
-The null-field case was also missed entirely by the writer. Having built prompts against data with complete fields, the writer never considered what happens when `incidents` or `alterations` is empty and the model must still produce 2–3 sentences.
+The null-field case was also missed entirely by the writer. Having built prompts against data with complete fields, the writer never considered what happens when `incidents` or `alterations` is empty and the model must still produce 2â€“3 sentences.
 
-**Fresh-context review value:** Yes — the reviewer found the persona hallucination trigger and the missing null-field guardrail. Both were invisible to the writer precisely because the writer had seen the prompt work on real data. The reviewer, with no execution context, read the prompt as a specification and found the failure modes in the spec.
+**Fresh-context review value:** Yes â€” the reviewer found the persona hallucination trigger and the missing null-field guardrail. Both were invisible to the writer precisely because the writer had seen the prompt work on real data. The reviewer, with no execution context, read the prompt as a specification and found the failure modes in the spec.
 
 ### Data gathered per elevator
 
@@ -2213,17 +2213,17 @@ For each of the 10 highest-risk elevators (by `risk_score DESC`):
 - Incidents in past 2 years (category, date, injury severity) from `incidents` table
 - Last 5 alterations (type, status) from `alterations` table
 
-All queries run via `docker exec psql` (Unix socket trust auth) since libpq 18.0.3 on Windows fails SCRAM-SHA-256 through Docker Desktop's NAT layer — the TCP connection appears to PostgreSQL as coming from the Docker bridge IP rather than localhost, hitting the `scram-sha-256` pg_hba.conf rule. The Unix socket path is functionally equivalent for a development notebook.
+All queries run via `docker exec psql` (Unix socket trust auth) since libpq 18.0.3 on Windows fails SCRAM-SHA-256 through Docker Desktop's NAT layer â€” the TCP connection appears to PostgreSQL as coming from the Docker bridge IP rather than localhost, hitting the `scram-sha-256` pg_hba.conf rule. The Unix socket path is functionally equivalent for a development notebook.
 
 ---
 
-## AND-106 Task 6 (addendum): Three Parallel Worktrees for Prompt Review Accuracy
+## AND-105 Task 6 (addendum): Three Parallel Worktrees for Prompt Review Accuracy
 
 **Date:** 2026-06-04
 
 ### Motivation
 
-The single Writer/Reviewer session (documented above) found two real issues the writer missed: the persona hallucination trigger and the null-field fabrication gap. But a single fresh-context reviewer has its own blind spot — it applies one cognitive frame to the prompt. A reviewer focused on hallucination triggers may not look as carefully at structural ambiguity; a reviewer scanning for missing guardrails may not notice that an instruction is satisfied in two incompatible ways.
+The single Writer/Reviewer session (documented above) found two real issues the writer missed: the persona hallucination trigger and the null-field fabrication gap. But a single fresh-context reviewer has its own blind spot â€” it applies one cognitive frame to the prompt. A reviewer focused on hallucination triggers may not look as carefully at structural ambiguity; a reviewer scanning for missing guardrails may not notice that an instruction is satisfied in two incompatible ways.
 
 The same isolation that makes a fresh-context reviewer valuable (no prior context) also means there is no guarantee it will explore every failure mode. The reviewer found what it looked for.
 
@@ -2249,10 +2249,10 @@ The parallel worktree approach also surfaces disagreements: if Reviewer A and Re
 
 After collecting findings from all three sessions:
 
-1. **Deduplicate** — near-identical findings from two sessions are merged into one, noting independent confirmation
-2. **Classify** — confirmed (found by ≥2 reviewers or self-evidently demonstrable), plausible (single reviewer, non-trivial), speculative (single reviewer, depends on unusual runtime conditions)
-3. **Filter** — drop speculative findings that cannot be demonstrated from the prompt text alone
-4. **Rank** — confirmed > plausible; within each, hallucination triggers > guardrail gaps > ambiguity
+1. **Deduplicate** â€” near-identical findings from two sessions are merged into one, noting independent confirmation
+2. **Classify** â€” confirmed (found by â‰¥2 reviewers or self-evidently demonstrable), plausible (single reviewer, non-trivial), speculative (single reviewer, depends on unusual runtime conditions)
+3. **Filter** â€” drop speculative findings that cannot be demonstrated from the prompt text alone
+4. **Rank** â€” confirmed > plausible; within each, hallucination triggers > guardrail gaps > ambiguity
 
 ### Applied to the V3 prompt
 
@@ -2260,32 +2260,32 @@ Running the three-angle review on `SYSTEM_V3` would have surfaced the following 
 
 | Finding | Single reviewer | Three-angle review |
 |---------|----------------|-------------------|
-| Persona hallucination license | ✓ Found | ✓ Reviewer A |
-| Forced ranking without rubric | ✓ Found | ✓ Reviewer A |
-| Date/count citation when null | ✓ Found | ✓ Reviewer A + C (independent) |
-| `"Operationally significant"` undefined | ✓ Found | ✓ Reviewer B |
-| `"Lead with"` structurally ambiguous | ✓ Found | ✓ Reviewer B |
-| Schema boundary of `"the data"` | ✓ Found | ✓ Reviewer B |
-| No data-scope fence | ✓ Found | ✓ Reviewer C |
-| No null/empty field handling | ✓ Found | ✓ Reviewer A + C (independent) |
-| No speculation prohibition | ✓ Found | ✓ Reviewer C |
-| No low-risk case instruction | ✓ Found | ✓ Reviewer C |
+| Persona hallucination license | âœ“ Found | âœ“ Reviewer A |
+| Forced ranking without rubric | âœ“ Found | âœ“ Reviewer A |
+| Date/count citation when null | âœ“ Found | âœ“ Reviewer A + C (independent) |
+| `"Operationally significant"` undefined | âœ“ Found | âœ“ Reviewer B |
+| `"Lead with"` structurally ambiguous | âœ“ Found | âœ“ Reviewer B |
+| Schema boundary of `"the data"` | âœ“ Found | âœ“ Reviewer B |
+| No data-scope fence | âœ“ Found | âœ“ Reviewer C |
+| No null/empty field handling | âœ“ Found | âœ“ Reviewer A + C (independent) |
+| No speculation prohibition | âœ“ Found | âœ“ Reviewer C |
+| No low-risk case instruction | âœ“ Found | âœ“ Reviewer C |
 
-In this case the single reviewer happened to find all issues because the V3 prompt is short enough to scan completely in one pass. The three-angle approach becomes significantly more valuable as prompts grow longer and include conditional logic, multi-step instructions, or complex output schemas — contexts where a single reviewer reliably under-samples.
+In this case the single reviewer happened to find all issues because the V3 prompt is short enough to scan completely in one pass. The three-angle approach becomes significantly more valuable as prompts grow longer and include conditional logic, multi-step instructions, or complex output schemas â€” contexts where a single reviewer reliably under-samples.
 
 ### Key insight
 
-The parallel worktree pattern for prompt review mirrors the fan-out reviewer pattern used for code review in AND-105 Task 5. The same principle applies: isolated sessions with no shared context each contribute a different perspective, and the merge step is where convergence (confirmed findings) and divergence (false positives to filter) become visible. For prompts, the three natural angles are hallucination triggers, instruction ambiguity, and missing guardrails — roughly analogous to security, correctness, and edge-case coverage in code review.
+The parallel worktree pattern for prompt review mirrors the fan-out reviewer pattern used for code review in AND-105 Task 5. The same principle applies: isolated sessions with no shared context each contribute a different perspective, and the merge step is where convergence (confirmed findings) and divergence (false positives to filter) become visible. For prompts, the three natural angles are hallucination triggers, instruction ambiguity, and missing guardrails â€” roughly analogous to security, correctness, and edge-case coverage in code review.
 
 ---
 
-## AND-106 Task 7: Bulk Risk Explanation Generation — Script Design and Model Selection
+## AND-105 Task 7: Bulk Risk Explanation Generation â€” Script Design and Model Selection
 
 **Date:** 2026-06-04
 
 ### Context
 
-Task 7 required creating `intelligence/generate_explanations.py` — a standalone script (not a notebook) that:
+Task 7 required creating `intelligence/generate_explanations.py` â€” a standalone script (not a notebook) that:
 - Queries all HIGH-risk elevators (27,626 rows) from PostgreSQL
 - Gathers per-elevator context (inspections, incidents, alterations)
 - Calls Ollama to generate 2-3 sentence explanations using the V4 system prompt
@@ -2294,20 +2294,20 @@ Task 7 required creating `intelligence/generate_explanations.py` — a standalon
 
 ### Model selection: `mistral:7b`
 
-The tutor recommended switching from `llama3.1:8b` (used in the Task 6 notebook prototype) to `mistral:7b` for the production generation script. Both are 7-8B parameter models; `mistral:7b` uses grouped-query attention and a sliding window architecture that tends to produce more compact and direct outputs — well-suited to the 2-3 sentence structured explanation format.
+The tutor recommended switching from `llama3.1:8b` (used in the Task 6 notebook prototype) to `mistral:7b` for the production generation script. Both are 7-8B parameter models; `mistral:7b` uses grouped-query attention and a sliding window architecture that tends to produce more compact and direct outputs â€” well-suited to the 2-3 sentence structured explanation format.
 
 | Model | Params | Architecture | Notes |
 |-------|--------|--------------|-------|
 | `llama3.1:8b` | 8B | LLaMA 3 | Used in Task 6 prototype |
 | `mistral:7b` | 7B | Mistral v0.1 | Selected for Task 7 production run |
 
-The system prompt (V4, hardened) is identical between the prototype and production script — model selection does not affect the prompt design.
+The system prompt (V4, hardened) is identical between the prototype and production script â€” model selection does not affect the prompt design.
 
 ### Design decisions surfaced during implementation
 
 **1. N+1 query problem avoided via batch context fetch**
 
-A naive approach would run 3 DB queries per elevator (inspections, incidents, alterations), totaling 82,878 docker exec psql calls for 27,626 elevators. At ~200ms per call, that is ~4.6 hours of DB overhead alone. The script instead processes elevators in batches of 100 and fetches all context for each batch in 3 queries using `IN (id1, id2, ...)` — reducing total DB round-trips from 82,878 to ~828 (3 × 276 batches).
+A naive approach would run 3 DB queries per elevator (inspections, incidents, alterations), totaling 82,878 docker exec psql calls for 27,626 elevators. At ~200ms per call, that is ~4.6 hours of DB overhead alone. The script instead processes elevators in batches of 100 and fetches all context for each batch in 3 queries using `IN (id1, id2, ...)` â€” reducing total DB round-trips from 82,878 to ~828 (3 Ã— 276 batches).
 
 **2. Async concurrency via `asyncio.to_thread`**
 
@@ -2323,6 +2323,7 @@ The script skips elevators where `risk_explanation IS NOT NULL`. If interrupted 
 
 ### API integration
 
-`RiskResponse` in `platform/api/models.go` was extended with `RiskExplanation *string` (nullable pointer — LOW and MEDIUM elevators will not have explanations populated). The SQL in `GetElevatorRisk` now selects `risk_explanation`. Documented in `docs/api_spec.md`.
+`RiskResponse` in `platform/api/models.go` was extended with `RiskExplanation *string` (nullable pointer â€” LOW and MEDIUM elevators will not have explanations populated). The SQL in `GetElevatorRisk` now selects `risk_explanation`. Documented in `docs/api_spec.md`.
 
 ---
+
