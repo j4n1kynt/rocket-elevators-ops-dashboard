@@ -167,6 +167,15 @@ async def call_ollama(semaphore, system, user):
         return await asyncio.to_thread(_call_ollama_sync, system, user)
 
 
+async def call_ollama_timed(semaphore, system, user_content, idx, total, eid):
+    """Like call_ollama but prints a progress line on start and returns (explanation, elapsed_s)."""
+    async with semaphore:
+        print(f'  Processing elevator {idx}/{total} (ID {eid})...', flush=True)
+        t0 = time.time()
+        result = await asyncio.to_thread(_call_ollama_sync, system, user_content)
+        return result, time.time() - t0
+
+
 # ── Batch context fetch ───────────────────────────────────────────────────────
 def fetch_context_batch(elevator_ids):
     """Fetch inspections, incidents, alterations for a list of elevator IDs in 3 queries."""
@@ -270,10 +279,13 @@ async def generate_all(elevators, args):
                 'alterations': alt_map.get(eid, []),
             })
 
-        # Build async tasks — CONCURRENCY simultaneous Ollama calls via thread pool
+        # Build async tasks — each prints progress on start, returns (explanation, elapsed_s)
         tasks = [
-            call_ollama(semaphore, SYSTEM_PROMPT, user_msg(e))
-            for e in augmented
+            call_ollama_timed(
+                semaphore, SYSTEM_PROMPT, user_msg(e),
+                batch_start + i + 1, total, e['elevator_id'],
+            )
+            for i, e in enumerate(augmented)
         ]
         # return_exceptions=True prevents CancelledError (Ctrl+C) from discarding
         # completed work — exceptions are returned as values, not raised
@@ -282,17 +294,21 @@ async def generate_all(elevators, args):
         # Collect updates and count errors
         cancelled = False
         updates = {}
-        for e, explanation in zip(augmented, results):
+        for e, result in zip(augmented, results):
             eid = e['elevator_id']
-            if isinstance(explanation, asyncio.CancelledError):
+            if isinstance(result, asyncio.CancelledError):
                 cancelled = True  # save completed work first, re-raise after
-            elif isinstance(explanation, BaseException):
+                continue
+            elif isinstance(result, BaseException):
                 errors += 1
-                print(f'  ✗ {eid}: {type(explanation).__name__}: {explanation}', flush=True)
-            elif explanation.startswith('[ERROR:'):
+                print(f'  ✗ {eid}: {type(result).__name__}: {result}', flush=True)
+                continue
+            explanation, call_elapsed = result
+            if explanation.startswith('[ERROR:'):
                 errors += 1
                 print(f'  ✗ {eid}: {explanation}', flush=True)
             else:
+                print(f'    -> {call_elapsed:.1f}s | {len(explanation)} chars', flush=True)
                 updates[eid] = explanation
 
         # Write to DB
@@ -336,24 +352,45 @@ def verify():
     e = int(explained[0]['n']) if explained else 0
     n = int(null_count[0]['n']) if null_count else 0
 
-    print(f'HIGH elevators total:    {t:>6}')
-    print(f'  With explanation:      {e:>6}  ({e/t*100:.1f}%)' if t else '')
-    print(f'  Without explanation:   {n:>6}')
+    avg_row = query_rows(
+        "SELECT AVG(LENGTH(risk_explanation))::int AS avg_len "
+        "FROM predictions WHERE risk_level = 'HIGH' AND risk_explanation IS NOT NULL"
+    )
+    avg_len = int(avg_row[0]['avg_len']) if avg_row and avg_row[0]['avg_len'] else 0
 
-    # Spot-check 3 random explained rows
+    print(f'HIGH elevators total:       {t:>6}')
+    print((f'  With explanation:         {e:>6}  ({e/t*100:.1f}%)') if t else '')
+    print(f'  Without explanation:      {n:>6}')
+    print(f'  Avg explanation length:   {avg_len:>6} chars')
+
+    # Spot-check 3 random rows — show source inspections alongside explanation
     samples = query_rows("""
         SELECT p.elevator_id, p.risk_level, p.risk_score::float8,
-               LEFT(p.risk_explanation, 200) AS explanation_preview
+               p.risk_explanation, e.location
         FROM predictions p
+        JOIN elevators e ON e.elevator_id = p.elevator_id
         WHERE p.risk_level = 'HIGH' AND p.risk_explanation IS NOT NULL
         ORDER BY RANDOM() LIMIT 3
     """)
     if samples:
         print()
-        print('Spot-check (3 random):')
+        print('Spot-check (3 random) — explanation vs source inspection data:')
         for s in samples:
-            print(f"  Elevator {s['elevator_id']} ({s['risk_level']}, {float(s['risk_score']):.4f}):")
-            print(f"    {s['explanation_preview']}")
+            eid = int(s['elevator_id'])
+            inspections = query_rows(f"""
+                SELECT inspection_type, latest_inspection_date::text AS date, outcome
+                FROM inspections WHERE elevator_id = {eid}
+                ORDER BY latest_inspection_date DESC NULLS LAST LIMIT 3
+            """)
+            print(f"  Elevator {eid} ({s['risk_level']}, {float(s['risk_score']):.4f}) — {s['location']}")
+            print(f"  Source — top 3 inspections:")
+            if inspections:
+                for insp in inspections:
+                    print(f"    {insp.get('date','?')} | {insp.get('inspection_type','?')} | {insp.get('outcome','?')}")
+            else:
+                print(f"    No inspections on record")
+            print(f"  Explanation:")
+            print(f"    {s['risk_explanation']}")
             print()
 
     return n == 0  # True = fully populated
