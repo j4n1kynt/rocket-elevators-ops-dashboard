@@ -301,12 +301,12 @@ async def generate_all(elevators, args):
                 continue
             elif isinstance(result, BaseException):
                 errors += 1
-                print(f'  ✗ {eid}: {type(result).__name__}: {result}', flush=True)
+                print(f'  FAIL {eid}: {type(result).__name__}: {result}', flush=True)
                 continue
             explanation, call_elapsed = result
             if explanation.startswith('[ERROR:'):
                 errors += 1
-                print(f'  ✗ {eid}: {explanation}', flush=True)
+                print(f'  FAIL {eid}: {explanation}', flush=True)
             else:
                 print(f'    -> {call_elapsed:.1f}s | {len(explanation)} chars', flush=True)
                 updates[eid] = explanation
@@ -316,7 +316,7 @@ async def generate_all(elevators, args):
             update_batch(updates)
         except RuntimeError as exc:
             errors += len(updates)
-            print(f'  ✗ batch write failed — {len(updates)} explanations lost: {exc}', flush=True)
+            print(f'  FAIL batch write -- {len(updates)} explanations lost: {exc}', flush=True)
         if cancelled:
             raise asyncio.CancelledError()
         done += len(batch)

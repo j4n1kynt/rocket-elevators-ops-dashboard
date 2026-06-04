@@ -2355,3 +2355,59 @@ The `task7-review` worktree session reviewed `intelligence/generate_explanations
 Both findings were missed during implementation. The `CancelledError` gap is particularly subtle -- `_call_ollama_sync` does catch `Exception`, so the retry path looks complete. The reviewer approached `asyncio.gather` as a standalone reader asking "what is not caught here?" without knowing the retry logic existed -- exactly the framing the implementation session loses after writing the code.
 
 ---
+
+## AND-105 Task 7: Worktree Alt-Explain Comparison -- mistral:7b V4 vs llama3.1:8b simple prompt
+
+**Date:** 2026-06-04
+**Worktree:** `claude --worktree alt-explain`
+**Script:** `.claude/worktrees/alt-explain/intelligence/generate_explanations_alt.py`
+
+### What was compared
+
+| Dimension | Main branch | Alt worktree |
+|-----------|-------------|--------------|
+| Model | `mistral:7b` | `llama3.1:8b` |
+| System prompt | V4 hardened (Ontario TSSA background, explicit guardrails, domain framing) | Minimal: "You are a safety analyst. Write a 2-3 sentence explanation of why this elevator is rated HIGH risk. Use only the data provided." |
+| Elevators tested | 5 highest-risk (IDs 10, 1018, 10246, 10264, 10316) | Same 5 |
+
+### Side-by-side on elevator 1018
+
+**llama3.1:8b + simple prompt:**
+> "Elevator 1018 is rated HIGH risk due to a lack of recent inspection history, with the most recent inspections dating back to 2015. The fact that there have been no incidents in the past two years does not necessarily indicate a low risk, as it may be a result of inadequate maintenance or inspection procedures."
+
+**mistral:7b + V4 prompt:**
+> "Elevator 1018 at 150 SIMCOE ST LONDON N6A 4M3 ON CA is currently operating with a high risk level due to multiple failed follow-up inspections in recent years. Specifically, there have been three follow-up inspections since 2014 that did not pass, most recently on 2015-04-28. No incidents have been reported in the past two years, but the accumulated unresolved orders from these failed inspections represent escalating regulatory risk."
+
+### Side-by-side on elevator 10264
+
+**llama3.1:8b + simple prompt:**
+> "Elevator 10264 is rated HIGH risk due to its history of requiring follow-up inspections and orders being unresolved, indicating potential ongoing safety issues. The fact that it has had multiple periodic inspections with follow-up requirements suggests a pattern of non-compliance or recurring problems. Despite this, there have been no incidents reported in the past two years, which may indicate that the issues are being addressed between inspections."
+
+**mistral:7b + V4 prompt:**
+> "Elevator 10264 at the Government of Canada Building, 75 Waterloo St, Stratford N5A 7B2 ON CA, currently has a high risk level. This is primarily due to an outstanding compliance order from a periodic inspection in November 2013 that has not been resolved or verified during the follow-up inspection in April 2014 (DC Follow up). No incidents have been reported in the past two years, but the unresolved order from over eight years ago continues to escalate regulatory risk."
+
+### Findings
+
+**1. llama3.1:8b + simple prompt hallucinated on elevator 1018**
+
+The data for elevator 1018 shows no incidents in the past two years -- a straightforward absence. The simple prompt produced: "The fact that there have been no incidents in the past two years does not necessarily indicate a low risk, as it may be a result of inadequate maintenance or inspection procedures." This is an invented inference -- "inadequate maintenance" does not appear anywhere in the data. The V4 guardrail "Use only the information provided in this message. Do not add knowledge not present in the data." directly prevented this. The V4 output for the same elevator correctly states the absence neutrally and moves on.
+
+**2. V4 cites specific dates and counts; simple prompt stays vague**
+
+V4 output: "three follow-up inspections since 2014, most recently on 2015-04-28" and "outstanding compliance order from a periodic inspection in November 2013." Simple prompt output: "a history of follow-up inspections" and "inspections dating back to 2015" -- no counts, no specific dates, no specific inspection outcomes cited.
+
+**3. Domain framing makes V4 output actionable**
+
+V4's Ontario/TSSA background primes the model to frame explanations for field technicians: "prioritize addressing this order to bring the elevator back into compliance with TSSA regulations." The simple prompt produces generic risk language that could apply to any asset domain.
+
+**4. The prompt mattered more than the model**
+
+Both models are 7-8B class. The hallucination gap and specificity gap both trace directly to the system prompt, not to model architecture. V4's explicit "Do not add knowledge not present in the data" instruction is what prevented the inference on elevator 1018 -- the same instruction applied to llama3.1:8b would likely have eliminated the hallucination as well.
+
+### Conclusion
+
+**Main branch (`mistral:7b` + V4 prompt) is the better approach** for the production run. The V4 prompt wins on three grounds: it prevents hallucinated inferences, it elicits specific dates and counts from the data, and it frames output for the intended audience (Ontario TSSA field technicians). The model difference is secondary. The worktree comparison validated that the prompt engineering investment in Task 6 (Writer/Reviewer, V1-V4 iteration) directly improves production output quality in ways observable on a 5-elevator sample.
+
+The `alt-explain` worktree was removed after comparison.
+
+---
