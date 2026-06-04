@@ -76,11 +76,14 @@ def update_batch(updates):
     # which prevents a silent ROLLBACK when COMMIT is issued on an aborted transaction
     lines = ['\\set ON_ERROR_STOP on\nBEGIN;\n']
     for eid, explanation in updates.items():
-        # Escape single quotes for standard SQL quoting
-        escaped = explanation.replace("'", "''")
+        # Validate eid is an integer before interpolating into SQL structure
+        eid_int = int(eid)
+        # Strip null bytes (PostgreSQL rejects them mid-string, silently rolling back
+        # the batch); escape single quotes for standard SQL quoting
+        escaped = explanation.replace('\x00', '').replace("'", "''")
         lines.append(
             f"UPDATE predictions SET risk_explanation = '{escaped}' "
-            f"WHERE elevator_id = {eid};\n"
+            f"WHERE elevator_id = {eid_int};\n"
         )
     lines.append('COMMIT;\n')
     _psql(''.join(lines), via_stdin=True)
@@ -167,7 +170,12 @@ async def call_ollama(semaphore, system, user):
 # ── Batch context fetch ───────────────────────────────────────────────────────
 def fetch_context_batch(elevator_ids):
     """Fetch inspections, incidents, alterations for a list of elevator IDs in 3 queries."""
-    ids_str = ','.join(str(i) for i in elevator_ids)
+    # Cast to int before interpolating into IN (...) — rejects any non-integer
+    # value that could survive the JSON round-trip as a crafted string
+    try:
+        ids_str = ','.join(str(int(i)) for i in elevator_ids)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f'elevator_ids must be integers: {exc}') from exc
     two_years_ago = (date.today() - timedelta(days=730)).isoformat()
 
     # Top-5 inspections per elevator, most recent first
