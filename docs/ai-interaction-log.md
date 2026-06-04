@@ -2216,3 +2216,65 @@ For each of the 10 highest-risk elevators (by `risk_score DESC`):
 All queries run via `docker exec psql` (Unix socket trust auth) since libpq 18.0.3 on Windows fails SCRAM-SHA-256 through Docker Desktop's NAT layer — the TCP connection appears to PostgreSQL as coming from the Docker bridge IP rather than localhost, hitting the `scram-sha-256` pg_hba.conf rule. The Unix socket path is functionally equivalent for a development notebook.
 
 ---
+
+## AND-106 Task 6 (addendum): Three Parallel Worktrees for Prompt Review Accuracy
+
+**Date:** 2026-06-04
+
+### Motivation
+
+The single Writer/Reviewer session (documented above) found two real issues the writer missed: the persona hallucination trigger and the null-field fabrication gap. But a single fresh-context reviewer has its own blind spot — it applies one cognitive frame to the prompt. A reviewer focused on hallucination triggers may not look as carefully at structural ambiguity; a reviewer scanning for missing guardrails may not notice that an instruction is satisfied in two incompatible ways.
+
+The same isolation that makes a fresh-context reviewer valuable (no prior context) also means there is no guarantee it will explore every failure mode. The reviewer found what it looked for.
+
+### Technique: three parallel `--worktree` reviewers with distinct angles
+
+Run three independent `claude --worktree` sessions simultaneously, each given only the system prompt text and a different review angle:
+
+| Session | Angle | What it hunts |
+|---------|-------|---------------|
+| **Reviewer A** | Hallucination triggers | Instructions that license the model to draw on training knowledge not present in the user message: expertise personas, forced ranking without a rubric, citation requirements without null fallback |
+| **Reviewer B** | Instruction ambiguity | Phrases the model can satisfy in multiple incompatible ways: undefined terms ("operationally significant"), structural ambiguity ("lead with"), schema boundary gaps ("the data") |
+| **Reviewer C** | Missing guardrails | What the prompt should forbid but does not: data-scope fence, null/empty field handling, speculation prohibition, behaviour when all indicators are benign |
+
+Each session has no shared context with the others. Findings are collected and merged in the main session.
+
+### Why three angles produce higher accuracy than one reviewer
+
+A single reviewer typically finds issues within one frame. The Task 6 single reviewer found issues in the hallucination and guardrail categories but missed several ambiguity issues (`"operationally significant"` undefined, `"lead with"` structurally ambiguous, schema boundary). Splitting the review into three focused sessions means each reviewer can go deeper on its angle rather than scanning broadly and shallowly.
+
+The parallel worktree approach also surfaces disagreements: if Reviewer A and Reviewer C independently flag the same phrase for different reasons, that is strong evidence the phrase is load-bearing and under-specified.
+
+### Merging findings and filtering false positives
+
+After collecting findings from all three sessions:
+
+1. **Deduplicate** — near-identical findings from two sessions are merged into one, noting independent confirmation
+2. **Classify** — confirmed (found by ≥2 reviewers or self-evidently demonstrable), plausible (single reviewer, non-trivial), speculative (single reviewer, depends on unusual runtime conditions)
+3. **Filter** — drop speculative findings that cannot be demonstrated from the prompt text alone
+4. **Rank** — confirmed > plausible; within each, hallucination triggers > guardrail gaps > ambiguity
+
+### Applied to the V3 prompt
+
+Running the three-angle review on `SYSTEM_V3` would have surfaced the following compared to the single-reviewer session:
+
+| Finding | Single reviewer | Three-angle review |
+|---------|----------------|-------------------|
+| Persona hallucination license | ✓ Found | ✓ Reviewer A |
+| Forced ranking without rubric | ✓ Found | ✓ Reviewer A |
+| Date/count citation when null | ✓ Found | ✓ Reviewer A + C (independent) |
+| `"Operationally significant"` undefined | ✓ Found | ✓ Reviewer B |
+| `"Lead with"` structurally ambiguous | ✓ Found | ✓ Reviewer B |
+| Schema boundary of `"the data"` | ✓ Found | ✓ Reviewer B |
+| No data-scope fence | ✓ Found | ✓ Reviewer C |
+| No null/empty field handling | ✓ Found | ✓ Reviewer A + C (independent) |
+| No speculation prohibition | ✓ Found | ✓ Reviewer C |
+| No low-risk case instruction | ✓ Found | ✓ Reviewer C |
+
+In this case the single reviewer happened to find all issues because the V3 prompt is short enough to scan completely in one pass. The three-angle approach becomes significantly more valuable as prompts grow longer and include conditional logic, multi-step instructions, or complex output schemas — contexts where a single reviewer reliably under-samples.
+
+### Key insight
+
+The parallel worktree pattern for prompt review mirrors the fan-out reviewer pattern used for code review in AND-105 Task 5. The same principle applies: isolated sessions with no shared context each contribute a different perspective, and the merge step is where convergence (confirmed findings) and divergence (false positives to filter) become visible. For prompts, the three natural angles are hallucination triggers, instruction ambiguity, and missing guardrails — roughly analogous to security, correctness, and edge-case coverage in code review.
+
+---
