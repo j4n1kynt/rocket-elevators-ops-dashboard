@@ -2457,6 +2457,27 @@ At observed throughput (609s for first 100 elevators = 6.09s/elevator wall clock
 
 For reference, with a discrete NVIDIA GPU (e.g. RTX 3060 8 GB), `qwen2.5:1.5b` would run at ~1-2s per call, putting the full run at 2-3 hours. That path is not available on this machine.
 
-The script uses checkpoint/resume (`risk_explanation IS NOT NULL` skip) so the run can be interrupted and continued across sessions. Full run started 2026-06-04 and is expected to complete by 2026-06-06.
+The script uses checkpoint/resume (`risk_explanation IS NOT NULL` skip) so the run can be interrupted and continued across sessions. Full run started 2026-06-04; stopped at 5,015 elevators after the business requirement was updated to top 500 (see below).
+
+### Requirement update — top 500
+
+The business requirement for Task 7 was updated mid-run: instead of all 27,626 HIGH elevators, only the **top 500 by risk_score** are required. All 5,015 elevators processed overnight have `risk_score = 1.0` (the maximum), so any 500 of them satisfy the requirement. The run was stopped at 5,015. No work was lost.
+
+### Output quality assessment — 8-sample spot-check
+
+After the overnight run, 8 random explanations were pulled from the DB and reviewed against source data. Findings:
+
+**What worked:**
+- All 8 explanations cited specific inspection dates from the data (e.g. `January 5, 2017`, `November 27, 2015`)
+- All 8 cited counts from the extracted summary (e.g. `four non-passing inspections within the last five`)
+- No hallucinated facts — no invented dates, names, or regulatory references not present in the extracted data
+
+**Known limitations of qwen2.5:1.5b:**
+- **Wrong time math**: elevator 64498376 — said "over two decades ago" for a 2014 inspection (correct date, wrong commentary)
+- **Internal contradiction**: elevator 64521536 — said "all orders resolved" then "issues that have not been addressed" in the same paragraph
+- **Backwards reasoning**: elevator 18781 — stated "absence of incidents supports the high-risk classification," which inverts the logic; 4 sentences instead of the required 2-3
+- **Minor grammar**: elevator 64493171 — "this elevators'" (possessive error)
+
+**Trade-off summary:** The pre-extraction approach successfully prevented hallucinated facts (the primary failure mode of small models, as confirmed in the 0.5b test). The remaining issues are reasoning and coherence weaknesses inherent to a 1.5B parameter model — the model correctly retrieves and cites the facts but occasionally draws incorrect inferences from them. A 7B model (mistral:7b + V4) produces cleaner prose and correct reasoning but would take ~290 hours on this hardware. The 1.5B output is acceptable for the operational purpose: a field technician receives grounded, date-specific information even if the concluding sentence occasionally misstates the implication.
 
 ---
