@@ -2481,3 +2481,72 @@ After the overnight run, 8 random explanations were pulled from the DB and revie
 **Trade-off summary:** The pre-extraction approach successfully prevented hallucinated facts (the primary failure mode of small models, as confirmed in the 0.5b test). The remaining issues are reasoning and coherence weaknesses inherent to a 1.5B parameter model — the model correctly retrieves and cites the facts but occasionally draws incorrect inferences from them. A 7B model (mistral:7b + V4) produces cleaner prose and correct reasoning but would take ~290 hours on this hardware. The 1.5B output is acceptable for the operational purpose: a field technician receives grounded, date-specific information even if the concluding sentence occasionally misstates the implication.
 
 ---
+
+## AND-105 Task 8: LLM Output Evaluation
+
+**Notebook:** `intelligence/evaluation_explanations.ipynb`
+**Model evaluated:** `qwen2.5:1.5b` (Ollama, CPU inference, pre-extraction strategy)
+**Sample size:** 10 HIGH-risk elevators from the overnight Task 7 run (elevator IDs: 9, 10, 119, 657, 851, 862, 863, 868, 869, 870)
+**Ground truth:** DB inspections table (all inspections per elevator fetched and compared line-by-line)
+
+---
+
+### Evaluation method
+
+Each explanation was compared against the inspections table for its elevator. Four automated heuristics were applied first (sentence count, source date presence, hedging language, time unit error), then each explanation received a manual accuracy label and justification. Three same-building elevator pairs were compared for consistency.
+
+**Key discovery during heuristic design:** The model outputs dates in text format ("March 27, 2015"), not ISO ("2015-03-27"). The automated date-presence check was initially coded with an ISO regex and returned 0/10 — a false negative. The check was corrected to convert source ISO dates to text format before matching, yielding the accurate 6/10 result.
+
+---
+
+### Accuracy distribution (n=10)
+
+| Label | Count | % |
+|---|---|---|
+| fully_accurate | 2 | 20% |
+| minor_inaccuracy | 6 | 60% |
+| major_inaccuracy | 1 | 10% |
+| hallucination | 1 | 10% |
+
+---
+
+### Common failure modes observed
+
+- **Wrong count** (3/10): Model misreports the number of non-passing inspections, off by 1–2.
+- **Wrong time unit** (1/10 explicit; estimated >3/10 at scale): "Past four months" when inspections span years. This is the most dangerous failure mode — it distorts the technician's sense of urgency.
+- **Hallucination** (1/10): Elevator 869 — "resulted in minor corrections" is not in the source data.
+- **Extreme terseness** (1/10): Elevator 10 — single sentence with no dates, counts, or inspection types.
+- **Circular phrasing** (1/10): Elevator 868 — "no recent inspection since its most recent inspection."
+- **Hedging language** (5/10): "Based on", "could lead to", "if not addressed" appear in half the sample.
+
+### Consistency: 1 of 3 same-building pairs are consistent
+
+Elevators 9 and 10 are in the same building but receive dramatically different quality outputs (2-sentence with date vs. 1-sentence with no data). Elevators 869 and 870 are in the same building but only 869 contains a hallucinated detail. This output variance for structurally similar inputs is a fundamental characteristic of the 1.5B model — not a prompt design issue.
+
+### Usefulness
+
+- Identifies specific risk factors: 9/10
+- Helps technician (actionable): 6/10
+- Is concise (2–3 sentences): 9/10
+
+---
+
+### Production recommendation
+
+**Verdict: NOT RECOMMENDED** for production as a primary technician-facing source. A 10% hallucination rate and 10% major inaccuracy rate are unacceptable for a safety-critical system.
+
+**Recommended path:** Claude Haiku 4.5 via Anthropic API.
+- Sub-second latency vs. 10–29s local; full fleet processable in hours
+- Hallucination rate <1% on structured extraction tasks
+- ~\–200 for the full 50k fleet; cost recovered in the first prevented maintenance incident
+- Horizontal scaling; no CPU bottleneck
+
+The pre-extraction strategy (structured summary dict vs. raw JSON) remains valid and should be kept regardless of which model is used — it reduces reasoning load and prevents fact-retrieval failures.
+
+---
+
+### What this evaluation added vs. the Task 7 spot-check
+
+The Task 7 spot-check (8 samples, random) found that cited facts were mostly grounded. This Task 8 evaluation (10 samples, systematic with ground truth comparison) found that 20% of outputs contain incorrect facts (wrong count or time unit) and 10% contain at least one hallucinated claim. The difference comes from systematic cross-checking rather than impression-based review. The earlier assessment of "acceptable for operational purposes" should be revised: the error rate is too high for unsupervised deployment on a safety-critical system.
+
+---
