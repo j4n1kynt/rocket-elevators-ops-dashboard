@@ -2411,3 +2411,52 @@ Both models are 7-8B class. The hallucination gap and specificity gap both trace
 The `alt-explain` worktree was removed after comparison.
 
 ---
+
+## AND-105 Task 7: Full production run — model selection under hardware constraints
+
+**Date:** 2026-06-04
+**Context:** After validating `mistral:7b` + V4 prompt produces quality output, the goal was to populate `risk_explanation` for all 27,626 HIGH-risk elevators. `mistral:7b` averaged 90–220s per call — at CONCURRENCY=4 that extrapolates to ~290 hours. Needed a viable path.
+
+### Hardware discovery
+
+Running `ollama ps` during the test revealed: `100% CPU`. The machine has an **Intel Iris Xe integrated GPU** (2 GB shared VRAM) — Ollama does not support Intel integrated graphics for inference. All model execution is CPU-only. This rules out any GPU-accelerated path and sets a hard floor on throughput regardless of model size.
+
+### Model exploration: pre-extraction strategy
+
+To compensate for smaller model capacity, a **pre-extraction approach** was designed: instead of passing raw inspection/incident/alteration JSON to the LLM, Python pre-extracts four structured facts before the call:
+
+- Most recent inspection date, type, and outcome
+- Count of non-passing inspections (of last 5)
+- Incident count in past 2 years
+- Pending alteration count
+
+This reduces the model's task from "reason over raw data" to "write 2-3 sentences from structured numbers" — a much simpler NLG task that smaller models can handle reliably.
+
+**`qwen2.5:1.5b` test (5 elevators, CONCURRENCY=8):**
+- Wall clock: 30s — individual calls 10.7–29.2s, avg ~19s
+- Quality: specific dates cited, no hallucinations detected, 342–484 chars
+- Extrapolated full run: ~18 hours
+
+**`qwen2.5:0.5b` test (5 elevators, CONCURRENCY=8):**
+- Wall clock: 11s — individual calls 5.3–9.8s, avg ~7.4s
+- Quality: **unacceptable** — two confirmed failures:
+  - Elevator 10316: all 5 inspections have "Follow up" outcome (non-passing), but the model wrote "5 out of 5 inspections being successful" — inverted the meaning of the data
+  - Elevator 1049: wrote "shutdown order in 2014" — this phrase does not appear anywhere in the extracted summary. Clear hallucination.
+  - Elevator 10: one-sentence output with no dates cited
+- Extrapolated full run: ~7 hours, but output is not usable
+
+The 0.5B model is too small to reliably handle negation and instruction following even when facts are pre-extracted. The hallucination rate on a 5-elevator sample (2/5 failures) makes it unsuitable for production.
+
+### Decision
+
+**`qwen2.5:1.5b` + pre-extraction is the production choice.** Quality matches `mistral:7b` V4 on the sampled elevators, with no detected hallucinations. The pre-extraction prompt is simpler and more rigid than V4 (better fit for a 1.5B model), but produces the same key attributes: specific dates, counts, no invented inferences.
+
+### Runtime reality
+
+At observed throughput (609s for first 100 elevators = 6.09s/elevator wall clock), the full 27,611-elevator run will take approximately **46 hours**. This is a hardware constraint — CPU-only inference does not scale linearly with concurrency because all threads compete for the same cores. CONCURRENCY=8 provides ~2-3x real speedup vs sequential, not 8x.
+
+For reference, with a discrete NVIDIA GPU (e.g. RTX 3060 8 GB), `qwen2.5:1.5b` would run at ~1-2s per call, putting the full run at 2-3 hours. That path is not available on this machine.
+
+The script uses checkpoint/resume (`risk_explanation IS NOT NULL` skip) so the run can be interrupted and continued across sessions. Full run started 2026-06-04 and is expected to complete by 2026-06-06.
+
+---

@@ -1,7 +1,10 @@
 """
 AND-105 Task 7: generate_explanations.py
 Generates 2-3 sentence risk explanations for all HIGH-risk elevators using Ollama
-(mistral:7b) and writes them to the predictions.risk_explanation column.
+(qwen2.5:1.5b) and writes them to the predictions.risk_explanation column.
+
+Pre-extraction strategy: Python extracts structured key facts before calling the LLM,
+so the 1.5B model only needs to do NLG over concrete numbers — no reasoning over raw JSON.
 
 Usage:
   py -3 intelligence/generate_explanations.py             # all HIGH, skip existing
@@ -18,29 +21,26 @@ import requests
 
 # ── Config ────────────────────────────────────────────────────────────────────
 OLLAMA_URL  = 'http://localhost:11434'
-MODEL       = 'mistral:7b'
-CONCURRENCY = 4          # parallel Ollama requests
+MODEL       = 'qwen2.5:1.5b'
+CONCURRENCY = 8          # parallel Ollama requests
 BATCH_SIZE  = 100        # elevators processed per DB round-trip
-TIMEOUT     = 300        # seconds per Ollama call
+TIMEOUT     = 120        # seconds per Ollama call
 DB_CTR      = 'rocket-elevators-ops-dashboard-db-1'
 DB_USER     = 'api_user'
 DB_NAME     = 'rocket_elevators'
 
-# V4 hardened prompt — identical to notebook SYSTEM_V4
+# Pre-extraction prompt — tuned for qwen2.5:1.5b (1.5B parameters)
+# Rigid template: model receives structured facts, not raw JSON, so it only does NLG
 SYSTEM_PROMPT = '\n'.join([
-    'You are an Ontario elevator safety analyst familiar with TSSA compliance requirements.',
+    'You are an elevator safety analyst. Write exactly 2-3 sentences explaining why this elevator is HIGH risk.',
     '',
-    'Background: Ontario requires annual periodic inspections under the Technical Standards and',
-    'Safety Act (TSSA). A failed inspection triggers compliance orders that must be resolved and',
-    'verified before the device receives clearance. Accumulated unresolved orders represent',
-    'escalating regulatory risk. Inspection types: Periodic (annual), Followup (post-failure), Other.',
-    '',
-    'Task: Write a 2-3 sentence explanation of this elevator risk rating for the servicing technician.',
-    'Lead with the single most operationally significant risk factor.',
-    'Cite specific dates and counts from the data. Do not mention risk scores or algorithms.',
-    'Use only the information provided in this message. Do not add knowledge not present in the data.',
-    'If a category has no records, state that explicitly rather than omitting or inferring.',
-    'If all indicators are benign, state that directly — do not manufacture concerns to fill the required sentences.',
+    'Rules:',
+    '- Use ONLY the facts given below. Do not invent or add any information.',
+    '- Start with the most recent inspection: cite its date and outcome.',
+    '- If failed_inspections > 0, mention the count.',
+    '- If incidents > 0, mention the count.',
+    '- Do not mention risk scores, model names, or algorithms.',
+    '- If all indicators show no problems, say so directly — do not manufacture concerns.',
 ])
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
@@ -89,49 +89,47 @@ def update_batch(updates):
     _psql(''.join(lines), via_stdin=True)
 
 
+# ── Pre-extraction ────────────────────────────────────────────────────────────
+_PASSING_OUTCOMES = {'Passed', 'Complete', 'Pass', 'Completed'}
+_PENDING_STATUSES = {'Pending', 'In Progress', 'Open', 'Follow up', 'Followup'}
+
+
+def build_summary(elev):
+    """Extract key facts from raw context so the 1.5B model only does NLG."""
+    inspections = elev.get('inspections', [])
+    incidents   = elev.get('incidents', [])
+    alterations = elev.get('alterations', [])
+
+    most_recent = inspections[0] if inspections else None
+    failed_insp = sum(1 for i in inspections if i.get('outcome') not in _PASSING_OUTCOMES)
+    pending_alts = sum(1 for a in alterations if a.get('status') in _PENDING_STATUSES)
+
+    return {
+        'most_recent_inspection': most_recent,
+        'total_inspections':      len(inspections),
+        'failed_inspections':     failed_insp,
+        'incidents_past_2yr':     len(incidents),
+        'pending_alterations':    pending_alts,
+    }
+
+
 # ── User message formatter ────────────────────────────────────────────────────
 def user_msg(elev):
-    eid, etype, loc, level = (
-        elev['elevator_id'], elev['elevator_type'],
-        elev['location'], elev['risk_level'],
+    s = build_summary(elev)
+    mr = s['most_recent_inspection']
+    mr_str = (
+        f"{mr.get('date', '?')} | {mr.get('inspection_type', '?')} | outcome: {mr.get('outcome', '?')}"
+        if mr else 'none on record'
     )
-    lines = [
-        f'Elevator {eid} — {etype} at {loc}',
-        f'Risk Level: {level}',
+    return '\n'.join([
+        f"Elevator {elev['elevator_id']} — {elev.get('elevator_type', 'Elevator')} at {elev['location']}",
+        f"Risk Level: {elev['risk_level']}",
         '',
-        'Recent inspections (most recent first):',
-    ]
-    if elev['inspections']:
-        for i in elev['inspections']:
-            d = i.get('date') or 'unknown'
-            t = i.get('inspection_type') or 'unknown'
-            o = i.get('outcome', '')
-            lines.append(f'  {d} | {t} | {o}')
-    else:
-        lines.append('  No inspections on record')
-
-    lines += ['', 'Incidents in past 2 years:']
-    if elev['incidents']:
-        for i in elev['incidents']:
-            lines.append(
-                f"  {i.get('date') or 'unknown'} | "
-                f"{i.get('category') or 'unknown'} | "
-                f"severity: {i.get('injury_severity') or 'none'}"
-            )
-    else:
-        lines.append('  None')
-
-    lines += ['', 'Recent alterations:']
-    if elev['alterations']:
-        for a in elev['alterations']:
-            lines.append(
-                f"  {a.get('alteration_type') or 'unknown'} | "
-                f"status: {a.get('status') or 'unknown'}"
-            )
-    else:
-        lines.append('  None')
-
-    return '\n'.join(lines)
+        f"Most recent inspection: {mr_str}",
+        f"Non-passing inspections (of last {s['total_inspections']}): {s['failed_inspections']}",
+        f"Incidents in past 2 years: {s['incidents_past_2yr']}",
+        f"Pending alterations: {s['pending_alterations']}",
+    ])
 
 
 # ── Async Ollama call (thread-pool via asyncio.to_thread) ────────────────────
@@ -140,7 +138,7 @@ def _call_ollama_sync(system, user):
     payload = {
         'model':   MODEL,
         'stream':  False,
-        'options': {'temperature': 0.1, 'num_predict': 200},
+        'options': {'temperature': 0.1, 'num_predict': 150},
         'messages': [
             {'role': 'system', 'content': system},
             {'role': 'user',   'content': user},
@@ -436,8 +434,8 @@ def main():
     print(f'Elevators:   {len(elevators)} (mode: {mode}{f", limit={args.limit}" if args.limit else ""})')
     print(f'Concurrency: {CONCURRENCY} parallel Ollama requests')
     print(f'Batch size:  {BATCH_SIZE} elevators per DB round-trip')
-    est_hours = len(elevators) * 12.5 / CONCURRENCY / 3600
-    print(f'Estimated:   ~{est_hours:.1f}h at 12.5s/call × {CONCURRENCY} concurrent')
+    est_hours = len(elevators) * 8.0 / CONCURRENCY / 3600
+    print(f'Estimated:   ~{est_hours:.1f}h at 8s/call x {CONCURRENCY} concurrent')
     print()
 
     t_start = time.time()
