@@ -177,6 +177,48 @@ The appendix previously only covered elevator, inspection, and risk fields. Futu
 
 ---
 
+## AND-104 Task 7: new-endpoint Skill — Architectural Drift Correction
+
+**What was added:**
+Updated Step 2 ("Data processing and response building") and Step 4 ("Verify data layer support") in `.claude/skills/new-endpoint/SKILL.md` to reflect the PostgreSQL-backed architecture introduced in AND-105 Task 4.
+
+Step 2 now instructs developers to use the global `db *pgxpool.Pool` with `db.QueryRow` (single-row) and `db.Query` + rows loop (multi-row), with concrete parameterized query examples and correct error handling patterns.
+
+Step 4 replaces the CSV loading decision tree with a table of the five PostgreSQL tables (`elevators`, `inspections`, `incidents`, `alterations`, `predictions`) and a simplified two-question decision: can the handler use standard SQL joins, and does it need new response types in `models.go`.
+
+**Where:**
+`.claude/skills/new-endpoint/SKILL.md` — Step 2 section 3 and Step 4
+
+**Why:**
+AND-105 Task 4 migrated the Go API from CSV flat-file loading into in-memory maps (`elevators`, `elevatorIdx`, `inspectionIdx`, `riskIdx`) to a PostgreSQL connection pool (`pgxpool`). The skill retained the old instructions, which described variables and loading patterns that no longer exist. Any developer invoking `/new-endpoint` after the migration would follow a workflow that references removed architecture, producing non-compilable handler code. Steps 1, 2 (sections 1–2 and 4), 3, and 5 required no changes — only the data access guidance was stale.
+
+---
+
+## AND-104 Task 7: risk_distribution.unknown — Invariant Hardening
+
+**What was added:**
+Updated the `unknown` bucket CASE expression in `GetFleetStats` (`platform/api/handlers.go`) to capture all rows that are not explicitly `low`, `medium`, or `high`:
+
+```sql
+-- Before
+COUNT(CASE WHEN p.risk_level IS NULL THEN 1 END) AS unknown
+
+-- After
+COUNT(CASE WHEN p.risk_level IS NULL
+           OR LOWER(p.risk_level) NOT IN ('low', 'medium', 'high')
+      THEN 1 END) AS unknown
+```
+
+**Where:**
+`platform/api/handlers.go` — `GetFleetStats`, risk distribution query
+
+**Why:**
+The original expression only caught rows where `p.risk_level IS NULL`, which correctly handles elevators with no prediction record (LEFT JOIN produces a null row). However, if any prediction row contains a non-standard, non-null risk level (e.g., a future model version introduces `"CRITICAL"` or a data import produces an unexpected value), that elevator would be counted in `total_elevators` but fall into none of the four buckets, breaking the spec-guaranteed invariant `low + medium + high + unknown == total_elevators`.
+
+The updated expression uses `NOT IN ('low', 'medium', 'high')` as the catch-all, which is exhaustive by construction: every row either matches one of the three known levels or falls into `unknown`. The invariant now holds regardless of what values appear in `risk_level`.
+
+---
+
 ## AND-104 Post-Audit: Corrected gofmt Hook Documentation
 
 **Title:** Aligned gofmt hook audit description with actual behavior

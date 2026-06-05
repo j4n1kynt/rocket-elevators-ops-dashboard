@@ -491,7 +491,7 @@ func GetFleetStats(w http.ResponseWriter, r *http.Request) {
 			COUNT(CASE WHEN LOWER(p.risk_level) = 'low'     THEN 1 END) AS low,
 			COUNT(CASE WHEN LOWER(p.risk_level) = 'medium'  THEN 1 END) AS medium,
 			COUNT(CASE WHEN LOWER(p.risk_level) = 'high'    THEN 1 END) AS high,
-			COUNT(CASE WHEN p.risk_level IS NULL             THEN 1 END) AS unknown
+			COUNT(CASE WHEN p.risk_level IS NULL OR LOWER(p.risk_level) NOT IN ('low', 'medium', 'high') THEN 1 END) AS unknown
 		FROM elevators e
 		LEFT JOIN predictions p ON p.elevator_id = e.elevator_id`,
 	).Scan(&totalElevators, &lowCount, &mediumCount, &highCount, &unknownCount)

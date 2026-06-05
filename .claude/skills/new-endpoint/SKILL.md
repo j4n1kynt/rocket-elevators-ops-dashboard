@@ -117,18 +117,36 @@ if _, ok := elevatorIdx[id]; !ok {
 ```
 
 **3. Data processing and response building:**
-- Use only in-memory slices and maps: `elevators`, `elevatorIdx`, `inspectionIdx`, `riskIdx`
-- No file reads at request time
-- Joins across sources must use the existing maps
-- Example: filtering and sorting (see `GetElevators` in handlers.go, lines 65-121)
+- Query the database using the global `db *pgxpool.Pool` defined in `db.go`
+- Use parameterized queries — never interpolate user values into SQL strings
+- For single-row results use `db.QueryRow(...).Scan(...)`:
   ```go
-  results := make([]Elevator, 0, len(elevators))
-  for _, e := range elevators {
-      if statusFilter != "" && e.Status != statusFilter {
-          continue
+  var count int
+  err := db.QueryRow(r.Context(), `SELECT COUNT(*) FROM elevators WHERE status = $1`, status).Scan(&count)
+  if err != nil {
+      writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+      return
+  }
+  ```
+- For multi-row results use `db.Query(...)` with a rows loop:
+  ```go
+  rows, err := db.Query(r.Context(), `SELECT elevator_id, location FROM elevators ORDER BY elevator_id`)
+  if err != nil {
+      writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
+      return
+  }
+  defer rows.Close()
+  for rows.Next() {
+      var id, loc string
+      if err := rows.Scan(&id, &loc); err != nil {
+          writeJSON(w, 500, ErrorResponse{Error: "scan failed"})
+          return
       }
-      // ... more filtering ...
-      results = append(results, e)
+      // append to results
+  }
+  if err := rows.Err(); err != nil {
+      writeJSON(w, 500, ErrorResponse{Error: "row iteration failed"})
+      return
   }
   ```
 
@@ -176,73 +194,32 @@ mux.HandleFunc("GET /api/elevators/{id}/inspections", GetElevatorInspections)
 
 ---
 
-### Step 4 — Verify data layer support
+### Step 4 — Verify data access
 
-Check whether your handler (from Step 2) needs data that is not already loaded at startup.
+Check whether your handler needs data that isn't already available through standard SQL queries against the existing schema.
 
-**Available data at runtime (all loaded in `main.go` and built in `data.go`):**
+**Available tables (PostgreSQL — see `db.go` for connection pool setup):**
 
-| Variable | Type | Source | Loaded at | Purpose |
-|---|---|---|---|---|
-| `elevators` | `[]Elevator` | `platform/elevator_fleet.csv` | Line 10 | Fleet roster |
-| `elevatorIdx` | `map[string]*Elevator` | Built from `elevators` (line 54-57) | Line 10 | Fast lookup by `elevator_id` |
-| `inspectionIdx` | `map[int][]Inspection` | `data/inspection.csv` | Line 15 | Fast lookup by device number |
-| `riskIdx` | `map[string]*RiskResponse` | `data/predictions.csv` (soft-fail) | Line 20 | Fast lookup by `elevator_id` |
+| Table | Primary key | Key columns |
+|---|---|---|
+| `elevators` | `elevator_id` | `location`, `elevator_type`, `status`, `license_expiration_date` |
+| `inspections` | `(elevator_id, latest_inspection_date)` | `inspection_type`, `outcome` |
+| `incidents` | `incident_id` | `elevator_id`, `date_of_occurrence`, `category`, `injury_severity` |
+| `alterations` | `alteration_id` | `elevator_id`, `alteration_type`, `status` |
+| `predictions` | `elevator_id` | `risk_score`, `risk_level`, `predicted_failure_date`, `confidence`, `model_version`, `risk_explanation` |
 
-**Decision tree:**
+**Decision:**
 
-1. **Can your handler compute the response using ONLY the data above?**
-   - YES → Skip to Step 5
-   - NO → Continue to step 2
+1. **Can your handler use standard SQL JOINs against these tables?**
+   - YES → Write the queries in your handler. Skip to Step 5.
 
-2. **Do you need to join across multiple sources (e.g., risk + inspections + elevator data)?**
-   - YES → Join inside your handler using the existing maps (see `GetElevatorRisk` lines 216-245, which checks `elevatorIdx` then `riskIdx`)
-   - NO → Skip to Step 5
-
-3. **Do you genuinely need NEW data not derivable from existing sources?**
-   - NO → Skip to Step 5
-   - YES → Add loading function to `data.go`:
-
-   ```go
-   // Example: add this to data.go after existing load functions (around line 157)
-   func LoadNewDataCSV(path string) error {
-       f, err := os.Open(path)
-       if err != nil {
-           return err
-       }
-       defer f.Close()
-       
-       rows, err := csv.NewReader(f).ReadAll()
-       if err != nil {
-           return err
-       }
-       
-       // Build global map or slice
-       newDataIdx = make(map[string]*NewDataType)
-       for i, row := range rows {
-           if i == 0 { continue } // skip header
-           if len(row) < expectedColumns { continue }
-           
-           // Parse row fields
-           newDataIdx[row[0]] = &NewDataType{...}
-       }
-       return nil
-   }
-   ```
-
-4. **Add the loader to `main.go` after line 20 (after existing loaders):**
-   ```go
-   if err := LoadNewDataCSV("data/newfile.csv"); err != nil {
-       log.Fatalf("failed to load new data: %v", err)
-   }
-   ```
-
-5. **Add any new response types to `models.go`** if the data is serialized in a response (not just used internally).
+2. **Do you need new response types?**
+   - YES → Add new struct types to `models.go` following existing PascalCase / snake_case JSON tag conventions.
 
 **Constraints:**
-- Do NOT add file reads inside handlers — all data must be loaded at startup
-- Do NOT create new global maps without building an index for O(1) lookup
-- Do NOT modify CSV files in place — they are read-only
+- Do NOT open files at request time — all data comes from the database
+- Do NOT define new global variables for per-request state
+- Use `r.Context()` as the context argument for all database calls (`db.Query`, `db.QueryRow`)
 
 ---
 
