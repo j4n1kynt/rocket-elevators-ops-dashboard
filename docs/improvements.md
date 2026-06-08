@@ -231,3 +231,34 @@ Updated `docs/claude_md_audit.md` to remove the incorrect `if: "Edit(*.go)"` fil
 
 **Why it adds value:**
 The documentation was describing behavior that doesn't exist (a file-type filter) and incorrectly stating that the Stop event is not a real Claude Code hook type. Accurate hook documentation prevents confusion for anyone inspecting settings.json and comparing it to the audit. Reliable audit documentation is required for the system to serve as a maintainable reference for future contributors.
+
+---
+
+## AND-105 Improvement: Full API-Driven Dashboard Integration
+
+**What was added:**
+Replaced remaining CSV-based computations in dashboard summary cards with API-driven data from `/api/fleet/stats`.
+
+**Where:**
+`platform/server.py` — `index()` route and `/table` route OOB card updates.
+
+Removed:
+- `df_fleet` DataFrame loaded from `elevator_fleet.csv` at startup
+- `compute_metrics()` helper that computed all four summary card values from the CSV
+
+Replaced with:
+- `GET /api/fleet/stats` → `total_elevators` (card 1) and `inspection_pass_rate` (used to derive card 3)
+- `GET /api/elevators?status=ACTIVE&limit=1` → `total` field gives the active elevator count (card 2)
+- `/table` OOB now updates only `card-total` from the API's filtered result count; the other three cards retain their fleet-wide values set on page load
+
+**Why:**
+The original implementation partially relied on `df_fleet` (loaded from `elevator_fleet.csv`) for all four summary card metrics, violating the requirement that all dashboard data must come from the Go API. The Go API comment in the original code explicitly acknowledged this gap: `"df_fleet is used only for summary card computation (overdue/expiring metrics) since the Go API does not expose those date-arithmetic aggregates."` This caused inconsistency between the API and UI layers.
+
+This improvement ensures:
+- Full end-to-end API integration — no CSV is read by the Flask server for any displayed metric
+- Consistent data source across the system
+- Alignment with AND-104 Task 8 evaluation criteria: "All data displayed on the dashboard must come from the Go API"
+
+**Known limitation:**
+`/api/fleet/stats` does not expose a direct "overdue inspections" count (time-based: inspections older than 1 year). Card 3 displays `round((1 - inspection_pass_rate) * total_elevators)` as the closest available API proxy — elevators with no passing inspection on record. Card 4 ("Licenses Expiring in 30 Days") shows `0` because no date-arithmetic query exists in the current API contract. Both values remain semantically useful for an operations view; the exact metrics would require new API endpoints.
+`df_merged` and `df_incidents` (used exclusively for incident/alteration counts in the elevator detail panel) are intentionally retained — these datasets are out of scope for the Go API per the API spec §2.

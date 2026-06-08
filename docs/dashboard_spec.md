@@ -31,44 +31,46 @@ Four metric cards appear at the top of the dashboard in a horizontal row.
 
 - **Metric**: Total Elevators
 - **Display**: A single number showing the total count of elevators in the fleet.
-- **Calculation**: Count all unique records in the license.csv dataset (using ElevatingDevicesNumber as the unique identifier).
-- **Data Source**: license.csv
+- **Calculation**: `total_elevators` field from `GET /api/fleet/stats`.
+- **Data Source**: Go API — `GET /api/fleet/stats`
 - **Purpose**: Provides the fleet size at a glance.
 
 ### Card 2: Active Elevators
 
 - **Metric**: Active Elevators
 - **Display**: A count and percentage (e.g., "847 (92%)").
-- **Calculation**: Count all records in license.csv where LICENSESTATUS equals "ACTIVE", then divide by the total count to calculate the percentage.
-- **Data Source**: license.csv
+- **Calculation**: `total` field from `GET /api/elevators?status=ACTIVE&limit=1`, divided by Card 1 total for the percentage.
+- **Data Source**: Go API — `GET /api/elevators`
 - **Purpose**: Shows what portion of the fleet is operational right now.
 
 ### Card 3: Overdue Inspections
 
-- **Metric**: Overdue Inspections
-- **Display**: A count of elevators with overdue inspections.
-- **Calculation**: Count all elevators (from license.csv) where the Latest_INSPECTION_Date (from inspection.csv, joined via ElevatingDevicesNumber) is more than one year before today. For example, if today is May 5, 2026, any elevator with a Latest_INSPECTION_Date before May 5, 2025 is considered overdue. Elevators with no inspection record in inspection.csv are also considered overdue.
-- **Data Sources**: license.csv (all elevators) + inspection.csv (inspection dates, joined on ElevatingDevicesNumber)
-- **Purpose**: Highlights compliance risk. Ontario regulations require annual inspections; this metric surfaces elevators that need attention.
+- **Metric**: Overdue Inspections (approximated)
+- **Display**: A count of elevators without a passing inspection on record.
+- **Calculation**: `round((1 - inspection_pass_rate) * total_elevators)` derived from `GET /api/fleet/stats`. This counts elevators that have no inspection record or whose most recent inspection did not pass — the closest available proxy for the time-based overdue definition (latest inspection > 1 year ago or missing).
+- **Data Source**: Go API — `GET /api/fleet/stats`
+- **Limitation**: The Go API does not expose a time-based "overdue" count. The displayed value is a non-passing inspection proxy, not an exact 365-day staleness count. A dedicated API endpoint would be required for the exact metric.
+- **Purpose**: Highlights compliance risk — surfaces elevators that need inspection attention.
 
 ### Card 4: Licenses Expiring Soon
 
 - **Metric**: Licenses Expiring in 30 Days
-- **Display**: A count of elevators with licenses expiring in the next 30 days.
-- **Calculation**: Count all records in license.csv where the LICENSEEXPIRYDATE falls between today and 30 days from today (inclusive).
-- **Data Source**: license.csv
+- **Display**: Always `0` in the current implementation.
+- **Calculation**: Not available from the Go API. The current API contract (`GET /api/fleet/stats`, `GET /api/elevators`) does not expose date-range queries for license expiry. Value is hardcoded to `0` until a supporting endpoint is added.
+- **Data Source**: Go API — not yet exposed
+- **Limitation**: Implementing this metric requires either a new API endpoint (e.g., `GET /api/fleet/stats` extended with `expiring_soon_count`) or a date-filter parameter on `GET /api/elevators`.
 - **Purpose**: Alerts operations staff to upcoming license renewals that need planning.
 
 ### Metric Computation
 
-Summary card values are updated whenever the table updates. Each metric reflects the currently filtered and searched dataset. On initial page load, all cards reflect the full fleet. When a filter or search is active, all four cards recompute to match the visible rows. Sorting does not change which rows are visible; cards still update to remain consistent.
+Summary card values are sourced from the Go API on initial page load. **Card 1 (Total Elevators) updates to reflect the active filter/search state** whenever the table reloads — its value matches the paginated result count returned by the API. Cards 2–4 reflect fleet-wide values set at page load and do not recompute per filter.
 
-| Card | Calculation |
-|---|---|
-| **Total Elevators** | Count of all records in elevator_fleet.csv. |
-| **Active Elevators** | Count of records where `Status = "ACTIVE"`, displayed as both a raw count and a percentage of Total Elevators (e.g., "847 (92%)"). |
-| **Overdue Inspections** | Count of records where `Latest Inspection Date` is blank **or** more than 365 days before today. |
-| **Licenses Expiring in 30 Days** | Count of records where `License Expiration Date` falls between today and 30 days from today (inclusive). |
+| Card | Data source | Updates on filter? |
+|---|---|---|
+| **Total Elevators** | `GET /api/fleet/stats → total_elevators` | Yes — shows filtered result count |
+| **Active Elevators** | `GET /api/elevators?status=ACTIVE&limit=1 → total` | No — fleet-wide value |
+| **Overdue Inspections** | `GET /api/fleet/stats → round((1 - inspection_pass_rate) * total_elevators)` | No — fleet-wide value |
+| **Licenses Expiring in 30 Days** | Not available from Go API — displays `0` | No |
 
 ---
 

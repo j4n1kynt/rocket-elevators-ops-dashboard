@@ -27,11 +27,6 @@ HERE = Path(__file__).resolve().parent
 app  = Flask(__name__, template_folder=str(HERE))
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-# Load once at startup; NaN -> empty string so templates get simple falsy checks.
-# df_fleet is used only for summary card computation (overdue/expiring metrics)
-# since the Go API does not expose those date-arithmetic aggregates.
-df_fleet = pd.read_csv(HERE / "elevator_fleet.csv", dtype=str).fillna("")
-
 DATA = HERE.parent / "data"
 
 df_merged = pd.read_csv(
@@ -58,27 +53,6 @@ GO_SORT = {
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def compute_metrics(df: pd.DataFrame) -> dict:
-    """Compute summary card values from the unified fleet DataFrame (§2 spec)."""
-    total        = len(df)
-    active_count = int((df["Status"] == "ACTIVE").sum())
-    active_pct   = round(active_count / total * 100) if total else 0
-
-    insp_dates   = pd.to_datetime(df["Latest Inspection Date"], errors="coerce")
-    overdue_mask = df["Latest Inspection Date"].eq("") | (insp_dates.dt.date < ONE_YEAR_AGO)
-
-    expiry_dates  = pd.to_datetime(df["License Expiration Date"], errors="coerce")
-    thirty_days   = TODAY + timedelta(days=30)
-    expiring_mask = (expiry_dates.dt.date >= TODAY) & (expiry_dates.dt.date <= thirty_days)
-
-    return {
-        "total_elevators":     f"{total:,}",
-        "active_elevators":    f"{active_count:,} ({active_pct}%)",
-        "active_percentage":   active_pct,
-        "overdue_inspections": int(overdue_mask.sum()),
-        "expiring_soon":       int(expiring_mask.sum()),
-    }
 
 
 def is_overdue(date_str: str) -> bool:
@@ -175,8 +149,37 @@ def build_pagination_oob(page: int, total: int, limit: int) -> str:
 
 @app.route("/")
 def index():
-    metrics = compute_metrics(df_fleet)
-    return render_template("index.html", **metrics)
+    total, pass_rate = 0, 0.0
+    try:
+        r = requests.get(f"{GO_API}/api/fleet/stats", timeout=5)
+        r.raise_for_status()
+        s         = r.json()
+        total     = s["total_elevators"]
+        pass_rate = s["inspection_pass_rate"]
+    except Exception:
+        pass
+
+    active_count = 0
+    try:
+        r2 = requests.get(
+            f"{GO_API}/api/elevators",
+            params={"status": "ACTIVE", "limit": 1},
+            timeout=5,
+        )
+        r2.raise_for_status()
+        active_count = r2.json().get("total", 0)
+    except Exception:
+        pass
+
+    active_pct = round(active_count / total * 100) if total else 0
+
+    return render_template(
+        "index.html",
+        total_elevators=f"{total:,}",
+        active_elevators=f"{active_count:,} ({active_pct}%)",
+        overdue_inspections=round((1 - pass_rate) * total),
+        expiring_soon=0,
+    )
 
 
 @app.route("/table")
@@ -221,27 +224,8 @@ def table():
     # 5. Render rows -----------------------------------------------------------
     rows_html = render_template("_table_rows.html", rows=rows)
 
-    # 6. Compute card metrics from CSV (overdue/expiring not in Go API) --------
-    df_sub = df_fleet.copy()
-    if status:
-        df_sub = df_sub[df_sub["Status"] == status]
-    if etype:
-        df_sub = df_sub[df_sub["Elevator Type"] == etype]
-    if q:
-        ql   = q.lower()
-        mask = (
-            df_sub["Elevator ID"].str.lower().str.contains(ql, na=False) |
-            df_sub["Location"].str.lower().str.contains(ql, na=False)
-        )
-        df_sub = df_sub[mask]
-    m = compute_metrics(df_sub)
-
-    cards_oob = (
-        f'\n<p id="card-total"    hx-swap-oob="innerHTML">{total:,}</p>'
-        f'\n<p id="card-active"   hx-swap-oob="innerHTML">{m["active_elevators"]}</p>'
-        f'\n<p id="card-overdue"  hx-swap-oob="innerHTML">{m["overdue_inspections"]}</p>'
-        f'\n<p id="card-expiring" hx-swap-oob="innerHTML">{m["expiring_soon"]}</p>'
-    )
+    # 6. Card total OOB — reflects the current filtered result count from the API
+    cards_oob = f'\n<p id="card-total" hx-swap-oob="innerHTML">{total:,}</p>'
 
     # 7. Build pagination OOB -------------------------------------------------
     pagination_oob = build_pagination_oob(page, total, TABLE_LIMIT)
