@@ -46,6 +46,36 @@ The analytics team maintains a risk prediction model that identifies the **top 5
 
 Risk classifications are predictions, not guarantees. They are decision-support tools and should be combined with direct inspection records and professional judgement.
 
+### Inspection Types and Outcomes
+
+Inspection types triggered by different events:
+
+- **Periodic** — standard scheduled inspection on the TSSA's regular cycle. Every active device is inspected periodically. Takes 2–4 hours. Rocket Elevators coordinates access but does not perform inspections.
+- **Initial** — required before a newly installed device enters service.
+- **Followup** — TSSA returns to verify that compliance orders from a previous inspection have been addressed.
+- **Major Alteration** — required after any major modification before the device returns to service.
+- **Minor A / Minor B** — Minor A covers safety-critical component changes (door operators, governors, safety devices) and always requires inspection. Minor B covers non-critical components (buttons, lighting) and may or may not require inspection depending on scope.
+- **Re-Activate** — required before any shut-down device (customer or TSSA shutdown) can return to service.
+- **Incident** — triggered by a reported incident or near-miss; takes priority over routine inspections.
+- **Enforcement Action** — triggered by serious compliance violations; unannounced.
+
+Inspection outcomes:
+
+- **Passed** — device meets all safety requirements; no orders issued.
+- **Fail** — violations found; compliance orders issued with regulation references, directives, risk scores, and deadlines.
+- **Follow up** — some orders resolved but others remain; another follow-up will be scheduled.
+- **Shutdown** — violations are severe enough that the device cannot safely operate; triggers a TSSA Shutdown.
+- **Unable to Inspect** — inspector could not complete the inspection (access denied, device not operational); repeated occurrences can trigger enforcement action.
+
+### Compliance Order Risk Scoring
+
+Each compliance order includes a risk score (1–10) assigned by the TSSA inspector:
+
+- **1–3 (Low):** Administrative or minor issues (faded signage, cosmetic damage, outdated logs). Real violations but no immediate safety risk. Extension requests are routinely approved.
+- **4–6 (Medium):** Functional issues that could become safety hazards if not addressed (worn door interlocks, intermittent emergency lighting). Extensions granted with conditions.
+- **7–9 (High):** Safety-critical issues presenting real injury risk (non-functional governors, buffers, or safety devices; compromised hoistway enclosures). Extensions are rarely granted; TSSA may escalate to enforcement.
+- **10 (Critical):** Imminent danger. Almost always accompanies a shutdown order.
+
 ### Maintenance Terminology
 
 - **Alteration:** A physical or mechanical modification to an elevating device. Every alteration must be documented and may trigger an additional inspection. High alteration counts are a signal of mechanical complexity or recurring issues.
