@@ -22,17 +22,21 @@ Elevator safety in Ontario is governed by the **Technical Standards and Safety A
 
 ### Elevating Device Types
 
-Ontario regulates several categories of elevating devices under the same framework:
+The Rocket Elevators fleet consists entirely of elevating devices classified as elevators under Ontario regulation. The fleet does not include escalators or dumbwaiters. Device types managed:
 
-- **Passenger elevators** — standard vertical transport in residential and commercial buildings
-- **Freight elevators** — designed for goods; may have different load and speed ratings
-- **Escalators** — moving stairways; inspected for handrail, steps, and safety device compliance
-- **Dumbwaiters** — small service lifts; typically lower load capacity, shorter travel distance
-- **Inclined platforms and vertical platform lifts** — accessibility devices; subject to the same licensing and inspection requirements
+- **Passenger Elevator** — standard vertical transport for people. The most common type in the fleet. Subtypes are traction (steel ropes and counterweights, common in buildings over 6 storeys) and hydraulic (piston and fluid, common in low-rise buildings of 2–6 storeys).
+- **Freight Elevator** — designed primarily for goods and materials. Variants: Freight Elevator-E (electric traction) and Freight Elevator-P (hydraulic/pneumatic). Higher weight capacity; often in service corridors.
+- **Observation Elevator** — glass walls, typically on building exteriors or atriums. Requires extra maintenance attention due to exposed components and weather sealing.
+- **LULA Elevator** — Limited Use/Limited Application. Smaller, lower-speed accessibility elevators for low-rise buildings where a full elevator is impractical. Common in churches and retrofitted older buildings.
+- **Sidewalk Elevator** — opens at sidewalk level to move goods between street and basement. Common in older commercial districts. Landing doors are at grade in public spaces, creating unique safety considerations.
+- **Material Lift ATD** — Automated Transfer Device for materials only, not people. Found in industrial and warehouse settings.
+- **Power Type Manlift** — legacy continuously moving belt devices being phased out across Ontario due to safety concerns. When encountered, the standard recommendation to building owners is replacement.
+- **Special Installation** — non-standard configurations that do not fit other categories. Each may have custom inspection requirements.
+- **Temporary Elevator** — installed at construction sites during building construction; removed when the permanent elevator becomes operational.
 
 ### Risk Classification
 
-The dashboard classifies each elevator into one of four risk levels based on machine learning predictions trained on inspection history, device type, alteration count, and location:
+The analytics team maintains a risk prediction model that identifies the **top 500 highest-risk devices** in the fleet. Not every elevator has a prediction — only those the model flags. The model analyzes inspection history, compliance orders, incidents, device type, alteration count, and location to assign a risk level and generate a plain-language explanation of why the device was flagged. Risk levels:
 
 - **LOW** — inspection history is consistent and current; low likelihood of near-term failure or order
 - **MEDIUM** — mixed signals; may have older inspections or minor outstanding orders
