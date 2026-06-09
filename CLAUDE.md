@@ -42,6 +42,20 @@ py -3 platform/server.py
 go run ./platform/api
 ```
 
+## Branching Strategy
+
+```
+main ← dev ← feat/<card-id>-<short-description>
+```
+
+- **`main`** — stable, production-ready. Never commit directly. Receives merges from `dev` only at end of sprint via PR.
+- **`dev`** — integration branch. All feature PRs target this branch. Never commit directly.
+- **`feat/...`** — short-lived feature branches (1-2 days max). Always branch from `dev`. One task per branch, one branch per PR.
+
+Branch naming: `feat/chat-1-flask-endpoint`, `feat/infra-1-deploy`, etc.
+PR rule: at least 1 reviewer required before merging into `dev`.
+Merged branches must be preserved — do not delete after merge.
+
 ## Conventions
 
 - **Spec-driven:** `platform/index.html` may only reflect content explicitly defined in `docs/dashboard_spec.md`. Update the spec first, then the HTML — never the reverse.
