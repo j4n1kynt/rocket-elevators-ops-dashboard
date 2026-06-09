@@ -78,7 +78,12 @@ Each compliance order includes a risk score (1–10) assigned by the TSSA inspec
 
 ### Maintenance Terminology
 
-- **Alteration:** A physical or mechanical modification to an elevating device. Every alteration must be documented and may trigger an additional inspection. High alteration counts are a signal of mechanical complexity or recurring issues.
+- **Alteration:** A physical or mechanical modification to an elevating device. Every alteration must be documented and triggers inspection requirements based on scope. Three classifications:
+  - *Major Alteration* — significant structural or mechanical changes (replacing motor, controller, hoisting ropes; changing rated capacity or speed). Requires a TSSA permit, a licensed contractor, and a major alteration inspection before the device returns to service. Device status changes to "Undergoing Major Alt."
+  - *Minor A Alteration* — changes to safety-critical components (door operators, governors, safety devices, control systems). Requires TSSA notification and a licensed contractor. Inspection required after completion.
+  - *Minor B Alteration* — changes to non-critical components (buttons, indicators, cab lighting, ventilation). May require TSSA notification depending on scope; may be performed by qualified field technicians; may or may not require inspection.
+- **Incident (ED-Incident):** An event involving an elevating device where injury occurred. Severities range from minor (bruises) to severe (fractures, amputations) to fatal. Must be reported to the TSSA within 24 hours.
+- **Near-Miss (ED-Near-Miss):** An event where injury could have occurred but did not (e.g., a door closing on a passenger who avoids injury, an elevator stopping between floors with passengers evacuated safely). Treated seriously as an indicator of conditions that could lead to future injury. Reportable to the TSSA within 72 hours.
 - **Order:** A written directive from a TSSA inspector requiring a deficiency to be corrected by a specific date.
 - **Deficiency:** A condition that does not meet the requirements of the applicable regulation or standard.
 - **Pit:** The space below the lowest landing of an elevator; must meet minimum depth and safety device requirements.
