@@ -22,6 +22,9 @@ from psycopg2.extras import execute_values
 # ---------------------------------------------------------------------------
 
 def get_connection():
+    url = os.environ.get("DATABASE_URL")
+    if url:
+        return psycopg2.connect(url)
     return psycopg2.connect(
         host=os.environ["DB_HOST"],
         port=os.environ.get("DB_PORT", "5432"),
