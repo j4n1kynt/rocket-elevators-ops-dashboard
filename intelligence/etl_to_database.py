@@ -13,12 +13,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
 
 import psycopg2
 from psycopg2.extras import execute_values
 
-
+load_dotenv()
 # ---------------------------------------------------------------------------
 # Connection
 # ---------------------------------------------------------------------------
