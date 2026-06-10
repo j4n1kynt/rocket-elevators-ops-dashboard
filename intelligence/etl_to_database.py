@@ -12,16 +12,21 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 import psycopg2
 from psycopg2.extras import execute_values
 
-
+load_dotenv()
 # ---------------------------------------------------------------------------
 # Connection
 # ---------------------------------------------------------------------------
 
 def get_connection():
+    url = os.environ.get("DATABASE_URL")
+    if url:
+        return psycopg2.connect(url)
     return psycopg2.connect(
         host=os.environ["DB_HOST"],
         port=os.environ.get("DB_PORT", "5432"),
