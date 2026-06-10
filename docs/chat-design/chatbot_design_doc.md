@@ -40,26 +40,33 @@ The widget is a companion to the existing dashboard, not a replacement for the t
 ```
 Browser (HTMX)
     │
+    │  POST /chat  (form fields: message, history)
+    ▼
+Flask  (localhost:5000)
+    │
     │  POST /api/chat  (JSON body: {message, history})
     ▼
 Go API  (localhost:8080)
     │
     ├─ Retrieve relevant fleet context
-    │    └─ internal query: elevators, stats, inspections, risk
+    │    └─ intent detection → elevators, stats, inspections, risk
     │
     │  POST http://localhost:11434/api/chat
     ▼
 Ollama  (local LLM service)
     │
-    │  streamed or buffered response
+    │  buffered response
     ▼
-Go API  (formats and returns assistant reply)
+Go API  (returns JSON: {reply, history})
     │
     ▼
-Browser  (HTMX appends reply bubble into chat panel)
+Flask  (renders HTML fragment: reply bubble + OOB history field)
+    │
+    ▼
+Browser  (HTMX appends reply bubble, overwrites history hidden field)
 ```
 
-The browser never communicates directly with Ollama. The Go API acts as the relay, enriching the user's message with relevant fleet data before forwarding it to the model.
+The browser never communicates directly with the Go API or Ollama. Flask is the intermediary — it forwards the request to the Go API, receives JSON back, and renders the HTML fragment that HTMX swaps into the page.
 
 ### 3.2 Go API Chat Endpoint
 
@@ -87,9 +94,15 @@ The browser never communicates directly with Ollama. The Go API acts as the rela
 **Response body:**
 ```json
 {
-  "reply": "There are 27,659 HIGH-risk elevators in the current fleet, representing approximately 64% of total devices."
+  "reply": "There are 27,659 HIGH-risk elevators in the current fleet, representing approximately 64% of total devices.",
+  "history": [
+    { "role": "user", "content": "How many HIGH risk elevators are there?" },
+    { "role": "assistant", "content": "There are 27,659 HIGH-risk elevators..." }
+  ]
 }
 ```
+
+The `history` array is the full updated conversation (appended with the latest user/assistant pair). Flask uses it to overwrite the client-side hidden field via an OOB swap — the Go API does not store history between requests.
 
 **Error responses:**
 
@@ -115,14 +128,19 @@ Responses are buffered (non-streaming) for the initial implementation to keep th
 
 Before calling Ollama, the Go API retrieves a concise data snapshot relevant to the user's message and injects it into the system prompt. This grounds the model's answer in live fleet data.
 
-| Query type | Data fetched |
-|---|---|
-| Fleet-wide questions | `GET /api/fleet/stats` result |
-| Elevator lookup | `GET /api/elevators?q={term}&limit=5` result |
-| Single elevator | `GET /api/elevators/{id}` + `/inspections` + `/risk` |
-| Alerts / critical | `GET /api/fleet/alerts` result |
+The Go API uses lightweight keyword-based intent detection to decide which data to fetch — it does not fetch all four sources on every request. The incoming message is scanned for signals before any database call is made.
+
+| Intent | Signals | Data fetched |
+|---|---|---|
+| Fleet-wide | "how many", "total", "fleet", "distribution", "summary" | `GET /api/fleet/stats` |
+| Elevator lookup | location name, region, or keyword without a numeric ID | `GET /api/elevators?q={term}&limit=5` |
+| Single elevator | numeric elevator ID present in the message | `GET /api/elevators/{id}` + `/inspections` + `/risk` |
+| Alerts / critical | "alert", "critical", "out of service", "urgent" | `GET /api/fleet/alerts` |
+| No match | none of the above signals detected | No data fetched — see below |
 
 The context snapshot is formatted as compact JSON and prepended to the system message. If a data fetch fails, the system message notes the unavailability so the model can report it rather than hallucinate.
+
+**Unmatched queries:** When the message does not match any intent, no fleet data is fetched. The system message includes a note stating that no relevant context was found. The model is instructed to respond with: "I can help with fleet summaries, elevator lookups, inspection history, and critical alerts. Could you rephrase your question?" — it does not attempt to answer from its training data.
 
 ### 3.5 System Prompt
 
@@ -219,7 +237,7 @@ The input area is a single-line text field with placeholder text `Ask about the 
 | After send | The field clears immediately when the message is submitted |
 | While loading | The field and send button are both disabled until the assistant reply arrives |
 | Send button | Disabled when the field is empty or while a reply is pending |
-| Max length | 500 characters — the field rejects further input beyond this limit |
+| Max length | Hard cap of 500 characters — enforced via `maxlength="500"` on the input element. Typing stops at 500 with no error message or counter shown. |
 
 The send button uses the same dark navy as the panel header to maintain visual consistency with the existing dashboard palette.
 
@@ -299,7 +317,7 @@ The widget follows the project convention of no custom JavaScript. All interacti
 
 ## 7. Session State
 
-Conversation history is maintained client-side as a hidden field in the chat form. Each response from the Go API returns the updated history array, which the HTMX response overwrites via an out-of-band swap. This keeps the server stateless — no session storage is required in Flask or the Go API.
+Conversation history is maintained client-side as a hidden field in the chat form. On each submission, the browser sends the full history array to Flask alongside the message. Flask forwards it to the Go API, which appends the new user/assistant pair and returns the updated array in the JSON response. Flask then renders an HTML fragment containing the reply bubble and an OOB swap that overwrites the hidden history field in the browser. This keeps both Flask and the Go API fully stateless — no session storage required on either side.
 
 History is capped at 10 turns (20 messages) to bound the payload and Ollama context window usage. When the cap is reached, the oldest user/assistant pair is dropped. A "Clear" button in the panel header resets the hidden history field to empty.
 
