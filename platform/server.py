@@ -17,6 +17,8 @@ Endpoints:
     DELETE /elevator/<id> Clears the detail panel
 """
 
+import os
+
 from flask import Flask, render_template, request, make_response
 import pandas as pd
 import requests
@@ -43,7 +45,7 @@ df_incidents = _df_inc
 TODAY        = date.today()
 ONE_YEAR_AGO = TODAY - timedelta(days=365)
 
-GO_API     = "http://localhost:8080"
+GO_API     = os.environ.get("GO_API", "http://localhost:8080")
 TABLE_LIMIT = 50
 
 # Maps Flask sort param values to Go API sort param values
