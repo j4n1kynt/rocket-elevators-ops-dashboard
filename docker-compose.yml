@@ -31,6 +31,9 @@ services:
       DB_USER: api_user
       DB_PASSWORD: api_password
       DB_NAME: rocket_elevators
+      # Ollama runs on the Windows host, not in this container.
+      # host.docker.internal lets the container reach the host (Docker Desktop).
+      OLLAMA_URL: http://host.docker.internal:11434
 
 volumes:
   pgdata:
