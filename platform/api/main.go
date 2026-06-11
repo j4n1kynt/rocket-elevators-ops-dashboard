@@ -21,22 +21,27 @@ func main() {
 		port = "8080"
 	}
 
+	route := func(h http.HandlerFunc) http.Handler {
+		return http.TimeoutHandler(h, 15*time.Second, `{"error":"request timeout"}`)
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", GetHealth)
-	mux.HandleFunc("GET /api/fleet/stats", GetFleetStats)
-	mux.HandleFunc("GET /api/fleet/alerts", GetFleetAlerts)
-	mux.HandleFunc("GET /api/elevators", GetElevators)
-	mux.HandleFunc("GET /api/elevators/{id}", GetElevatorByID)
-	mux.HandleFunc("GET /api/elevators/{id}/inspections", GetElevatorInspections)
-	mux.HandleFunc("GET /api/elevators/{id}/risk", GetElevatorRisk)
-	mux.HandleFunc("POST /api/chat", PostChat)
+	mux.Handle("GET /health", route(GetHealth))
+	mux.Handle("GET /api/fleet/stats", route(GetFleetStats))
+	mux.Handle("GET /api/fleet/alerts", route(GetFleetAlerts))
+	mux.Handle("GET /api/elevators", route(GetElevators))
+	mux.Handle("GET /api/elevators/{id}", route(GetElevatorByID))
+	mux.Handle("GET /api/elevators/{id}/inspections", route(GetElevatorInspections))
+	mux.Handle("GET /api/elevators/{id}/risk", route(GetElevatorRisk))
+	mux.HandleFunc("POST /api/chat", PostChat) // manages its own 330s deadline via context
 
 	srv := &http.Server{
-		Addr:         ":" + port,
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 330 * time.Second, // extended for Ollama cold start (>300s for mistral:7b, EVAL-1)
-		IdleTimeout:  60 * time.Second,
+		Addr:        ":" + port,
+		Handler:     mux,
+		ReadTimeout: 5 * time.Second,
+		// WriteTimeout is 0 (disabled) — /api/chat blocks up to 330s for Ollama;
+		// all other routes enforce their own deadline via http.TimeoutHandler above.
+		IdleTimeout: 60 * time.Second,
 	}
 	log.Printf("server running on :%s", port)
 	if err := srv.ListenAndServe(); err != nil {

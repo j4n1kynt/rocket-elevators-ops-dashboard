@@ -364,11 +364,12 @@ _RISK_BADGES = {
 
 def _render_reply(text: str) -> str:
     """Replace risk level words with coloured badges and escape remaining HTML."""
+    import re
     from markupsafe import Markup, escape
-    safe = escape(text)
+    safe = str(escape(text))
     for level, badge in _RISK_BADGES.items():
-        safe = Markup(str(safe).replace(level, badge))
-    return safe
+        safe = re.sub(r'\b' + level + r'\b', badge, safe, flags=re.IGNORECASE)
+    return Markup(safe)
 
 
 @app.route("/chat", methods=["POST"])

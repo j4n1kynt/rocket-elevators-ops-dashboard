@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -38,6 +39,10 @@ func getOllamaModel() string {
 	return "mistral:latest"
 }
 
+// ollamaClient is shared across all calls so TCP connections to Ollama are
+// pooled. No Timeout is set — callers pass a context that governs the deadline.
+var ollamaClient = &http.Client{}
+
 // ── Ollama client ─────────────────────────────────────────────────────────────
 
 type ollamaMsg struct {
@@ -67,9 +72,11 @@ func callOllama(ctx context.Context, baseURL, model string, messages []ollamaMsg
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 300 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := ollamaClient.Do(req)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return "", err
+		}
 		return "", fmt.Errorf("ollama unreachable: %w", err)
 	}
 	defer resp.Body.Close()
@@ -115,13 +122,20 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 	}
 	messages = append(messages, ollamaMsg{Role: "user", Content: msg})
 
-	reply, err := callOllama(r.Context(), getOllamaURL(), getOllamaModel(), messages)
+	ctx, cancel := context.WithTimeout(r.Context(), 330*time.Second)
+	defer cancel()
+	reply, err := callOllama(ctx, getOllamaURL(), getOllamaModel(), messages)
 	if err != nil {
-		if strings.Contains(err.Error(), "unreachable") || strings.Contains(err.Error(), "connection refused") {
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			writeJSON(w, 503, ErrorResponse{Error: "The assistant took too long to respond. Please try again."})
+		case errors.Is(err, context.Canceled):
+			// client disconnected — nothing to write
+		case strings.Contains(err.Error(), "unreachable") || strings.Contains(err.Error(), "connection refused"):
 			writeJSON(w, 503, ErrorResponse{Error: "Ollama is unreachable. Make sure Ollama is running."})
-			return
+		default:
+			writeJSON(w, 500, ErrorResponse{Error: "assistant failed to respond"})
 		}
-		writeJSON(w, 500, ErrorResponse{Error: "assistant failed to respond"})
 		return
 	}
 

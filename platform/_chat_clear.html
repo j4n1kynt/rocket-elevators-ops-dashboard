@@ -10,18 +10,21 @@
   <button type="button"
           hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
           hx-vals='{"message": "What do the risk levels mean?"}' hx-include="#chatHistory"
+          hx-indicator="#chatIndicator"
           class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
     Risk levels
   </button>
   <button type="button"
           hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
           hx-vals='{"message": "What is a Customer Shutdown?"}' hx-include="#chatHistory"
+          hx-indicator="#chatIndicator"
           class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
     Customer Shutdown
   </button>
   <button type="button"
           hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
           hx-vals='{"message": "When is an inspection overdue?"}' hx-include="#chatHistory"
+          hx-indicator="#chatIndicator"
           class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
     Overdue inspections
   </button>
