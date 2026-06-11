@@ -79,3 +79,23 @@ type FleetAlertsResponse struct {
 	Total  int          `json:"total"`
 	Alerts []AlertEntry `json:"alerts"`
 }
+
+// Message is one turn in a chat conversation. Role is "system", "user", or
+// "assistant". This shape matches both our /api/chat contract and Ollama's.
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// ChatRequest is the body the client sends to POST /api/chat.
+type ChatRequest struct {
+	Message string    `json:"message"`
+	History []Message `json:"history"`
+}
+
+// ChatResponse is what POST /api/chat returns. History is the full updated
+// thread: the prior history plus the new user message and the assistant reply.
+type ChatResponse struct {
+	Reply   string    `json:"reply"`
+	History []Message `json:"history"`
+}
