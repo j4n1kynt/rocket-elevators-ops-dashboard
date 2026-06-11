@@ -1,15 +1,3 @@
-## CHAT-1: Chat Widget Design Document
-
-Before writing a single line of code for the chat feature, we put together a proper design document — `docs/chat-design/chatbot_design_doc.md`. The idea was straightforward: think through the whole feature first, document every decision, and only then start building. This way, any questions about how the chat should behave, what it should look like, or how it fits into the existing architecture already have a written answer to refer back to.
-
-The document covers the full picture: how the chat panel sits on top of the dashboard without getting in the way, how a user's question travels from the browser through Flask and the Go API all the way to a local Ollama model and back, how conversation history is kept on the client side so nothing needs to be stored on the server, and what the known security limitations are for a local-only deployment.
-
-We also iterated on this document using Claude before treating it as final. Running the draft through Claude gave us a sharper, more complete version — catching gaps in the flow descriptions, tightening the security limitations section, and making sure the HTMX integration notes were consistent with how the rest of the project works.
-
-It is worth being clear about what this document is: a prototype design, not a finished product. Nothing described here has been built yet. The document exists so that when we do start implementing the chat widget, we are not making up the rules as we go. The real work — writing the Go API endpoint, wiring up the Flask view, building the HTMX panel — comes next, and this document is what guides it.
-
----
-
 ## AND-103 Task 2: Add Location and Alteration Count as Static Features
 
 **What was added:**  
@@ -274,3 +262,17 @@ This improvement ensures:
 **Known limitation:**
 `/api/fleet/stats` does not expose a direct "overdue inspections" count (time-based: inspections older than 1 year). Card 3 displays `round((1 - inspection_pass_rate) * total_elevators)` as the closest available API proxy — elevators with no passing inspection on record. Card 4 ("Licenses Expiring in 30 Days") shows `0` because no date-arithmetic query exists in the current API contract. Both values remain semantically useful for an operations view; the exact metrics would require new API endpoints.
 `df_merged` and `df_incidents` (used exclusively for incident/alteration counts in the elevator detail panel) are intentionally retained — these datasets are out of scope for the Go API per the API spec §2.
+
+## AND-106 Improvements
+
+### CHAT-1: Chat Widget Design Document
+
+Before writing a single line of code for the chat feature, we put together a proper design document — `docs/chat-design/chatbot_design_doc.md`. The idea was straightforward: think through the whole feature first, document every decision, and only then start building. This way, any questions about how the chat should behave, what it should look like, or how it fits into the existing architecture already have a written answer to refer back to.
+
+The document covers the full picture: how the chat panel sits on top of the dashboard without getting in the way, how a user's question travels from the browser through Flask and the Go API all the way to a local Ollama model and back, how conversation history is kept on the client side so nothing needs to be stored on the server, and what the known security limitations are for a local-only deployment.
+
+We also iterated on this document using Claude before treating it as final. Running the draft through Claude gave us a sharper, more complete version — catching gaps in the flow descriptions, tightening the security limitations section, and making sure the HTMX integration notes were consistent with how the rest of the project works.
+
+It is worth being clear about what this document is: a prototype design, not a finished product. Nothing described here has been built yet. The document exists so that when we do start implementing the chat widget, we are not making up the rules as we go. The real work — writing the Go API endpoint, wiring up the Flask view, building the HTMX panel — comes next, and this document is what guides it.
+
+---
