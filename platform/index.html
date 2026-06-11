@@ -304,7 +304,119 @@
     </div><!-- end two-column row -->
   </main>
 
-  <!-- No custom JavaScript. All interactivity is HTMX-driven via GET /table. -->
+  <!-- No custom JavaScript. All interactivity is HTMX-driven. -->
+
+  <!-- Chat FAB — spec §5.1 -->
+  <button
+    hx-on:click="document.getElementById('chatPanel').classList.toggle('hidden')"
+    class="fixed bottom-6 right-6 z-40 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-700 transition-colors"
+    aria-label="Open Fleet Assistant"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+    </svg>
+  </button>
+
+  <!-- Chat Panel — spec §5.2; initially hidden -->
+  <div id="chatPanel"
+       class="hidden fixed bottom-6 right-6 z-50 w-96 h-[520px] bg-white rounded-t-xl shadow-lg flex flex-col border border-slate-200">
+
+    <!-- Header -->
+    <div class="px-4 py-3 bg-slate-900 text-white rounded-t-xl flex items-center justify-between shrink-0">
+      <span class="text-sm font-semibold">Fleet Assistant</span>
+      <div class="flex items-center gap-3">
+        <button
+          hx-get="/chat/clear"
+          hx-target="#chatMessages"
+          hx-swap="innerHTML"
+          class="text-xs text-slate-400 hover:text-slate-200"
+        >Clear</button>
+        <button
+          hx-on:click="document.getElementById('chatPanel').classList.add('hidden')"
+          class="text-slate-300 hover:text-white text-xl leading-none"
+          aria-label="Close"
+        >&times;</button>
+      </div>
+    </div>
+
+    <!-- Message list — spec §5.2 -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-slate-50">
+
+      <!-- Welcome message -->
+      <div class="flex justify-start">
+        <div class="max-w-[85%] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
+          I can explain Ontario elevator regulations, device types, inspections, and risk levels. For live fleet data, use the dashboard. What would you like to understand?
+        </div>
+      </div>
+
+      <!-- Suggested prompt chips — spec §5.4; advisory prompts (OpsBot has no live data) -->
+      <div id="chatChips" class="flex flex-wrap gap-2 mt-1">
+        <button type="button"
+                hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+                hx-vals='{"message": "What do the risk levels mean?"}' hx-include="#chatHistory"
+                hx-indicator="#chatIndicator"
+                class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+          Risk levels
+        </button>
+        <button type="button"
+                hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+                hx-vals='{"message": "What is a Customer Shutdown?"}' hx-include="#chatHistory"
+                hx-indicator="#chatIndicator"
+                class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+          Customer Shutdown
+        </button>
+        <button type="button"
+                hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+                hx-vals='{"message": "When is an inspection overdue?"}' hx-include="#chatHistory"
+                hx-indicator="#chatIndicator"
+                class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+          Overdue inspections
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Input form — spec §5.5 -->
+    <form id="chatForm"
+          hx-post="/chat"
+          hx-target="#chatMessages"
+          hx-swap="beforeend scroll:bottom"
+          hx-indicator="#chatIndicator"
+          hx-on:htmx:before-request="this.querySelector('#chatInput').disabled=true;this.querySelector('#chatSend').disabled=true"
+          hx-on:htmx:after-request="this.querySelector('#chatInput').disabled=false;this.querySelector('#chatSend').disabled=false;this.querySelector('#chatInput').value=''"
+          class="px-4 py-3 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white relative">
+      <input id="chatHistory" type="hidden" name="history" value="[]" />
+      <input
+        id="chatInput"
+        type="text"
+        name="message"
+        placeholder="Ask about regulations, terms, or risk…"
+        maxlength="500"
+        autocomplete="off"
+        class="flex-1 text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 placeholder-slate-400 disabled:opacity-50"
+      />
+      <button
+        id="chatSend"
+        type="submit"
+        class="w-9 h-9 bg-slate-900 text-white rounded-lg flex items-center justify-center hover:bg-slate-700 shrink-0 disabled:opacity-40"
+        aria-label="Send"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+      <!-- Loading indicator — shows while Ollama is responding -->
+      <div id="chatIndicator"
+           class="htmx-indicator absolute left-4 -top-7 flex items-center gap-1.5 text-xs text-slate-400 pointer-events-none bg-slate-50 px-2 py-1 rounded">
+        <svg class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Thinking…
+      </div>
+    </form>
+
+  </div><!-- end chat panel -->
 
 </body>
 </html>

@@ -1,0 +1,34 @@
+{# Replaces #chatMessages innerHTML — restores initial welcome + chips state #}
+
+<div class="flex justify-start">
+  <div class="max-w-[85%] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
+    I can explain Ontario elevator regulations, device types, inspections, and risk levels. For live fleet data, use the dashboard. What would you like to understand?
+  </div>
+</div>
+
+<div id="chatChips" class="flex flex-wrap gap-2 mt-1">
+  <button type="button"
+          hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+          hx-vals='{"message": "What do the risk levels mean?"}' hx-include="#chatHistory"
+          hx-indicator="#chatIndicator"
+          class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+    Risk levels
+  </button>
+  <button type="button"
+          hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+          hx-vals='{"message": "What is a Customer Shutdown?"}' hx-include="#chatHistory"
+          hx-indicator="#chatIndicator"
+          class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+    Customer Shutdown
+  </button>
+  <button type="button"
+          hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+          hx-vals='{"message": "When is an inspection overdue?"}' hx-include="#chatHistory"
+          hx-indicator="#chatIndicator"
+          class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+    Overdue inspections
+  </button>
+</div>
+
+{# OOB: reset history to empty #}
+<input id="chatHistory" hx-swap-oob="outerHTML" type="hidden" name="history" value="[]" />

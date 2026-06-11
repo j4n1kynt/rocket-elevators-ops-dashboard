@@ -684,3 +684,99 @@ Five tables form the relational schema. `elevators` is the central entity; all o
 | alterations → inspections | N:1 (optional) | alterations.inspection_number = inspections.inspection_id | Nullable FK; alteration may exist without a linked inspection |
 
 ---
+
+## 5. Chat Widget (CHAT-2)
+
+A floating Fleet Assistant panel ("OpsBot") gives operations staff a natural-language assistant for **understanding** the fleet — Ontario elevator regulations, device types, inspection rules, risk classification, and maintenance terminology — without leaving the dashboard.
+
+**OpsBot is advisory and educational only.** It has **no live data access** and does not look up individual elevators, fleet counts, or current statuses. Any request for live data is declined with a redirect to the dashboard. This is the behavior validated in `docs/system-prompt-evaluation.md` (EVAL-1), and the chatbot implements that prompt verbatim — no fleet data is injected into the model.
+
+### 5.1 Entry Point
+
+A floating action button (FAB) is fixed to the bottom-right corner of the viewport (`position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 40`). Clicking it toggles the chat panel open or closed via a CSS `hidden` class — no page navigation, no URL change, no HTMX push-url.
+
+### 5.2 Chat Panel
+
+The panel is a fixed overlay anchored to the bottom-right corner (`z-index: 50`), **380 px wide × 520 px tall**. It does not push or reflow existing content. The dashboard table, summary cards, and detail panel remain interactive behind it.
+
+**Sections (top to bottom):**
+1. **Header** — dark navy background, "Fleet Assistant" label (left), close `[×]` button (right), Clear link (resets conversation).
+2. **Message list** — `overflow-y: auto` scroll container; messages in chronological order (oldest top, newest bottom).
+3. **Input bar** — single-line text field (`maxlength="500"`, placeholder "Ask about the fleet…") + send button.
+
+### 5.3 Message Types
+
+| Type | Alignment | Visual |
+|---|---|---|
+| User message | Right | Green (`#16a34a`) background, white text |
+| Assistant message | Left | White card, `#e2e8f0` border |
+| Error message | Left | `#fef2f2` background, dark red text |
+
+### 5.4 Suggested Prompts
+
+When the conversation is empty, three clickable chips appear in the message list above the input. Because OpsBot is advisory (no live data), the chips are educational prompts it can answer from its domain knowledge:
+
+- "What do the risk levels mean?"
+- "What is a Customer Shutdown?"
+- "When is an inspection overdue?"
+
+Clicking a chip submits that text as the message immediately. Chips are hidden once the first message is sent; they reappear after the conversation is cleared.
+
+### 5.5 Input Behaviour
+
+| Behaviour | Detail |
+|---|---|
+| After send | Field clears; input and send button are disabled until the reply arrives |
+| Send button | Disabled when field is empty or while a reply is pending |
+| Max length | 500 characters (`maxlength="500"`) |
+
+### 5.6 Session State
+
+Conversation history is stored client-side in a hidden `<input name="history">` field inside the chat form. Each submission sends the full history to Flask, which forwards it to the Go API. The Go API appends the new turn and returns the updated history. Flask overwrites the client field via an HTMX OOB swap. History is capped at 10 turns (20 messages); the Clear button resets it to `[]`.
+
+### 5.7 Architecture
+
+```
+Browser (HTMX)  →  POST /chat  →  Flask :5000
+Flask           →  POST /api/chat (JSON)  →  Go API :8080
+Go API          →  system prompt + history + user message  (NO DB access)
+Go API          →  POST /api/chat  →  Ollama :11434
+Go API          ←  {reply, history}
+Flask           ←  renders _chat_reply.html fragment (reply bubble + OOB history swap)
+Browser         ←  HTMX appends bubble, overwrites history field
+```
+
+Flask is the sole intermediary — the browser never calls the Go API or Ollama directly. The Go API does **not** query the database for chat: it forwards the system prompt, conversation history, and user message straight to Ollama.
+
+### 5.8 Go API Endpoint
+
+**Route:** `POST /api/chat`
+
+**Request:** `{"message": "...", "history": [{"role": "user"|"assistant", "content": "..."}]}`
+
+**Response:** `{"reply": "...", "history": [...]}`
+
+**Error codes:** `400` (missing/empty message), `500` (internal failure), `503` (Ollama unreachable)
+
+### 5.8.1 System Prompt & Model
+
+The Go API loads its system prompt from `platform/api/prompts/system_prompt.md` (embedded into the binary at build time) — the hardened "OpsBot" prompt produced and validated in PROMPT-1 / EVAL-1 (`docs/system-prompt-evaluation.md`), used **verbatim**. The prompt's boundaries are in force exactly as validated: no live data access, no specific elevator lookups, no regulatory/procedural advice, no fabrication, no identity override, and emergencies → 911.
+
+**Model:** `mistral:7b` (`mistral:latest`), selected in EVAL-1 §4. Cold start exceeds 300s, so the Go API fires a warm-up request to Ollama on startup and all timeouts on the chat path are set to ~300s+.
+
+### 5.9 No Live Data Access
+
+OpsBot does **not** fetch fleet data. The Go API performs no intent detection and no database query for chat — it sends only the system prompt, conversation history, and the user's message to Ollama. This is deliberate: it matches the EVAL-1-validated behavior, where requests for live data (fleet counts, specific elevator status, lists of HIGH-risk devices) are cleanly declined and the user is redirected to the dashboard (EVAL-1 scenarios S4, S6, S8; question Q4). Live fleet data is the dashboard's job — the table, filters, summary cards, fleet-health panel, and alerts section. OpsBot's job is to help users *understand* what they see there.
+
+### 5.10 Colour Usage
+
+The chat widget reuses the dashboard's existing palette (§4.2). No new colours are introduced.
+
+| Element | Colour |
+|---|---|
+| FAB + panel header | Dark navy `#0f172a` |
+| User message bubble | Green `#16a34a` |
+| Assistant message bubble | White, `#e2e8f0` border |
+| Error bubble | `#fef2f2`, dark red text |
+
+---
