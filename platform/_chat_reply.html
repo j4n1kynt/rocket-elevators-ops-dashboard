@@ -1,0 +1,21 @@
+{# User message bubble — right-aligned, green background #}
+<div class="flex justify-end">
+  <div class="max-w-[85%] bg-green-600 text-white rounded-lg px-3 py-2 text-sm break-words">{{ message }}</div>
+</div>
+
+{# Assistant reply or error bubble — left-aligned #}
+{% if error %}
+<div class="flex justify-start">
+  <div class="max-w-[85%] bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700 break-words">{{ error }}</div>
+</div>
+{% else %}
+<div class="flex justify-start">
+  <div class="max-w-[85%] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 break-words leading-relaxed">{{ reply_html }}</div>
+</div>
+{% endif %}
+
+{# OOB: hide suggested chips once conversation starts #}
+<div id="chatChips" hx-swap-oob="outerHTML"></div>
+
+{# OOB: update history hidden field with the updated conversation #}
+<input id="chatHistory" hx-swap-oob="outerHTML" type="hidden" name="history" value="{{ history }}" />

@@ -9,6 +9,7 @@ COPY platform/api/go.mod platform/api/go.sum ./
 RUN go mod download
 
 COPY platform/api/*.go ./
+COPY platform/api/prompts ./prompts
 RUN CGO_ENABLED=0 GOOS=linux go build -o api .
 
 # Stage 2: runtime

@@ -13,6 +13,9 @@ func main() {
 	}
 	log.Printf("database connection established")
 
+	// Warm the Ollama model in the background so the first chat message is fast.
+	go WarmUpOllama()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -26,12 +29,13 @@ func main() {
 	mux.HandleFunc("GET /api/elevators/{id}", GetElevatorByID)
 	mux.HandleFunc("GET /api/elevators/{id}/inspections", GetElevatorInspections)
 	mux.HandleFunc("GET /api/elevators/{id}/risk", GetElevatorRisk)
+	mux.HandleFunc("POST /api/chat", PostChat)
 
 	srv := &http.Server{
 		Addr:         ":" + port,
 		Handler:      mux,
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 330 * time.Second, // extended for Ollama cold start (>300s for mistral:7b, EVAL-1)
 		IdleTimeout:  60 * time.Second,
 	}
 	log.Printf("server running on :%s", port)

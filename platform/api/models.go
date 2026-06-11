@@ -79,3 +79,18 @@ type FleetAlertsResponse struct {
 	Total  int          `json:"total"`
 	Alerts []AlertEntry `json:"alerts"`
 }
+
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type ChatRequest struct {
+	Message string        `json:"message"`
+	History []ChatMessage `json:"history"`
+}
+
+type ChatResponse struct {
+	Reply   string        `json:"reply"`
+	History []ChatMessage `json:"history"`
+}
