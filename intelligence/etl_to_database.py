@@ -205,6 +205,30 @@ def load_elevators(conn):
 
 
 # ---------------------------------------------------------------------------
+# Update elevator_type ← data/installed.json
+# ---------------------------------------------------------------------------
+
+def load_elevator_types(conn, valid_elevator_ids):
+    with open("data/installed.json", encoding="utf-8") as f:
+        records = json.load(f)
+
+    updated = 0
+    with conn.cursor() as cur:
+        for raw in records:
+            eid   = to_int(raw.get("Elevating devices number"))
+            etype = to_text(raw.get("Device Type"))
+            if eid is None or eid not in valid_elevator_ids or etype is None:
+                continue
+            cur.execute(
+                "UPDATE elevators SET elevator_type = %s WHERE elevator_id = %s",
+                (etype, eid),
+            )
+            updated += cur.rowcount
+    conn.commit()
+    return updated
+
+
+# ---------------------------------------------------------------------------
 # Load inspections ← data/inspection.csv
 # ---------------------------------------------------------------------------
 
@@ -464,10 +488,10 @@ def main():
 
     conn = get_connection()
     try:
-        print("[1/6] Running migration...")
+        print("[1/7] Running migration...")
         run_migration(conn)
 
-        print("\n[2/6] Loading elevators (data/license.csv)...")
+        print("\n[2/7] Loading elevators (data/license.csv)...")
         e_ins, e_skip, _ = load_elevators(conn)
         print(f"  inserted: {e_ins:>6} | skipped: {e_skip:>6}")
 
@@ -476,19 +500,23 @@ def main():
             valid_ids = {r[0] for r in cur.fetchall()}
         print(f"  {len(valid_ids)} elevator IDs available as FK targets")
 
-        print("\n[3/6] Loading inspections (data/inspection.csv)...")
+        print("\n[3/7] Updating elevator types (data/installed.json)...")
+        et_updated = load_elevator_types(conn, valid_ids)
+        print(f"  updated:  {et_updated:>6}")
+
+        print("\n[4/7] Loading inspections (data/inspection.csv)...")
         i_ins, i_skip, _ = load_inspections(conn, valid_ids)
         print(f"  inserted: {i_ins:>6} | skipped: {i_skip:>6}")
 
-        print("\n[4/6] Loading incidents (data/incident.json)...")
+        print("\n[5/7] Loading incidents (data/incident.json)...")
         ic_ins, ic_skip, _ = load_incidents(conn, valid_ids)
         print(f"  inserted: {ic_ins:>6} | skipped: {ic_skip:>6}")
 
-        print("\n[5/6] Loading alterations (data/altered.json)...")
+        print("\n[6/7] Loading alterations (data/altered.json)...")
         a_ins, a_skip, _ = load_alterations(conn, valid_ids)
         print(f"  inserted: {a_ins:>6} | skipped: {a_skip:>6}")
 
-        print("\n[6/6] Loading predictions (data/predictions.csv)...")
+        print("\n[7/7] Loading predictions (data/predictions.csv)...")
         p_ins, p_skip, _ = load_predictions(conn, valid_ids)
         print(f"  inserted: {p_ins:>6} | skipped: {p_skip:>6}")
 
@@ -503,6 +531,7 @@ def main():
     print(f"  {'table':<14} {'inserted':>8}  {'skipped':>8}")
     print(f"  {'-'*34}")
     print(f"  {'elevators':<14} {e_ins:>8}  {e_skip:>8}")
+    print(f"  {'types updated':<14} {et_updated:>8}")
     print(f"  {'inspections':<14} {i_ins:>8}  {i_skip:>8}")
     print(f"  {'incidents':<14} {ic_ins:>8}  {ic_skip:>8}")
     print(f"  {'alterations':<14} {a_ins:>8}  {a_skip:>8}")
