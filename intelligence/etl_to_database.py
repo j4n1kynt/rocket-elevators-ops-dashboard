@@ -212,20 +212,29 @@ def load_elevator_types(conn, valid_elevator_ids):
     with open("data/installed.json", encoding="utf-8") as f:
         records = json.load(f)
 
-    updated = 0
+    pairs = []
+    for raw in records:
+        eid   = to_int(raw.get("Elevating devices number"))
+        etype = to_text(raw.get("Device Type"))
+        if eid is not None and eid in valid_elevator_ids and etype is not None:
+            pairs.append((eid, etype))
+
+    if not pairs:
+        conn.commit()
+        return 0
+
     with conn.cursor() as cur:
-        for raw in records:
-            eid   = to_int(raw.get("Elevating devices number"))
-            etype = to_text(raw.get("Device Type"))
-            if eid is None or eid not in valid_elevator_ids or etype is None:
-                continue
-            cur.execute(
-                "UPDATE elevators SET elevator_type = %s WHERE elevator_id = %s",
-                (etype, eid),
-            )
-            updated += cur.rowcount
+        execute_values(
+            cur,
+            """UPDATE elevators
+               SET elevator_type = data.etype
+               FROM (VALUES %s) AS data(eid, etype)
+               WHERE elevator_id = data.eid::integer""",
+            pairs,
+            page_size=2000,
+        )
     conn.commit()
-    return updated
+    return len(pairs)
 
 
 # ---------------------------------------------------------------------------
