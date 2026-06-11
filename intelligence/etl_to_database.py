@@ -212,18 +212,26 @@ def load_elevator_types(conn, valid_elevator_ids):
     with open("data/installed.json", encoding="utf-8") as f:
         records = json.load(f)
 
-    updated = 0
+    pairs = []
+    for raw in records:
+        eid   = to_int(raw.get("Elevating devices number"))
+        etype = to_text(raw.get("Device Type"))
+        if eid is None or eid not in valid_elevator_ids or etype is None:
+            continue
+        pairs.append((eid, etype))
+
+    if not pairs:
+        return 0
+
+    sql = """
+        UPDATE elevators AS e
+        SET elevator_type = v.etype
+        FROM (VALUES %s) AS v(eid, etype)
+        WHERE e.elevator_id = v.eid
+    """
     with conn.cursor() as cur:
-        for raw in records:
-            eid   = to_int(raw.get("Elevating devices number"))
-            etype = to_text(raw.get("Device Type"))
-            if eid is None or eid not in valid_elevator_ids or etype is None:
-                continue
-            cur.execute(
-                "UPDATE elevators SET elevator_type = %s WHERE elevator_id = %s",
-                (etype, eid),
-            )
-            updated += cur.rowcount
+        execute_values(cur, sql, pairs)
+        updated = cur.rowcount
     conn.commit()
     return updated
 
