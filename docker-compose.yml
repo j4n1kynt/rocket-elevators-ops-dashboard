@@ -25,12 +25,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: api_user
       DB_PASSWORD: api_password
       DB_NAME: rocket_elevators
+      OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: mistral:7b
 
 volumes:
   pgdata:

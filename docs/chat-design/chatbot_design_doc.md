@@ -4,6 +4,8 @@
 **Branch:** `feature/design-1-chat-widget-design`  
 **Status:** Design
 
+> **⚠️ Superseded by EVAL-1 for the shipped CHAT-2 build.** This document describes the original **data-grounded** vision (live fleet queries via intent detection + context injection). The implemented chatbot instead follows the **OpsBot advisory** model validated in `docs/system-prompt-evaluation.md`: it is **advisory/educational only, with no live data access** — it explains regulations, terminology, and risk concepts, and redirects all live-data requests to the dashboard. Sections describing live-data querying (2 "Included" data items, §3.2 intent responsibilities, §3.4 Context Injection, §3.9) reflect the original design, **not** current behavior. See `dashboard_spec.md §5` for the authoritative shipped spec.
+
 ---
 
 ## 1. Purpose
@@ -113,7 +115,7 @@ The `history` array is the full updated conversation (appended with the latest u
 
 ### 3.3 Ollama Integration
 
-The Go API communicates with Ollama using its REST API at `http://localhost:11434`. The model used is configurable via environment variable (`OLLAMA_MODEL`); the default is `llama3`.
+The Go API communicates with Ollama using its REST API at `http://localhost:11434`. The model used is configurable via environment variable (`OLLAMA_MODEL`); the default is `mistral:latest` (mistral:7b), selected in EVAL-1 (`docs/system-prompt-evaluation.md`). Because mistral:7b cold start exceeds 300s, the Go API warms the model with a small request on startup.
 
 Ollama runs locally on the same machine as the Go API. No API key is used — Ollama is called directly without authentication. This is intentional for a local-only deployment where all services (`Flask :5000`, `Go API :8080`, `Ollama :11434`) run on the same developer machine and are not exposed to external networks.
 

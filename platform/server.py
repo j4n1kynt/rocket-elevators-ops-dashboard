@@ -17,7 +17,9 @@ Endpoints:
     DELETE /elevator/<id> Clears the detail panel
 """
 
+import json
 import os
+import re
 
 from flask import Flask, render_template, request, make_response
 import pandas as pd
@@ -354,6 +356,83 @@ def elevator_detail(elev_id):
     )
 
 
+_RISK_BADGES = {
+    "HIGH":   '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700">HIGH</span>',
+    "MEDIUM": '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-700">MEDIUM</span>',
+    "LOW":    '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">LOW</span>',
+}
+
+def _render_reply(text: str) -> str:
+    """Replace risk level words with coloured badges and escape remaining HTML."""
+    import re
+    from markupsafe import Markup, escape
+    safe = str(escape(text))
+    for level, badge in _RISK_BADGES.items():
+        safe = re.sub(r'\b' + level + r'\b', badge, safe, flags=re.IGNORECASE)
+    return Markup(safe)
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    message = (request.form.get("message") or "").strip()
+    if not message:
+        return make_response("")
+
+    history_raw = request.form.get("history", "[]")
+    try:
+        history = json.loads(history_raw)
+        if not isinstance(history, list):
+            history = []
+    except Exception:
+        history = []
+
+    try:
+        api_resp = requests.post(
+            f"{GO_API}/api/chat",
+            json={"message": message, "history": history},
+            timeout=330,  # Ollama cold start can exceed 300s (EVAL-1)
+        )
+        if api_resp.status_code == 503:
+            return render_template(
+                "_chat_reply.html",
+                message=message,
+                reply_html=None,
+                error="The assistant is currently unavailable. Make sure Ollama is running.",
+                history=json.dumps(history),
+            )
+        api_resp.raise_for_status()
+        data = api_resp.json()
+    except requests.exceptions.Timeout:
+        return render_template(
+            "_chat_reply.html",
+            message=message,
+            reply_html=None,
+            error="The assistant took too long to respond. Please try again.",
+            history=json.dumps(history),
+        )
+    except Exception:
+        return render_template(
+            "_chat_reply.html",
+            message=message,
+            reply_html=None,
+            error="Failed to reach the assistant. Please try again.",
+            history=json.dumps(history),
+        )
+
+    return render_template(
+        "_chat_reply.html",
+        message=message,
+        reply_html=_render_reply(data.get("reply", "")),
+        error=None,
+        history=json.dumps(data.get("history", [])),
+    )
+
+
+@app.route("/chat/clear")
+def chat_clear():
+    return render_template("_chat_clear.html")
+
+
 @app.errorhandler(404)
 def not_found(e):
     return "<h1>404 — Page not found</h1>", 404
@@ -365,4 +444,6 @@ def server_error(e):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # threaded=True so a long-running chat request doesn't block the dashboard's
+    # other HTMX calls (table, fleet-health, alerts).
+    app.run(debug=True, threaded=True)
