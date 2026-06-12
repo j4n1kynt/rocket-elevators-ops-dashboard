@@ -4,7 +4,8 @@
     hx-get="/elevator/{{ row['elevator_id'] }}"
     hx-target="#elevatorPanel"
     hx-swap="innerHTML"
-    hx-indicator="#panel-indicator">
+    hx-indicator="#panel-indicator"
+    hx-on:click="document.querySelectorAll('#tableBody tr[data-selected]').forEach(r=>r.removeAttribute('data-selected'));this.setAttribute('data-selected','')">
 
   <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ row['elevator_id'] }}</td>
 
