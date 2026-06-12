@@ -16,6 +16,35 @@ licenses, and review the risk level of each device — all in one place.
 > The app is deployed on [Render](https://render.com). The Go API reads all
 > operational data from a managed PostgreSQL database on Neon.
 
+### ⚠️ Note on the Render free tier
+
+The app runs on Render's **free tier**, which has one important limit: the service
+**spins down after about 15 minutes with no traffic**. When this happens, the next
+request has to start the service again ("cold start"), so the **first load can take
+30–60 seconds**. After that, the app is fast again until it goes idle.
+
+What this means for you:
+
+- The **first visit** after a quiet period may feel slow or seem to hang. Just wait —
+  it is the service waking up, not an error.
+- If both the dashboard and the API were idle, **both** need to wake up, so the first
+  page may take longer.
+- Free instances also have limited CPU and memory, so heavy jobs (like the bulk risk
+  explanation generation) should run locally, not on Render.
+
+**How to use the live app:** open **both** URLs in your browser, not just one. First open
+the **API URL** to wake up the API, then open the **Dashboard URL**. The dashboard reads
+its data from the API, so if the API is still asleep the page will show no data. Once both
+are awake, the dashboard works normally.
+
+1. Open the API: https://rocket-elevators-ops-dashboard.onrender.com/api/fleet/stats — wait
+   until you see a JSON response.
+2. Open the dashboard: https://rocket-elevators-ops-dashboard.onrender.com/ — the data
+   should now load.
+
+For a production setup, move to a **paid Render plan** (no spin-down) to remove the cold
+start delay.
+
 ## Architecture
 
 The project has three main layers:
