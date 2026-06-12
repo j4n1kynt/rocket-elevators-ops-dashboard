@@ -1,0 +1,59 @@
+{#
+  Alerts table rows (spec AND-104 Feature 4). Swapped into #alertsBody by
+  /alerts-table on load, search, outcome filter, and pagination.
+#}
+{% if alerts %}
+{% for a in alerts %}
+<tr class="hover:bg-slate-50 transition-colors align-top">
+  <td class="px-5 py-3 readout text-xs text-slate-600 whitespace-nowrap">{{ a['elevator_id'] }}</td>
+
+  {# Full address wrapped to two lines; no native tooltip (§Feature 4) #}
+  <td class="px-5 py-3 text-slate-700">
+    <span class="line-clamp-2 max-w-md">{{ a['location'] }}</span>
+  </td>
+
+  {# Latest inspection date — a missing inspection is itself an alert reason #}
+  <td class="px-5 py-3 whitespace-nowrap">
+    {% if a.get('latest_inspection_date') %}
+      <span class="text-slate-600">{{ a['latest_inspection_date'] }}</span>
+    {% else %}
+      <span class="text-red-600 text-xs font-medium">No inspection on record</span>
+    {% endif %}
+  </td>
+
+  {# Graded severity; literal value preserved (§4.6), color encodes urgency.
+     Order matters: check the most specific outcome first. #}
+  <td class="px-5 py-3">
+    {% set o = a.get('latest_inspection_outcome') or '' %}
+    {% if 'Passed' in o or 'All Orders Resolved' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ o }}</span>
+    {% elif 'Follow up Major' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ o }}</span>
+    {% elif 'DC Follow up' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 ring-1 ring-orange-200">{{ o }}</span>
+    {% elif 'Follow up' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ o }}</span>
+    {% elif 'Fail' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ o }}</span>
+    {% elif o %}
+      {# Non-pass value in a failures-only section (e.g. "Complete") — amber = needs action #}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ o }}</span>
+    {% else %}
+      <span class="text-slate-400">&mdash;</span>
+    {% endif %}
+  </td>
+
+  <td class="px-5 py-3 whitespace-nowrap">
+    <span class="readout inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">
+      {{ "%.2f"|format(a['risk_score']) }}
+    </span>
+  </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+  <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-400">
+    No alerts match the current filters.
+  </td>
+</tr>
+{% endif %}

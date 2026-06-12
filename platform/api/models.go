@@ -77,6 +77,8 @@ type AlertEntry struct {
 
 type FleetAlertsResponse struct {
 	Total  int          `json:"total"`
+	Page   int          `json:"page"`
+	Limit  int          `json:"limit"`
 	Alerts []AlertEntry `json:"alerts"`
 }
 

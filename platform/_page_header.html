@@ -1,0 +1,9 @@
+{#
+  Top bar (spec §6.3). Fixed region of the shell, above #main-content.
+  On HTMX navigation, render_page() returns this with oob=True so the title
+  swaps in place while the rest of the shell stays put.
+#}
+<div id="page-header" class="px-8 py-5 border-b border-slate-200 bg-white shrink-0"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h1 class="text-lg font-semibold text-slate-800">{{ page_title }}</h1>
+  <p class="text-sm text-slate-500 mt-0.5">{{ page_subtitle }}</p>
+</div>
