@@ -1,0 +1,36 @@
+{#
+  Recent critical alerts preview for the Overview page (spec §6.7).
+  Top-5 from /api/fleet/alerts; "View all" opens the full Alerts page.
+#}
+<div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+
+  <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Recent Critical Alerts</p>
+      <p class="text-sm text-slate-500 mt-0.5">Highest-risk devices needing attention</p>
+    </div>
+    <a href="/alerts"
+       hx-get="/alerts" hx-target="#main-content" hx-swap="innerHTML transition:true"
+       hx-push-url="true" hx-indicator="#main-content"
+       class="text-xs font-medium text-slate-500 hover:text-slate-800 whitespace-nowrap">
+      View all &rarr;
+    </a>
+  </div>
+
+  {% if not alerts_ok %}
+    <p class="px-5 py-6 text-sm text-slate-400">Alerts unavailable.</p>
+  {% elif alerts %}
+    <ul class="divide-y divide-slate-100">
+      {% for a in alerts %}
+      <li class="px-5 py-3 flex items-center gap-3 text-sm">
+        <span class="readout text-xs text-slate-600 shrink-0">{{ a['elevator_id'] }}</span>
+        <span class="flex-1 min-w-0 text-slate-700 truncate" title="{{ a['location'] }}">{{ a['location'] }}</span>
+        <span class="readout inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200 shrink-0">{{ "%.2f"|format(a['risk_score']) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="px-5 py-6 text-sm text-slate-400">No critical alerts at this time.</p>
+  {% endif %}
+
+</div>
