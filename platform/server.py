@@ -5,16 +5,19 @@ Run guide:
     py -3.12 platform\\server.py
     open http://127.0.0.1:5000/
 
-Endpoints:
-    GET /        Renders platform/index.html with summary card metrics
-    GET /table   Returns an HTML fragment for HTMX swapping.
-                 Query params: status, type, q, sort, order, page
+Pages (spec §6) — full layout.html shell on a direct hit / refresh,
+content-only partial on an HX-Request (sidebar + top bar are not reloaded):
+    GET /        Overview — summary cards + fleet health
+    GET /fleet   Elevator Fleet — controls, paginated table, detail panel
+    GET /alerts  Critical Alerts — alerts table
+
+Fragments (HTML for HTMX swaps):
+    GET /table   Query params: status, type, q, sort, order, page
                  HX-Target: tableBody  -> <tr> rows only  (innerHTML swap)
                  HX-Target: fleetTable -> full <table>    (outerHTML swap, refreshes sort-button URLs)
-    GET /fleet-health   Returns fleet health panel HTML fragment (from Go API /api/fleet/stats)
-    GET /alerts         Returns critical alerts HTML fragment (from Go API /api/fleet/alerts)
-    GET /elevator/<id>  Returns elevator detail panel HTML fragment
-    DELETE /elevator/<id> Clears the detail panel
+    GET /fleet-health      Fleet health panel (from Go API /api/fleet/stats)
+    GET /elevator/<id>     Elevator detail panel
+    DELETE /elevator/<id>  Clears the detail panel
 """
 
 import json
@@ -48,7 +51,8 @@ TODAY        = date.today()
 ONE_YEAR_AGO = TODAY - timedelta(days=365)
 
 GO_API     = os.environ.get("GO_API", "http://localhost:8080")
-TABLE_LIMIT = 50
+TABLE_LIMIT  = 50
+ALERTS_LIMIT = 50
 
 # Maps Flask sort param values to Go API sort param values
 GO_SORT = {
@@ -91,7 +95,7 @@ def build_full_table(rows_html: str, active: str, order: str) -> str:
            "tracking-wider text-slate-400 hover:text-slate-700 cursor-pointer")
 
     return f"""\
-<table id="fleetTable" class="w-full text-sm text-left">
+<table id="fleetTable" class="w-full min-w-[960px] text-sm text-left">
   <thead class="border-b border-slate-200">
     <tr>
       <th class="{TH} whitespace-nowrap">Elevator ID</th>
@@ -123,30 +127,90 @@ def build_full_table(rows_html: str, active: str, order: str) -> str:
 </table>"""
 
 
-def build_pagination_oob(page: int, total: int, limit: int) -> str:
-    """Return an OOB swap snippet for the #pagination div below the table."""
+def build_pagination_oob(page: int, total: int, limit: int, *,
+                         pag_id: str = "pagination", body_id: str = "tableBody",
+                         controls_id: str = "controls", url: str = "/table") -> str:
+    """Return an OOB swap snippet for a pagination bar below a table.
+
+    Defaults target the fleet table; pass pag_id / body_id / controls_id / url to
+    reuse it for the alerts table.
+    """
     total_pages = max(1, (total + limit - 1) // limit)
     if total_pages <= 1:
-        return '<div id="pagination" hx-swap-oob="outerHTML"></div>'
+        return f'<div id="{pag_id}" hx-swap-oob="outerHTML"></div>'
 
     BTN = ("px-3 py-1.5 text-xs font-medium rounded border border-slate-200 "
            "hover:border-slate-400 text-slate-600 hover:text-slate-800 cursor-pointer")
     prev_btn = (
-        f'<button hx-get="/table?page={page - 1}" hx-target="#tableBody" '
-        f'hx-swap="innerHTML" hx-include="#controls" class="{BTN}">&#8592; Prev</button>'
+        f'<button hx-get="{url}?page={page - 1}" hx-target="#{body_id}" '
+        f'hx-swap="innerHTML" hx-include="#{controls_id}" class="{BTN}">&#8592; Prev</button>'
     ) if page > 1 else ""
     next_btn = (
-        f'<button hx-get="/table?page={page + 1}" hx-target="#tableBody" '
-        f'hx-swap="innerHTML" hx-include="#controls" class="{BTN}">Next &#8594;</button>'
+        f'<button hx-get="{url}?page={page + 1}" hx-target="#{body_id}" '
+        f'hx-swap="innerHTML" hx-include="#{controls_id}" class="{BTN}">Next &#8594;</button>'
     ) if page < total_pages else ""
 
     return (
-        f'<div id="pagination" hx-swap-oob="outerHTML" '
+        f'<div id="{pag_id}" hx-swap-oob="outerHTML" '
         f'class="flex items-center justify-between px-5 py-3 border-t border-slate-200 text-sm text-slate-500">'
         f'<span>Page {page} of {total_pages} &mdash; {total:,} results</span>'
         f'<div class="flex gap-2">{prev_btn}{next_btn}</div>'
         f'</div>'
     )
+
+
+# ── Page shell helper (spec §6.4) ───────────────────────────────────────────
+
+# Top-bar title + subtitle for each navigable page (spec §6.2)
+PAGES = {
+    "overview": ("Operational Fleet Overview",
+                 "Active and by-request licensed devices"),
+    "fleet":    ("Elevator Fleet",
+                 "Search, filter, and inspect individual devices"),
+    "alerts":   ("Critical Alerts",
+                 "HIGH risk devices with a failed most-recent inspection"),
+}
+
+
+def render_page(active: str, page_template: str, **ctx):
+    """
+    Render a navigable page (spec §6.4).
+
+    HX-Request -> content partial + OOB top bar + OOB nav, so the title and the
+                  active sidebar link update while #main-content swaps. The shell
+                  itself is never reloaded.
+    Direct/F5  -> full layout.html shell with the page embedded.
+    """
+    title, subtitle = PAGES[active]
+    base = dict(active_page=active, page_title=title, page_subtitle=subtitle, **ctx)
+
+    if request.headers.get("HX-Request"):
+        parts = [
+            render_template(page_template, **base),
+            render_template("_page_header.html", oob=True, **base),
+            render_template("_nav.html", oob=True, **base),
+        ]
+        return make_response("".join(parts))
+
+    return render_template("layout.html", page_template=page_template, **base)
+
+
+def fetch_alerts(q: str = "", outcome: str = "", page: int = 1, limit: int = 50):
+    """Fetch a page of critical alerts from the Go API. Returns (alerts, total) on
+    success, or (None, 0) when the API is unreachable. `total` is the full filtered
+    count across all pages (for pagination), not just the current page length."""
+    params: dict = {"page": page, "limit": limit}
+    if q:
+        params["q"] = q
+    if outcome:
+        params["outcome"] = outcome
+    try:
+        resp = requests.get(f"{GO_API}/api/fleet/alerts", params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("alerts", []), data.get("total", 0)
+    except Exception:
+        return None, 0
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -177,12 +241,23 @@ def index():
 
     active_pct = round(active_count / total * 100) if total else 0
 
-    return render_template(
-        "index.html",
+    return render_page(
+        "overview", "_page_overview.html",
         total_elevators=f"{total:,}",
         active_elevators=f"{active_count:,} ({active_pct}%)",
-        overdue_inspections=round((1 - pass_rate) * total),
+        overdue_inspections=f"{round((1 - pass_rate) * total):,}",
         expiring_soon=0,
+    )
+
+
+@app.route("/fleet")
+def fleet():
+    """Elevator Fleet page (spec §6.2). Honors an optional ?status= filter so the
+    Overview 'Active' drill-down lands pre-filtered (spec §6.7): the Status dropdown
+    pre-selects, and the initial hx-trigger='load' -> /table includes that value."""
+    return render_page(
+        "fleet", "_page_fleet.html",
+        sel_status=request.args.get("status", "").strip(),
     )
 
 
@@ -228,17 +303,16 @@ def table():
     # 5. Render rows -----------------------------------------------------------
     rows_html = render_template("_table_rows.html", rows=rows)
 
-    # 6. Card total OOB — reflects the current filtered result count from the API
-    cards_oob = f'\n<p id="card-total" hx-swap-oob="innerHTML">{total:,}</p>'
-
-    # 7. Build pagination OOB -------------------------------------------------
+    # 6. Build pagination OOB — carries the filtered result count (spec §6.5).
+    #    The summary cards live on the Overview page now, so /table no longer
+    #    sends a #card-total OOB swap.
     pagination_oob = build_pagination_oob(page, total, TABLE_LIMIT)
 
-    # 8. Decide response shape based on HTMX target header --------------------
+    # 7. Decide response shape based on HTMX target header --------------------
     if request.headers.get("HX-Target") == "fleetTable":
-        return make_response(build_full_table(rows_html, sort, order) + cards_oob + pagination_oob)
+        return make_response(build_full_table(rows_html, sort, order) + pagination_oob)
 
-    return make_response(rows_html + cards_oob + pagination_oob)
+    return make_response(rows_html + pagination_oob)
 
 
 @app.route("/fleet-health")
@@ -257,6 +331,24 @@ def fleet_health():
     def pct(n: int) -> int:
         return round(n / total * 100) if total else 0
 
+    # Conic-gradient stops for the risk donut (Feature 3, no JS). Cumulative
+    # boundaries are built from exact counts so the segments always total 100%.
+    segments = [
+        ("#16a34a", rd["low"]),      # green — LOW
+        ("#d97706", rd["medium"]),   # amber — MEDIUM
+        ("#dc2626", rd["high"]),     # red   — HIGH
+        ("#94a3b8", rd["unknown"]),  # slate — no prediction
+    ]
+    if total:
+        stops, acc = [], 0
+        for color, count in segments:
+            start = acc / total * 100
+            acc += count
+            stops.append(f"{color} {start:.3f}% {acc / total * 100:.3f}%")
+        donut_gradient = ", ".join(stops)
+    else:
+        donut_gradient = "#94a3b8 0% 100%"
+
     return render_template(
         "_fleet_health.html",
         total=total,
@@ -265,22 +357,58 @@ def fleet_health():
         high=rd["high"],     high_pct=pct(rd["high"]),
         unknown=rd["unknown"], unknown_pct=pct(rd["unknown"]),
         pass_rate=round(stats["inspection_pass_rate"] * 100, 1),
+        donut_gradient=donut_gradient,
     )
 
 
 @app.route("/alerts")
-def alerts_panel():
-    """Return critical alerts section HTML from Go API /api/fleet/alerts."""
-    try:
-        resp = requests.get(f"{GO_API}/api/fleet/alerts", timeout=10)
-        resp.raise_for_status()
-        data  = resp.json()
-        shown = data["alerts"][:20]
-        total = data["total"]
-    except Exception:
-        return "<p class='text-sm text-slate-400 p-4'>Alerts unavailable.</p>"
+def alerts_page():
+    """Critical Alerts page (spec §6.2). The table, result count, and pagination
+    load via /alerts-table; search and outcome filter are server-driven."""
+    return render_page("alerts", "_page_alerts.html")
 
-    return render_template("_alerts.html", alerts=shown, total=total, shown_count=len(shown))
+
+@app.route("/alerts-table")
+def alerts_table():
+    """Alerts table fragment (spec AND-104 Feature 4): <tr> rows for #alertsBody,
+    plus OOB pagination and result-count, driven by q / outcome / page params."""
+    q       = request.args.get("q", "").strip()
+    outcome = request.args.get("outcome", "").strip()
+    try:
+        page = max(1, int(request.args.get("page", 1) or 1))
+    except (ValueError, TypeError):
+        page = 1
+
+    alerts, total = fetch_alerts(q=q, outcome=outcome, page=page, limit=ALERTS_LIMIT)
+    if alerts is None:
+        return make_response(
+            '<tr><td colspan="5" class="px-5 py-8 text-center text-sm text-slate-400">'
+            'Alerts unavailable.</td></tr>'
+        )
+
+    rows_html      = render_template("_alerts_rows.html", alerts=alerts)
+    pagination_oob = build_pagination_oob(
+        page, total, ALERTS_LIMIT,
+        pag_id="alerts-pagination", body_id="alertsBody",
+        controls_id="alerts-controls", url="/alerts-table",
+    )
+    count_oob = (
+        f'<span id="alerts-count" hx-swap-oob="innerHTML">'
+        f'Showing {len(alerts):,} of {total:,}</span>'
+    )
+    return make_response(rows_html + pagination_oob + count_oob)
+
+
+@app.route("/alerts-preview")
+def alerts_preview():
+    """Compact top-5 critical alerts for the Overview page (spec §6.7)."""
+    alerts, total = fetch_alerts(limit=5)
+    return render_template(
+        "_alerts_preview.html",
+        alerts_ok=alerts is not None,
+        alerts=alerts or [],
+        total=total,
+    )
 
 
 @app.route("/elevator/<elev_id>", methods=["GET", "DELETE"])

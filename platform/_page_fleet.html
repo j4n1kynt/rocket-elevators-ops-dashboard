@@ -1,0 +1,211 @@
+{#
+  Elevator Fleet page body (spec §6.2). Two-column row:
+    left  — controls (search + filters), paginated fleet table
+    right — elevator detail panel (spec Interaction 1)
+  All table interactivity is server-driven via /table; the panel via /elevator/<id>.
+#}
+<div class="flex flex-1 min-h-0 overflow-hidden relative">
+
+  <div class="flex-1 overflow-y-auto px-8 py-6">
+
+    <!-- Detail table -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm" hx-indicator="#table-indicator">
+
+      <!--
+        Controls form — all named inputs ride along on every HTMX request via hx-include="#controls".
+        Filters (status, type) and search (q) each target #tableBody for a tbody-only swap.
+      -->
+      <form id="controls" class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
+
+        <!-- Search input: debounced keyup fires GET /table with all current filter values -->
+        <div class="flex items-center gap-2 flex-1 min-w-48">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/>
+          </svg>
+          <input
+            type="text"
+            name="q"
+            placeholder="Search by Elevator ID or Location..."
+            class="flex-1 min-w-0 text-sm text-slate-700 placeholder-slate-400 bg-transparent border-none outline-none"
+            hx-get="/table"
+            hx-target="#tableBody"
+            hx-swap="innerHTML"
+            hx-include="#controls"
+            hx-trigger="keyup changed delay:300ms"
+          />
+        </div>
+
+        <!-- Status filter: GET /table on change, swaps #tableBody innerHTML -->
+        <select
+          name="status"
+          class="text-sm text-slate-700 border border-slate-200 rounded px-2 py-1.5 bg-white outline-none cursor-pointer hover:border-slate-400"
+          hx-get="/table"
+          hx-target="#tableBody"
+          hx-swap="innerHTML"
+          hx-include="#controls"
+          hx-trigger="change"
+        >
+          {# sel_status pre-selects the dropdown for the Overview drill-down (spec §6.7) #}
+          {% set ss = sel_status|default('') %}
+          <option value="" {% if ss not in ('ACTIVE', 'BY REQUEST') %}selected{% endif %}>All Statuses</option>
+          <option value="ACTIVE" {% if ss == 'ACTIVE' %}selected{% endif %}>ACTIVE</option>
+          <option value="BY REQUEST" {% if ss == 'BY REQUEST' %}selected{% endif %}>BY REQUEST</option>
+        </select>
+
+        <!-- Elevator Type filter: GET /table on change, swaps #tableBody innerHTML -->
+        <select
+          name="type"
+          class="text-sm text-slate-700 border border-slate-200 rounded px-2 py-1.5 bg-white outline-none cursor-pointer hover:border-slate-400"
+          hx-get="/table"
+          hx-target="#tableBody"
+          hx-swap="innerHTML"
+          hx-include="#controls"
+          hx-trigger="change"
+        >
+          <option value="">All Types</option>
+          <option value="Passenger Elevator">Passenger Elevator</option>
+          <option value="Freight Elevator">Freight Elevator</option>
+          <option value="Freight Elevator-E">Freight Elevator-E</option>
+          <option value="Freight Elevator-P">Freight Elevator-P</option>
+          <option value="LULA Elevator">LULA Elevator</option>
+          <option value="Material Lift - ATD">Material Lift - ATD</option>
+          <option value="Observation Elevator">Observation Elevator</option>
+          <option value="Sidewalk Elevator">Sidewalk Elevator</option>
+          <option value="Special Installation">Special Installation</option>
+          <option value="Temporary Elevator">Temporary Elevator</option>
+        </select>
+
+        <div id="table-indicator"
+             class="htmx-indicator ml-auto flex items-center gap-1.5 text-xs text-slate-400 pointer-events-none">
+          <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          Loading…
+        </div>
+
+      </form>
+
+      <!-- Table -->
+      <div class="overflow-x-auto">
+        <!--
+          id="fleetTable": sort buttons target this element with hx-swap="outerHTML" so the server
+          can return an updated full table (including refreshed sort-button URLs) without custom JS.
+        -->
+        <table id="fleetTable" class="w-full min-w-[960px] text-sm text-left">
+          <thead class="border-b border-slate-200">
+            <tr>
+
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                Elevator ID
+              </th>
+
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Location
+              </th>
+
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                License Number
+              </th>
+
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Status
+              </th>
+
+              <!--
+                Sortable: License Expiration Date.
+                Initial state: first click sorts ascending (order=asc).
+                After the server returns an outerHTML-swapped table, it updates this button's
+                URL to order=desc so the next click reverses — no JS required.
+              -->
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                <button
+                  hx-get="/table?sort=license_expiry&order=asc"
+                  hx-target="#fleetTable"
+                  hx-swap="outerHTML"
+                  hx-include="#controls"
+                  class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  License Expiration Date
+                  <span class="text-slate-300 text-base leading-none">&#8597;</span>
+                </button>
+              </th>
+
+              <!--
+                Sortable: Latest Inspection Date.
+                Same toggle mechanism as License Expiration Date above.
+              -->
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                <button
+                  hx-get="/table?sort=latest_inspection&order=asc"
+                  hx-target="#fleetTable"
+                  hx-swap="outerHTML"
+                  hx-include="#controls"
+                  class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  Latest Inspection Date
+                  <span class="text-slate-300 text-base leading-none">&#8597;</span>
+                </button>
+              </th>
+
+              <!-- Added per spec §3 — sourced from inspection.csv.InspectionOutcome -->
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                Latest Inspection Outcome
+              </th>
+
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                Elevator Type
+              </th>
+
+              <!-- AND-104 Task 8 — Risk Level from Go API predictions -->
+              <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                Risk Level
+              </th>
+
+            </tr>
+          </thead>
+
+          <!--
+            tbody#tableBody: hx-trigger="load" populates rows when the fleet page loads.
+            Filters and search also target this element (innerHTML swap).
+            Sort buttons target #fleetTable (outerHTML swap), which replaces the whole table
+            including updated sort-button URLs for the next click.
+          -->
+          <tbody
+            id="tableBody"
+            class="divide-y divide-slate-100 text-slate-700"
+            hx-get="/table"
+            hx-trigger="load"
+            hx-target="#tableBody"
+            hx-swap="innerHTML"
+            hx-include="#controls"
+          >
+          </tbody>
+
+        </table>
+      </div>
+
+      <!-- Pagination controls — populated via OOB swap from /table responses -->
+      <div id="pagination"></div>
+
+    </div>
+
+  </div>
+
+  <!--
+    Detail panel — spec §Interaction 1:
+    Appears on the right; empty:hidden keeps it invisible until HTMX injects content.
+    Clicking a row swaps the elevator detail HTML into this element (innerHTML).
+    Close button inside the panel clears it back to empty, hiding it again.
+  -->
+  <div id="panel-indicator"
+       class="htmx-indicator absolute right-0 top-0 h-full w-96 flex items-center justify-center pointer-events-none">
+    <svg class="animate-spin w-8 h-8 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+  </div>
+  <div id="elevatorPanel"
+       class="w-96 border-l border-slate-200 bg-white overflow-y-auto shrink-0 empty:hidden relative z-10"></div>
+
+</div>

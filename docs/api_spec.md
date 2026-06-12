@@ -418,7 +418,16 @@ Returns elevators that are both high-risk (`risk_level = HIGH`) and have a faile
 
 **Data source:** `predictions.csv` (risk level and score) + `inspection.csv` (latest inspection outcome) + `elevator_fleet.csv` (location)
 
-**Query parameters:** None
+**Query parameters:**
+
+| Param | Type | Default | Validation | Notes |
+|---|---|---|---|---|
+| `q` | string | `""` | — | Case-insensitive partial match on `elevator_id` OR `location` |
+| `outcome` | string | `""` | — | Case-insensitive partial match on the latest inspection outcome (e.g. `Follow up`, `Fail`) |
+| `page` | integer | `1` | must be a positive integer (invalid values fall back to 1) | 1-based page number |
+| `limit` | integer | `50` | 1–200 | Rows per page; `limit > 200` or `limit < 1` returns 400 |
+
+All filters combine with the base alert criteria (HIGH risk + failed/missing most-recent inspection) using AND.
 
 **Response — 200 OK:**
 
@@ -426,7 +435,9 @@ Returns elevators that are both high-risk (`risk_level = HIGH`) and have a faile
 
 ```json
 {
-  "total": 2,
+  "total": 17088,
+  "page": 1,
+  "limit": 50,
   "alerts": [
     {
       "elevator_id": "12345",
@@ -454,8 +465,10 @@ Returns elevators that are both high-risk (`risk_level = HIGH`) and have a faile
 
 | Field | Type | Notes |
 |---|---|---|
-| `total` | integer | Number of alerts returned |
-| `alerts` | array | Alert entries, sorted by `risk_score` DESC |
+| `total` | integer | Total alerts matching the filters (across all pages), not just the current page |
+| `page` | integer | Echoes the requested page |
+| `limit` | integer | Echoes the page size |
+| `alerts` | array | Alert entries for the current page, sorted by `risk_score` DESC |
 | `alerts[].elevator_id` | string | Elevator identifier |
 | `alerts[].location` | string | Physical address |
 | `alerts[].risk_level` | string | Always `"HIGH"` for all alert entries |
@@ -468,8 +481,13 @@ Returns elevators that are both high-risk (`risk_level = HIGH`) and have a faile
 - Elevator must have `risk_level = HIGH` in `predictions.csv`. Elevators without predictions are excluded.
 - The elevator's most recent inspection outcome must **not** be `"Passed"` or `"All Orders Resolved"` (case-insensitive).
 - Elevators with no inspection record are included (no passing inspection on record).
+- `q` and `outcome` filters, when present, are applied on top of the base criteria.
 
-**Error responses:** None — this endpoint has no parameters and cannot fail.
+**Error responses:**
+
+| Status | Condition | Body |
+|---|---|---|
+| `400` | `limit < 1` or `limit > 200` | `{"error": "limit must be at least 1"}` / `{"error": "limit must not exceed 200"}` |
 
 ---
 

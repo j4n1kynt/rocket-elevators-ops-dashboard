@@ -288,3 +288,26 @@ We also iterated on this document using Claude before treating it as final. Runn
 It is worth being clear about what this document is: a prototype design, not a finished product. Nothing described here has been built yet. The document exists so that when we do start implementing the chat widget, we are not making up the rules as we go. The real work — writing the Go API endpoint, wiring up the Flask view, building the HTMX panel — comes next, and this document is what guides it.
 
 ---
+
+## IMPROVEMENTS-1/2/3: Dashboard redesign — structure, focused views, visual clarity
+
+**What was added:**
+Reorganized the single dense page into a multi-page HTMX app with three focused views, plus a refined visual design.
+
+**Where:**
+`platform/` — new `layout.html`, `_nav.html`, `_page_header.html`, `_page_overview.html`, `_page_fleet.html`, `_page_alerts.html`, `_alerts_rows.html`, `_alerts_preview.html`; updated `server.py`, `_table_rows.html`, `_fleet_health.html`, `_elevator_detail.html`. Go API: `handlers.go`, `models.go`. Specs: `dashboard_spec.md` (§6), `api_spec.md`.
+
+**Highlights:**
+- Three views — Overview, Elevator Fleet, Alerts — with a fixed sidebar and HTMX navigation (no full reload). Direct URL or refresh renders the full shell; HTMX requests return only the view partial (`HX-Request` check). Active view is highlighted and the URL updates (`hx-push-url`).
+- Type system (IBM Plex Sans + Mono), tabular number readouts, consistent cards/badges, color used only for meaning (green/amber/red for data, blue for interaction), fade transitions, thin scrollbars, keyboard focus rings.
+- Overview: thousands separators, neutral color on "expiring = 0", plain-language labels, Fleet Health donut, recent alerts preview, Active-card drill-down to a filtered Fleet view.
+- Fleet: selected-row highlight, horizontal scroll instead of crushed columns, styled empty states in the detail panel.
+- Alerts: server-side search, outcome filter, and pagination (new `q` / `outcome` / `page` / `limit` params on `GET /api/fleet/alerts`), graded severity colors, a Latest Inspection date column, wrapped address (no tooltip overlap).
+
+**Why:**
+The original dashboard put everything on one dense page, which made scanning and focused analysis hard. Focused views, a clearer visual hierarchy, and find/filter tools let an operator locate and read fleet information faster — with no custom JavaScript.
+
+**Status:** ✅ Implemented. Tests passing (33/33); the new alerts params were validated against the live database.
+Pending: extract a shared outcome-badge partial so the graded colors also apply on the Fleet table and detail panel (today they are only on the Alerts table).
+
+---

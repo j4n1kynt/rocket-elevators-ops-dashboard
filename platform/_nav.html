@@ -1,0 +1,47 @@
+{#
+  Sidebar navigation (spec §6.1, §6.3).
+  Used two ways:
+    - Included by layout.html on a full render (oob is undefined).
+    - Returned as an OOB swap by render_page() on HTMX navigation, so the
+      active link updates without reloading the shell (pass oob=True).
+  `active_page` selects which link is highlighted.
+#}
+{% set base = "flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors" %}
+{% set on   = "bg-slate-700 text-white" %}
+{% set off  = "text-slate-300 hover:bg-slate-800 hover:text-white" %}
+<nav id="nav-links" class="px-3 py-4 space-y-1"{% if oob %} hx-swap-oob="true"{% endif %}>
+
+  <!-- Overview -->
+  <a href="/"
+     hx-get="/" hx-target="#main-content" hx-swap="innerHTML transition:true"
+     hx-push-url="true" hx-indicator="#main-content"
+     class="{{ base }} {{ on if active_page == 'overview' else off }}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M13 3V9H21V3M13 21H21V11H13M3 21H11V15H3M3 13H11V3H3V13Z"/>
+    </svg>
+    Overview
+  </a>
+
+  <!-- Elevator Fleet -->
+  <a href="/fleet"
+     hx-get="/fleet" hx-target="#main-content" hx-swap="innerHTML transition:true"
+     hx-push-url="true" hx-indicator="#main-content"
+     class="{{ base }} {{ on if active_page == 'fleet' else off }}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 5H21V7H3V5M3 11H21V13H3V11M3 17H21V19H3V17Z"/>
+    </svg>
+    Elevator Fleet
+  </a>
+
+  <!-- Alerts -->
+  <a href="/alerts"
+     hx-get="/alerts" hx-target="#main-content" hx-swap="innerHTML transition:true"
+     hx-push-url="true" hx-indicator="#main-content"
+     class="{{ base }} {{ on if active_page == 'alerts' else off }}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2L1 21H23M12 6L19.53 19H4.47M11 10V14H13V10M11 16V18H13V16Z"/>
+    </svg>
+    Alerts
+  </a>
+
+</nav>

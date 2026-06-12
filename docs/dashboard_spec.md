@@ -247,7 +247,7 @@ Three of the four cards use an accent color on their metric value to signal stat
 | Total Elevators | Default dark text | Neutral count; no state signal needed |
 | Active Elevators | Green accent | Positive operational state |
 | Overdue Inspections | Red accent | Compliance risk; requires attention |
-| Licenses Expiring in 30 Days | Amber accent | Time-sensitive but not yet critical |
+| Licenses Expiring in 30 Days | Amber accent **when > 0**, neutral gray when 0 | Time-sensitive but not yet critical; a value of zero means no upcoming renewals, a positive state, so it is not flagged |
 
 ### 4.4 Status Column Badges
 
@@ -285,7 +285,7 @@ The outcome values displayed must match the actual values present in the inspect
 - Card labels are small, uppercase, and muted — secondary to the value.
 - Table header labels are small, uppercase, and muted — consistent with card labels.
 - Table row text is standard size and dark, with hover highlight on rows for readability.
-- No decorative elements (icons, charts, illustrations) are added beyond what is described above.
+- No decorative elements (icons, charts, illustrations) are added beyond what is described above, except the risk-distribution **donut** on the Fleet Health panel (Feature 3) — a functional, no-JavaScript data visual, not decoration.
 
 ---
 
@@ -501,7 +501,7 @@ A **fleet health panel** appears between the summary cards and the fleet table. 
 | Risk distribution | Count and percentage for each risk level: LOW, MEDIUM, HIGH, UNKNOWN |
 | Inspection pass rate | Percentage of elevators with at least one passing inspection |
 
-**Visual design:** Consistent with existing summary cards — white card, muted labels, bold values, accent colors matching the risk badge scheme (green/amber/red/slate).
+**Visual design:** Consistent with existing summary cards — white card, muted labels, bold values, accent colors matching the risk badge scheme (green/amber/red/slate). A CSS conic-gradient **donut** (no JavaScript, no chart library) shows the LOW/MEDIUM/HIGH/UNKNOWN split as parts of a whole, with the total device count in its center and a legend listing each count and percentage. Donut and legend colors match the risk badge scheme.
 
 **Error handling:** If the Go API is unreachable, display "Fleet health data unavailable." in place of the panel.
 
@@ -516,9 +516,10 @@ A **critical alerts section** appears below the fleet table. It is loaded via HT
 | Column | Description |
 |---|---|
 | Elevator ID | Monospace identifier |
-| Location | Full address (truncated with `title` tooltip) |
-| Risk Score | Formatted as 0.XX |
-| Latest Inspection Outcome | Color badge: Fail=red, Follow up=amber, other=plain |
+| Location | Full address, wrapped to a maximum of two lines (no native `title` tooltip, which overlapped the row below) |
+| Latest Inspection | Most recent inspection date; "No inspection on record" in red when missing (a missing inspection is itself an alert reason) |
+| Latest Inspection Outcome | Color badge with graded severity. `Passed`/`All Orders Resolved`=green; `Follow up`=amber; `DC Follow up`=orange; `Follow up Major`=red; `Fail`=red. Because this section is failed-most-recent-inspection only, any other non-pass value (e.g. `Complete`) is shown in amber to signal it still needs action. The literal value from `inspection.csv` is preserved (§4.6) — only the color encodes severity. |
+| Risk Score | Formatted as 0.XX, red badge |
 
 **Header:** "Critical Alerts — Showing N of M total (HIGH risk + failed inspection)"
 
@@ -780,3 +781,106 @@ The chat widget reuses the dashboard's existing palette (§4.2). No new colours 
 | Error bubble | `#fef2f2`, dark red text |
 
 ---
+
+## 6. Multi-Page Navigation (SPA via HTMX)
+
+This section supersedes the original single-page model. The dashboard splits into
+three navigable pages inside a persistent shell. Navigation never reloads the full
+page — only the main content area swaps, driven by HTMX.
+
+> **Supersedes earlier text.** The original **Scope** section described a single page
+> and listed "additional pages" as out of scope. That constraint is lifted for the
+> three pages defined here. The data sources, table behavior, detail panel, and visual
+> design from sections 1–5 are unchanged; only the page layout is reorganized.
+
+### 6.1 Navigation Model
+
+- A **persistent shell** holds the sidebar, the top bar, and the chat widget. These
+  never reload during navigation.
+- Each sidebar link uses `hx-get`, `hx-target="#main-content"`, `hx-push-url="true"`,
+  and `hx-swap="innerHTML transition:true"`. Clicking a link swaps only the main
+  content area and updates the browser address bar.
+- The clicked link shows an **active state** (filled background, like the current
+  "Dashboard" link) so the user always knows which page they are on.
+- **Direct access and refresh (F5):** when a page URL is opened directly or reloaded,
+  the server returns the **full shell** with that page's content embedded. The page
+  must work as a normal URL, not only as an HTMX fragment.
+
+### 6.2 Page Inventory
+
+| Page | Route | Top bar title | Contents | Data sources |
+|---|---|---|---|---|
+| **Overview** | `/` | Operational Fleet Overview | Summary cards, fleet health panel, recent critical alerts preview (top 5) | Go API `/api/fleet/stats`, `/api/elevators`, `/api/fleet/alerts` |
+| **Elevator Fleet** | `/fleet` | Elevator Fleet | Controls (search + filters), paginated fleet table, detail panel | Go API `/api/elevators`, `/api/elevators/{id}*` |
+| **Alerts** | `/alerts` | Critical Alerts | Critical alerts table (HIGH risk + failed inspection) | Go API `/api/fleet/alerts` |
+
+The existing fragment endpoints stay and are reused without change:
+`GET /table`, `GET /fleet-health`, `GET /elevator/<id>`, `DELETE /elevator/<id>`.
+The page routes above are the **navigable** routes; fragment routes are loaded by the
+pages via `hx-trigger="load"` exactly as today.
+
+### 6.3 Layout Shell (`layout.html`)
+
+The shell is a base template with four fixed regions:
+
+1. **Sidebar** — brand block (unchanged from §4.1) + the three nav links from §6.2,
+   with active-state styling on the current page.
+2. **Top bar** — page title and subtitle. The title changes per page (see §6.2). The
+   sidebar and top bar are always visible.
+3. **Main content** — a single `<main id="main-content">` container. This is the only
+   region that swaps during navigation.
+4. **Chat widget** — the floating FAB and panel from §5, anchored to the shell so it
+   stays available on every page.
+
+### 6.4 Flask Rendering Contract
+
+Each page route checks the `HX-Request` header:
+
+- **HTMX request** (`request.headers.get("HX-Request")` is truthy): render the page
+  **partial only** (the content for `#main-content`).
+- **Direct request / refresh** (header absent): render `layout.html` with the page
+  partial embedded, the matching top-bar title, and the active sidebar link.
+
+A small helper centralizes this so the three routes stay short. The same context
+(active page, title) feeds both the partial and the full-shell render.
+
+### 6.5 Summary Card Behavior Change
+
+The four summary cards now live **only on the Overview page**, while the fleet table
+lives on the **Elevator Fleet page**. Because they are on different pages, the cards
+no longer update in response to table filters, search, or sort.
+
+- The **Total Elevators** card shows the fleet-wide total (full dataset), not the
+  filtered result count. This supersedes the "Updates on filter? — Yes" row for Total
+  Elevators in §2.
+- The filtered result count stays visible on the Fleet page in the pagination line
+  ("Page N of M — K results").
+- The out-of-band `#card-total` swap previously sent by `GET /table` is removed (the
+  target no longer exists on the Fleet page).
+
+### 6.6 Transitions and Loading
+
+- Page swaps use `hx-swap="innerHTML transition:true"` (View Transitions API) with a
+  CSS keyframe fade as a fallback for browsers without that API. The transition is a
+  short, calm fade — no slide or zoom.
+- `prefers-reduced-motion: reduce` disables the fade.
+- While a page is loading, the main content area dims via the `.htmx-request` class
+  (lower opacity), consistent with the loading feedback rules in §3. The sidebar, top
+  bar, and chat widget stay fully visible and interactive.
+- No custom JavaScript is added; all behavior uses HTMX attributes and CSS only.
+
+### 6.7 Overview Interactions
+
+The Overview page adds two navigation shortcuts (both use the same HTMX page-swap
+mechanism as the sidebar — `hx-target="#main-content"`, `hx-push-url="true"`):
+
+- **Active Elevators card → filtered Fleet.** Clicking the Active Elevators card opens
+  the Fleet page pre-filtered to `status=ACTIVE` (`GET /fleet?status=ACTIVE`). The Fleet
+  page reads the `status` query param, pre-selects the Status dropdown, and the initial
+  table load reflects the filter. Only the Active card is a drill-down in this version:
+  the Go API supports a `status` filter, but not a risk-level or "overdue" filter
+  (AND-104 Feature 1: no filtering by risk level), so the other cards are not clickable.
+- **Recent alerts preview → Alerts page.** A compact top-5 critical-alerts list fills the
+  lower Overview area, loaded via `hx-trigger="load"` from `GET /api/fleet/alerts`. A
+  "View all" link opens the full Alerts page. If the API is unreachable, the preview
+  shows "Alerts unavailable."

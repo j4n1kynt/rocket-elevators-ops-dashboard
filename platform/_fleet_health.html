@@ -1,42 +1,60 @@
 <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
   <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Fleet Health</p>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+  <div class="flex flex-col sm:flex-row items-center gap-6">
 
-    <!-- LOW risk -->
-    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Low Risk</p>
-      <p class="text-2xl font-bold text-green-600">{{ "{:,}".format(low) }}</p>
-      <p class="text-xs text-slate-400 mt-0.5">{{ low_pct }}% of fleet</p>
+    <!--
+      Risk distribution donut — CSS conic-gradient, no JavaScript (spec Feature 3).
+      The gradient stops are computed server-side so segments always total 100%.
+      The center hole (inset white circle) carries the total device count.
+    -->
+    <div class="relative w-32 h-32 shrink-0 rounded-full"
+         style="background: conic-gradient({{ donut_gradient }});"
+         role="img"
+         aria-label="Risk distribution: {{ low_pct }}% low, {{ medium_pct }}% medium, {{ high_pct }}% high, {{ unknown_pct }}% no prediction">
+      <div class="absolute inset-[14px] bg-white rounded-full flex flex-col items-center justify-center">
+        <p class="readout text-xl font-bold text-slate-800 leading-none">{{ "{:,}".format(total) }}</p>
+        <p class="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Devices</p>
+      </div>
     </div>
 
-    <!-- MEDIUM risk -->
-    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Medium Risk</p>
-      <p class="text-2xl font-bold text-amber-600">{{ "{:,}".format(medium) }}</p>
-      <p class="text-xs text-slate-400 mt-0.5">{{ medium_pct }}% of fleet</p>
-    </div>
+    <!-- Legend — one row per risk level + inspection pass rate -->
+    <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
 
-    <!-- HIGH risk -->
-    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">High Risk</p>
-      <p class="text-2xl font-bold text-red-600">{{ "{:,}".format(high) }}</p>
-      <p class="text-xs text-slate-400 mt-0.5">{{ high_pct }}% of fleet</p>
-    </div>
+      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
+        <span class="flex items-center gap-2 text-sm text-slate-600">
+          <span class="w-2.5 h-2.5 rounded-full bg-green-600 shrink-0"></span> Low Risk
+        </span>
+        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(low) }}</span> <span class="text-xs text-slate-400">{{ low_pct }}%</span></span>
+      </div>
 
-    <!-- UNKNOWN (no prediction) -->
-    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">No Prediction</p>
-      <p class="text-2xl font-bold text-slate-500">{{ "{:,}".format(unknown) }}</p>
-      <p class="text-xs text-slate-400 mt-0.5">{{ unknown_pct }}% of fleet</p>
-    </div>
+      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
+        <span class="flex items-center gap-2 text-sm text-slate-600">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0"></span> Medium Risk
+        </span>
+        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(medium) }}</span> <span class="text-xs text-slate-400">{{ medium_pct }}%</span></span>
+      </div>
 
-    <!-- Inspection pass rate -->
-    <div class="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Inspection Pass Rate</p>
-      <p class="text-2xl font-bold text-slate-800">{{ pass_rate }}%</p>
-      <p class="text-xs text-slate-400 mt-0.5">Elevators with ≥1 pass</p>
-    </div>
+      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
+        <span class="flex items-center gap-2 text-sm text-slate-600">
+          <span class="w-2.5 h-2.5 rounded-full bg-red-600 shrink-0"></span> High Risk
+        </span>
+        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(high) }}</span> <span class="text-xs text-slate-400">{{ high_pct }}%</span></span>
+      </div>
 
+      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
+        <span class="flex items-center gap-2 text-sm text-slate-600">
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span> No Prediction
+        </span>
+        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(unknown) }}</span> <span class="text-xs text-slate-400">{{ unknown_pct }}%</span></span>
+      </div>
+
+      <!-- Inspection pass rate — spans the full legend width -->
+      <div class="sm:col-span-2 flex items-center justify-between pt-2.5 mt-1.5 border-t border-slate-200">
+        <span class="text-sm font-medium text-slate-700">Inspection Pass Rate</span>
+        <span class="readout text-lg font-bold text-slate-800">{{ pass_rate }}%</span>
+      </div>
+
+    </div>
   </div>
 </div>

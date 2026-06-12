@@ -557,73 +557,142 @@ func GetFleetStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetFleetAlerts(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query(r.Context(), `
+	q := r.URL.Query()
+
+	search  := q.Get("q")
+	outcome := q.Get("outcome")
+
+	page  := 1
+	limit := 50
+	if v := q.Get("page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			page = n
+		}
+	}
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			limit = n
+		}
+	}
+	if limit < 1 {
+		writeJSON(w, 400, ErrorResponse{Error: "limit must be at least 1"})
+		return
+	}
+	if limit > 200 {
+		writeJSON(w, 400, ErrorResponse{Error: "limit must not exceed 200"})
+		return
+	}
+
+	// Base alert criteria: HIGH risk + failed/missing most-recent inspection.
+	// Condition strings are hardcoded; only values are passed as args.
+	conds := []string{
+		"p.risk_level = 'HIGH'",
+		"(li.elevator_id IS NULL OR LOWER(li.outcome) NOT IN ('passed', 'all orders resolved'))",
+	}
+	var args []any
+
+	if search != "" {
+		args = append(args, "%"+strings.ToLower(search)+"%")
+		n := len(args)
+		conds = append(conds, fmt.Sprintf("(LOWER(e.elevator_id::text) LIKE $%d OR LOWER(e.location) LIKE $%d)", n, n))
+	}
+	if outcome != "" {
+		args = append(args, "%"+strings.ToLower(outcome)+"%")
+		conds = append(conds, fmt.Sprintf("LOWER(li.outcome) LIKE $%d", len(args)))
+	}
+
+	where := "WHERE " + strings.Join(conds, " AND ")
+
+	// Shared "latest inspection per elevator" CTE, prepended to both queries.
+	li := `
 		WITH li AS (
 			SELECT DISTINCT ON (elevator_id)
 				elevator_id, latest_inspection_date, outcome
 			FROM inspections
 			ORDER BY elevator_id, latest_inspection_date DESC NULLS LAST
-		)
-		SELECT
-			e.elevator_id::text,
-			e.location,
-			p.risk_level,
-			p.risk_score::float8,
-			li.latest_inspection_date,
-			li.outcome
+		)`
+
+	// Total matching rows across all pages.
+	countSQL := li + fmt.Sprintf(`
+		SELECT COUNT(*)
 		FROM elevators e
 		JOIN predictions p ON p.elevator_id = e.elevator_id
 		LEFT JOIN li ON li.elevator_id = e.elevator_id
-		WHERE p.risk_level = 'HIGH'
-		  AND (
-			li.elevator_id IS NULL
-			OR LOWER(li.outcome) NOT IN ('passed', 'all orders resolved')
-		  )
-		ORDER BY p.risk_score DESC`)
-	if err != nil {
+		%s`, where)
+	var total int
+	if err := db.QueryRow(r.Context(), countSQL, args...).Scan(&total); err != nil {
 		writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
 		return
 	}
-	defer rows.Close()
 
 	alerts := []AlertEntry{}
+	offset := (page - 1) * limit
 
-	for rows.Next() {
-		var (
-			elevatorID  string
-			location    string
-			riskLevel   string
-			riskScore   float64
-			inspDate    *time.Time
-			inspOutcome *string
-		)
-		if err := rows.Scan(
-			&elevatorID, &location, &riskLevel, &riskScore,
-			&inspDate, &inspOutcome,
-		); err != nil {
-			writeJSON(w, 500, ErrorResponse{Error: "scan failed"})
+	if offset < total {
+		args = append(args, limit)
+		limitArg := len(args)
+		args = append(args, offset)
+		offsetArg := len(args)
+
+		querySQL := li + fmt.Sprintf(`
+			SELECT
+				e.elevator_id::text,
+				e.location,
+				p.risk_level,
+				p.risk_score::float8,
+				li.latest_inspection_date,
+				li.outcome
+			FROM elevators e
+			JOIN predictions p ON p.elevator_id = e.elevator_id
+			LEFT JOIN li ON li.elevator_id = e.elevator_id
+			%s
+			ORDER BY p.risk_score DESC
+			LIMIT $%d OFFSET $%d`, where, limitArg, offsetArg)
+
+		rows, err := db.Query(r.Context(), querySQL, args...)
+		if err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "database query failed"})
 			return
 		}
+		defer rows.Close()
 
-		confidence := riskScore
-		if confidence < 0.5 {
-			confidence = 1 - confidence
+		for rows.Next() {
+			var (
+				elevatorID  string
+				location    string
+				riskLevel   string
+				riskScore   float64
+				inspDate    *time.Time
+				inspOutcome *string
+			)
+			if err := rows.Scan(
+				&elevatorID, &location, &riskLevel, &riskScore,
+				&inspDate, &inspOutcome,
+			); err != nil {
+				writeJSON(w, 500, ErrorResponse{Error: "scan failed"})
+				return
+			}
+
+			confidence := riskScore
+			if confidence < 0.5 {
+				confidence = 1 - confidence
+			}
+
+			alerts = append(alerts, AlertEntry{
+				ElevatorID:              elevatorID,
+				Location:                location,
+				RiskLevel:               riskLevel,
+				RiskScore:               riskScore,
+				Confidence:              confidence,
+				LatestInspectionDate:    formatDate(inspDate),
+				LatestInspectionOutcome: inspOutcome,
+			})
 		}
-
-		alerts = append(alerts, AlertEntry{
-			ElevatorID:              elevatorID,
-			Location:                location,
-			RiskLevel:               riskLevel,
-			RiskScore:               riskScore,
-			Confidence:              confidence,
-			LatestInspectionDate:    formatDate(inspDate),
-			LatestInspectionOutcome: inspOutcome,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		writeJSON(w, 500, ErrorResponse{Error: "row iteration failed"})
-		return
+		if err := rows.Err(); err != nil {
+			writeJSON(w, 500, ErrorResponse{Error: "row iteration failed"})
+			return
+		}
 	}
 
-	writeJSON(w, 200, FleetAlertsResponse{Total: len(alerts), Alerts: alerts})
+	writeJSON(w, 200, FleetAlertsResponse{Total: total, Page: page, Limit: limit, Alerts: alerts})
 }
