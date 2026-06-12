@@ -85,12 +85,32 @@ class TestMainPageLoad:
         assert "total_elevators" in data or "Total Elevators" in data
         assert "active_elevators" in data or "Active Elevators" in data
 
-    def test_get_index_contains_fleet_table(self, client):
-        """GET / should include the initial fleet table."""
-        response = client.get("/")
+    def test_fleet_page_contains_fleet_table(self, client):
+        """GET /fleet should include the fleet table (moved off / in spec §6.2)."""
+        response = client.get("/fleet")
         data = response.get_data(as_text=True)
         # Table should be present with fleetTable id for HTMX targeting
         assert "fleetTable" in data
+
+    def test_fleet_page_returns_200(self, client):
+        """GET /fleet should return the Elevator Fleet page (spec §6.2)."""
+        response = client.get("/fleet")
+        assert response.status_code == 200
+
+    def test_alerts_page_returns_200(self, client):
+        """GET /alerts should return the Critical Alerts page (spec §6.2)."""
+        response = client.get("/alerts")
+        assert response.status_code == 200
+
+    def test_hx_request_returns_partial_not_shell(self, client):
+        """An HX-Request to a page route returns content only, not the full shell."""
+        response = client.get("/fleet", headers={"HX-Request": "true"})
+        data = response.get_data(as_text=True)
+        # The partial has the table but not the <html>/sidebar shell.
+        assert "fleetTable" in data
+        assert "<!DOCTYPE html>" not in data
+        # OOB nav rides along so the active link updates.
+        assert 'id="nav-links"' in data
 
 
 # ──────────────────────────────────────────────────────────────────────────────
