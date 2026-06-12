@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rocket Elevators Operations Dashboard</title>
+
+  <!-- Type system: IBM Plex Sans (UI) + IBM Plex Mono (identifiers, scores, readouts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"
+          integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+          crossorigin="anonymous"></script>
+  <style>
+    /* ── Type system ────────────────────────────────────────────────────────
+       The spec (§4) pins the palette but leaves fonts open. IBM Plex Sans for
+       UI text; IBM Plex Mono for the data readouts — elevator IDs, license
+       numbers, risk scores, and the big metric numbers. The mono numerics give
+       the dashboard an instrument-panel feel without adding any decoration. */
+    :root {
+      --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    html { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+    /* body-scoped so it beats Tailwind's .font-mono utility on specificity */
+    body .font-mono { font-family: var(--font-mono); }
+    /* Numeric readouts: monospaced, tabular-aligned, slightly tightened */
+    .readout { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+    /* ── Keyboard focus ───────────────────────────────────────────────────────
+       Visible ring on every interactive control. Element-typed selectors beat
+       Tailwind's .outline-none utility, so controls that clear the default
+       outline still show a ring on keyboard focus. Only fires for focus-visible,
+       never on plain mouse use. */
+    a:focus-visible, button:focus-visible, input:focus-visible,
+    select:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* ── Scrollbars ───────────────────────────────────────────────────────────
+       Thin and discreet, so the table and detail-panel scroll areas don't draw a
+       heavy gray divider down the middle of the page. */
+    * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+    *::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
+    /* ── Selected table row ────────────────────────────────────────────────────
+       Blue marks interaction states (focus, selection) and is never used for data,
+       so it cannot be confused with the green/amber/red status colors. The id in
+       the selector keeps it above Tailwind's hover:bg utility. */
+    #tableBody tr[data-selected] {
+      background-color: #eff6ff;            /* blue-50 */
+      box-shadow: inset 3px 0 0 0 #2563eb;  /* blue-600 left accent */
+    }
+
+    /* Generic HTMX indicator fade (table, panel, chat). */
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+
+    /* Loading feedback: dim the main area while a page is being fetched (spec §6.6).
+       Nav links set hx-indicator="#main-content", so it gets .htmx-request in flight. */
+    #main-content { transition: opacity 150ms ease-in-out; }
+    #main-content.htmx-request { opacity: 0.6; }
+
+    /* Page transition: a short, calm fade via the View Transitions API (spec §6.6).
+       Browsers without the API simply swap with no animation — graceful fallback. */
+    @media (prefers-reduced-motion: no-preference) {
+      ::view-transition-old(root) { animation: rkt-fade-out 140ms ease-in both; }
+      ::view-transition-new(root) { animation: rkt-fade-in  220ms ease-out both; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #main-content { transition: none; }
+      ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+    }
+    @keyframes rkt-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes rkt-fade-out { from { opacity: 1; } to { opacity: 0; } }
+  </style>
+</head>
+<body class="flex h-screen bg-slate-100 overflow-hidden">
+
+  <!-- Sidebar — persistent shell, never reloads (spec §6.1, §4.2) -->
+  <aside class="w-56 bg-slate-900 text-white flex flex-col shrink-0">
+
+    <!-- Brand area — §4.1: prominent, separated from nav by border -->
+    <div class="px-5 py-5 border-b border-slate-700">
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13.13 22.19L11.5 18.36C13.07 17.78 14.54 17 15.9 16.09L13.13 22.19M5.64 12.5L1.81 10.87L7.91 8.1C7 9.46 6.22 10.93 5.64 12.5M21.61 2.39C21.61 2.39 16.66 .269 11 5.93C8.81 8.12 7.5 10.53 6.65 12.64C6.37 13.39 6.56 14.21 7.11 14.77L9.24 16.89C9.79 17.45 10.61 17.63 11.36 17.35C13.5 16.53 15.88 15.19 18.07 13C23.73 7.34 21.61 2.39 21.61 2.39M14.54 9.46C13.76 8.68 13.76 7.41 14.54 6.63S16.59 5.85 17.37 6.63C18.14 7.41 18.15 8.68 17.37 9.46C16.59 10.24 15.32 10.24 14.54 9.46M8.88 16.53L7.47 15.12L8.88 16.53M6.24 22L9.88 18.36C9.54 18.27 9.21 18.12 8.91 17.91L4.83 22H6.24M2 22H3.41L8.18 17.24L6.76 15.83L2 20.59V22M2 19.17L6.09 15.09C5.88 14.79 5.73 14.46 5.64 14.12L2 17.76V19.17Z"/>
+        </svg>
+        <span class="text-base font-semibold tracking-wide text-white">Rocket Elevators</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-1 ml-7">Operations Dashboard</p>
+    </div>
+
+    <!-- Navigation — rendered by _nav.html; active link reflects the current page -->
+    {% include "_nav.html" %}
+  </aside>
+
+  <!-- Main column — top bar stays fixed; only #main-content swaps on navigation -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Top bar (fixed region) -->
+    {% include "_page_header.html" %}
+
+    <!-- Swap target — the only region that changes when the user navigates -->
+    <div id="main-content" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {% include page_template %}
+    </div>
+
+  </main>
+
+  <!-- No custom JavaScript. All interactivity is HTMX-driven. -->
+
+  <!-- Chat FAB — spec §5.1 (global, lives in the shell) -->
+  <button
+    hx-on:click="document.getElementById('chatPanel').classList.toggle('hidden')"
+    class="fixed bottom-6 right-6 z-40 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-700 transition-colors"
+    aria-label="Open Fleet Assistant"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+    </svg>
+  </button>
+
+  <!-- Chat Panel — spec §5.2; initially hidden -->
+  <div id="chatPanel"
+       class="hidden fixed bottom-6 right-6 z-50 w-96 h-[520px] bg-white rounded-t-xl shadow-lg flex flex-col border border-slate-200">
+
+    <!-- Header -->
+    <div class="px-4 py-3 bg-slate-900 text-white rounded-t-xl flex items-center justify-between shrink-0">
+      <span class="text-sm font-semibold">Fleet Assistant</span>
+      <div class="flex items-center gap-3">
+        <button
+          hx-get="/chat/clear"
+          hx-target="#chatMessages"
+          hx-swap="innerHTML"
+          class="text-xs text-slate-400 hover:text-slate-200"
+        >Clear</button>
+        <button
+          hx-on:click="document.getElementById('chatPanel').classList.add('hidden')"
+          class="text-slate-300 hover:text-white text-xl leading-none"
+          aria-label="Close"
+        >&times;</button>
+      </div>
+    </div>
+
+    <!-- Message list — spec §5.2 -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-slate-50">
+
+      <!-- Welcome message -->
+      <div class="flex justify-start">
+        <div class="max-w-[85%] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
+          I can explain Ontario elevator regulations, device types, inspections, and risk levels. For live fleet data, use the dashboard. What would you like to understand?
+        </div>
+      </div>
+
+      <!-- Suggested prompt chips — spec §5.4 -->
+      <div id="chatChips" class="flex flex-wrap gap-2 mt-1">
+        <button type="button"
+                hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+                hx-vals='{"message": "What do the risk levels mean?"}' hx-include="#chatHistory"
+                hx-indicator="#chatIndicator"
+                class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+          Risk levels
+        </button>
+        <button type="button"
+                hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+                hx-vals='{"message": "What is a Customer Shutdown?"}' hx-include="#chatHistory"
+                hx-indicator="#chatIndicator"
+                class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+          Customer Shutdown
+        </button>
+        <button type="button"
+                hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
+                hx-vals='{"message": "When is an inspection overdue?"}' hx-include="#chatHistory"
+                hx-indicator="#chatIndicator"
+                class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
+          Overdue inspections
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Input form — spec §5.5 -->
+    <form id="chatForm"
+          hx-post="/chat"
+          hx-target="#chatMessages"
+          hx-swap="beforeend scroll:bottom"
+          hx-indicator="#chatIndicator"
+          hx-on:htmx:before-request="this.querySelector('#chatInput').disabled=true;this.querySelector('#chatSend').disabled=true"
+          hx-on:htmx:after-request="this.querySelector('#chatInput').disabled=false;this.querySelector('#chatSend').disabled=false;this.querySelector('#chatInput').value=''"
+          class="px-4 py-3 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white relative">
+      <input id="chatHistory" type="hidden" name="history" value="[]" />
+      <input
+        id="chatInput"
+        type="text"
+        name="message"
+        placeholder="Ask about regulations, terms, or risk…"
+        maxlength="500"
+        autocomplete="off"
+        class="flex-1 text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 placeholder-slate-400 disabled:opacity-50"
+      />
+      <button
+        id="chatSend"
+        type="submit"
+        class="w-9 h-9 bg-slate-900 text-white rounded-lg flex items-center justify-center hover:bg-slate-700 shrink-0 disabled:opacity-40"
+        aria-label="Send"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+      <!-- Loading indicator — shows while Ollama is responding -->
+      <div id="chatIndicator"
+           class="htmx-indicator absolute left-4 -top-7 flex items-center gap-1.5 text-xs text-slate-400 pointer-events-none bg-slate-50 px-2 py-1 rounded">
+        <svg class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Thinking…
+      </div>
+    </form>
+
+  </div><!-- end chat panel -->
+
+</body>
+</html>
