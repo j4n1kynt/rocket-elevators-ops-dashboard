@@ -9,9 +9,14 @@ licenses, and review the risk level of each device — all in one place.
 
 | Service | URL |
 |---|---|
-| **Dashboard (web app)** | https://rocket-elevators-ops-dashboard.onrender.com/ |
+| **Dashboard (web app)** | https://rocket-elevators-ops-dashboard-1.onrender.com/ |
 | **Go REST API** | https://rocket-elevators-ops-dashboard.onrender.com/api |
 | **Database** | PostgreSQL 16, hosted on the [Neon](https://neon.tech) platform |
+
+## Ceremonies and Trello links
+
+- https://drive.google.com/drive/folders/1hz6l02opPJHJ2YfIx9K1xigwcPuuPXey?usp=sharing
+- https://trello.com/b/s3DUaLxa/and-106-rocket-elevator-chatbot
 
 > The app is deployed on [Render](https://render.com). The Go API reads all
 > operational data from a managed PostgreSQL database on Neon.
