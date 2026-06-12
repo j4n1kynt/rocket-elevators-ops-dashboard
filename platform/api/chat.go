@@ -71,6 +71,7 @@ func callOllama(ctx context.Context, baseURL, model string, messages []ollamaMsg
 		return "", fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("ngrok-skip-browser-warning", "true")
 
 	resp, err := ollamaClient.Do(req)
 	if err != nil {
