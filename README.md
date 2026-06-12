@@ -15,7 +15,6 @@ licenses, and review the risk level of each device — all in one place.
 
 ## Ceremonies and Trello links
 
-- https://drive.google.com/drive/folders/1hz6l02opPJHJ2YfIx9K1xigwcPuuPXey?usp=sharing
 - https://trello.com/b/s3DUaLxa/and-106-rocket-elevator-chatbot
 
 > The app is deployed on [Render](https://render.com). The Go API reads all
