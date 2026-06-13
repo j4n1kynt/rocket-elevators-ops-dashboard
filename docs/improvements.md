@@ -413,3 +413,24 @@ Request a JSON object instead of free-text sentences:
 `primary_factor` powers a short risk badge tooltip; `recommendation` maps to a technician
 action item. Requires updating `risk_explanation` to a `JSONB` column or adding separate
 `risk_primary_factor` and `risk_recommendation` columns.
+
+---
+
+### PROMPT-1: OpsBot System Prompt — Peer Review Improvements and Output Limit
+
+**What was changed:**
+Four targeted improvements applied to `platform/api/prompts/system_prompt.md` following a peer review of the original PROMPT-1 deliverable:
+
+1. **Identity framing** — Added "You are a knowledge partner, not a data tool" to the Identity section. This phrase more precisely sets user expectations: OpsBot helps users understand data, it does not retrieve data on their behalf. The original phrasing left this distinction implicit.
+
+2. **Output length limit (Boundary rule #6)** — Added an explicit 1500-token cap to the Boundaries section. The original prompt had no output length constraint, which risks wall-of-text responses when users ask broad questions (e.g., "explain all inspection types"). The limit is enforced with "Do not extend past 1500 tokens under any circumstances" and paired with a multi-part question strategy: answer the highest-priority element first, then offer follow-ups for the rest.
+
+3. **Tone — multi-part question guidance** — Extended the Tone section to instruct OpsBot to prioritize the most critical element of a multi-part question and offer to address the remainder in focused follow-ups. Without this, a broad multi-part question would either receive an incomplete answer or drive the model toward the token limit.
+
+4. **Ambiguous question example** — Sharpened the edge case example from a risk-score-specific phrasing to a cleaner, role-agnostic format: *"I can answer the first but not the second."* The original example was narrowly tied to risk levels; the new phrasing works for any ambiguous query type.
+
+**Where:**
+`platform/api/prompts/system_prompt.md` — Identity paragraph, Tone section, Boundaries section (rule #6), Edge Case Handling (ambiguous questions).
+
+**Why:**
+The peer review identified improvements in framing, guardrails, and response quality control that were not part of the original PROMPT-1 specification. The output limit in particular addresses a concrete failure mode: local LLMs running on Ollama with no token constraint tend to over-generate on open-ended procedural questions, producing responses that are hard to read and slow to render. The identity framing and multi-part guidance improve the usability of OpsBot as a daily operations tool rather than a one-off query interface.
