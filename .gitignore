@@ -228,3 +228,6 @@ data/chromadb/
 # AND-107: Source PDFs -- not versioned; place manually in intelligence/rag_documents/
 # or set RAG_PDF_SOURCE_PATH env var to your local path
 intelligence/rag_documents/
+AND-107 Business Document.txt
+Current_Status.md
+SchemaStructure.md
