@@ -8,10 +8,15 @@ Usage:
   py -3 intelligence/rag_preprocessing.py --force      # delete collection and reprocess
   py -3 intelligence/rag_preprocessing.py --dry-run    # validate pipeline, skip ChromaDB write
   py -3 intelligence/rag_preprocessing.py --pdf-path /path/to/pdfs  # override PDF directory
+
+Environment variables (override defaults for deployment):
+  RAG_PDF_SOURCE_PATH   path to folder containing PDFs (default: intelligence/rag_documents)
+  RAG_CHROMADB_PATH     path for ChromaDB persistent store (default: data/chromadb)
 """
 
 import argparse
 import asyncio
+import os
 import re
 import sys
 import time
@@ -26,8 +31,8 @@ import tiktoken
 from sentence_transformers import SentenceTransformer
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-PDF_SOURCE_PATH       = Path("C:/Users/juanjanica/Documents/Proyecto_CodeBoxx/rocket-elevators-ops-dashboard/LLM_Docs")
-CHROMADB_PATH         = "data/chromadb"
+PDF_SOURCE_PATH       = Path(os.getenv("RAG_PDF_SOURCE_PATH", "intelligence/rag_documents"))
+CHROMADB_PATH         = os.getenv("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME       = "maintenance_documents"
 EMBEDDING_MODEL       = "all-MiniLM-L6-v2"
 # all-MiniLM-L6-v2 has a hard 256 WordPiece token limit; cl100k_base produces

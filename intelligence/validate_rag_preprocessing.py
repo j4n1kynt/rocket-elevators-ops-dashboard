@@ -4,14 +4,15 @@ Usage: py -3 intelligence/validate_rag_preprocessing.py
 Exits 0 if all checks pass, 1 if any fail.
 """
 
+import os
 import sys
 import numpy as np
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-CHROMADB_PATH   = "data/chromadb"
+CHROMADB_PATH   = os.getenv("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
-MIN_CHUNKS      = 50    # floor for 6 PDFs (69 chunks produced at 700-token size)
+MIN_CHUNKS      = 50    # floor for 6 PDFs (275 chunks at 180-token size)
 EXPECTED_DIM    = 384
 
 
