@@ -34,17 +34,14 @@ from sentence_transformers import SentenceTransformer
 PDF_SOURCE_PATH       = Path(os.getenv("RAG_PDF_SOURCE_PATH", "intelligence/rag_documents"))
 CHROMADB_PATH         = os.getenv("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME       = "maintenance_documents"
-EMBEDDING_MODEL       = "all-MiniLM-L6-v2"
-# all-MiniLM-L6-v2 has a hard 256 WordPiece token limit; cl100k_base produces
-# ~1.3–1.4x fewer tokens than WordPiece for the same text, so 180 tiktoken
-# tokens stays safely under 256 WordPiece tokens after conversion.
-CHUNK_SIZE_TOKENS     = 180
-OVERLAP_TOKENS        = 20
+EMBEDDING_MODEL       = "BAAI/bge-large-en-v1.5"
+CHUNK_SIZE_TOKENS     = 500
+OVERLAP_TOKENS        = 50
 EMBEDDING_CONCURRENCY = 8
 BATCH_SIZE            = 32
 MIN_CHUNK_CHARS       = 100
 MIN_DOC_CHARS         = 500
-MODEL_VERSION         = "all-MiniLM-L6-v2-v1"
+MODEL_VERSION         = "bge-large-en-v1.5-v1"
 
 # Download punkt sentence tokenizer on first run (~5MB, cached after)
 try:

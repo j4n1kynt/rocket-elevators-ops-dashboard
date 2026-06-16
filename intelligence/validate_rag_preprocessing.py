@@ -12,8 +12,8 @@ from sentence_transformers import SentenceTransformer
 
 CHROMADB_PATH   = os.getenv("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
-MIN_CHUNKS      = 50    # floor for 6 PDFs (275 chunks at 180-token size)
-EXPECTED_DIM    = 384
+MIN_CHUNKS      = 30    # floor for 6 PDFs at 500-token chunk size
+EXPECTED_DIM    = 1024
 
 
 def _ok(flag):
@@ -61,7 +61,7 @@ def main():
 
     # [4] Similarity search — embed query with our own model to avoid ChromaDB ONNX download
     try:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        _model = SentenceTransformer("BAAI/bge-large-en-v1.5")
         query_vec = _model.encode(["elevator safety inspection"], show_progress_bar=False).tolist()
         results = coll.query(query_embeddings=query_vec, n_results=3)
         search_ok = len(results["ids"][0]) == 3
