@@ -1,0 +1,24 @@
+# AND-107: FastMCP server for elevator operations chatbot
+# Install: pip install -r platform/mcp/requirements.txt
+# Do NOT add Flask, gunicorn, pdfplumber, or tiktoken here — those belong in the root requirements.txt
+
+# MCP framework
+fastmcp==2.5.2
+
+# ASGI server — required by FastMCP's Streamable HTTP transport
+uvicorn==0.34.3
+
+# PostgreSQL driver — same version as root requirements.txt, binary wheel for easy install
+psycopg2-binary==2.9.9
+
+# Vector store — same version as root requirements.txt, shares data/chromadb store
+chromadb==1.5.9
+
+# Embeddings — must match EMBEDDING_MODEL = "all-MiniLM-L6-v2" in rag_preprocessing.py
+sentence-transformers==5.6.0
+
+# Env file loading
+python-dotenv==1.1.0
+
+# numpy is a transitive dep of sentence-transformers; pin to match root requirements.txt
+numpy==2.4.4
