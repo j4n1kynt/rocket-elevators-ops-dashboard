@@ -30,8 +30,11 @@ PDF_SOURCE_PATH       = Path("C:/Users/juanjanica/Documents/Proyecto_CodeBoxx/ro
 CHROMADB_PATH         = "data/chromadb"
 COLLECTION_NAME       = "maintenance_documents"
 EMBEDDING_MODEL       = "all-MiniLM-L6-v2"
-CHUNK_SIZE_TOKENS     = 700
-OVERLAP_TOKENS        = 50
+# all-MiniLM-L6-v2 has a hard 256 WordPiece token limit; cl100k_base produces
+# ~1.3–1.4x fewer tokens than WordPiece for the same text, so 180 tiktoken
+# tokens stays safely under 256 WordPiece tokens after conversion.
+CHUNK_SIZE_TOKENS     = 180
+OVERLAP_TOKENS        = 20
 EMBEDDING_CONCURRENCY = 8
 BATCH_SIZE            = 32
 MIN_CHUNK_CHARS       = 100
@@ -42,7 +45,12 @@ MODEL_VERSION         = "all-MiniLM-L6-v2-v1"
 try:
     nltk.data.find("tokenizers/punkt_tab")
 except LookupError:
-    nltk.download("punkt_tab", quiet=True)
+    ok = nltk.download("punkt_tab", quiet=False)
+    if not ok:
+        raise RuntimeError(
+            "Failed to download NLTK punkt_tab tokenizer. "
+            "Run: python -m nltk.downloader punkt_tab"
+        )
 
 _TOKENIZER = tiktoken.get_encoding("cl100k_base")
 
@@ -150,12 +158,16 @@ def chunk_documents(docs: list) -> tuple:
                 })
                 seq += 1
 
-                # Carry last OVERLAP_TOKENS worth of sentences into next chunk
+                # Carry last OVERLAP_TOKENS worth of sentences into next chunk.
+                # If the last sentence alone exceeds the budget, include it anyway
+                # so chunk boundaries always have at least one sentence of context.
                 overlap_sents = []
                 overlap_tokens = 0
                 for s in reversed(current_sents):
                     s_tok = _count_tokens(s)
                     if overlap_tokens + s_tok > OVERLAP_TOKENS:
+                        if not overlap_sents:
+                            overlap_sents.insert(0, s)
                         break
                     overlap_sents.insert(0, s)
                     overlap_tokens += s_tok

@@ -34,6 +34,13 @@ py -3 platform/prepare_data.py
 # Regenerate data/predictions.csv — CLI mirror of generate_predictions.ipynb
 py -3 intelligence/generate_predictions.py
 
+# Populate ChromaDB with maintenance PDFs for RAG (AND-107 FOUNDATION-1)
+# PDFs live outside the repo — pass your local path with --pdf-path
+py -3 intelligence/rag_preprocessing.py --pdf-path /path/to/LLM_Docs
+
+# Validate ChromaDB collection after preprocessing
+py -3 intelligence/validate_rag_preprocessing.py
+
 # Serve dashboard at http://localhost:5000 (requires Go API running)
 py -3 platform/server.py
 

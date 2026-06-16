@@ -1,16 +1,16 @@
 # RAG Preprocessing Report
-**Run date:** 2026-06-16 16:54 UTC
-**Duration:** 28.3s
+**Run date:** 2026-06-16 18:22 UTC
+**Duration:** 27.4s
 
 ## Summary
 | Metric | Value |
 |--------|-------|
 | PDFs processed | 6/6 |
 | Total raw text | 209,725 chars |
-| Chunks created | 69 |
-| Embeddings OK  | 69/69 |
-| ChromaDB count | 69 |
-| Duration       | 28.3s |
+| Chunks created | 275 |
+| Embeddings OK  | 275/275 |
+| ChromaDB count | 275 |
+| Duration       | 27.4s |
 
 ## Extension Points
 - Incident narratives: add `chunk_incident_narratives()` with `source_type=incident` (FOUNDATION-1b)
