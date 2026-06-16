@@ -111,6 +111,15 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// FOUNDATION-4: classify the message and decide a route. The data_query /
+	// rag / action targets are stubs (FOUNDATION-2/3 not built yet), so every
+	// route still falls through to the advisory Ollama call below. The intent
+	// and reason are logged so each decision is traceable.
+	classification := ClassifyIntent(msg, time.Now())
+	route := routeIntent(classification)
+	log.Printf("chat intent=%s confidence=%.2f route=%s stub=%t reason=%q",
+		classification.Intent, classification.Confidence, route.Target, route.Stub, classification.Reason)
+
 	// Cap history at 10 turns (20 messages) — drop oldest pair first
 	history := req.History
 	for len(history) > 20 {
