@@ -14,20 +14,23 @@ Usage:
 """
 # AND-105 Task 7: bulk risk explanation generation
 
-import argparse, asyncio, json, subprocess, sys, time
+import argparse, asyncio, json, os, subprocess, sys, time
 from datetime import date, timedelta
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── Config ────────────────────────────────────────────────────────────────────
-OLLAMA_URL  = 'http://localhost:11434'
-MODEL       = 'qwen2.5:1.5b'
+OLLAMA_URL  = os.environ.get('OLLAMA_URL', 'http://localhost:11434')
+MODEL       = os.environ.get('OLLAMA_MODEL', 'qwen2.5:1.5b')
 CONCURRENCY = 8          # parallel Ollama requests
 BATCH_SIZE  = 100        # elevators processed per DB round-trip
 TIMEOUT     = 120        # seconds per Ollama call
-DB_CTR      = 'rocket-elevators-ops-dashboard-db-1'
-DB_USER     = 'api_user'
-DB_NAME     = 'rocket_elevators'
+DB_CTR      = os.environ.get('DB_CTR', 'rocket-elevators-ops-dashboard-db-1')
+DB_USER     = os.environ.get('DB_USER', 'api_user')
+DB_NAME     = os.environ.get('DB_NAME', 'rocket_elevators')
 
 # Pre-extraction prompt — tuned for qwen2.5:1.5b (1.5B parameters)
 # Rigid template: model receives structured facts, not raw JSON, so it only does NLG
