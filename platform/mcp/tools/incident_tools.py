@@ -5,7 +5,7 @@ Tools: get_incident_count_last_year, get_elevator_incidents
 """
 
 from platform.mcp.db import get_connection
-from platform.mcp.tools._validators import validate_elevator_id, validate_limit
+from platform.mcp.tools.models import GetElevatorIncidentsInput
 
 
 async def get_incident_count_last_year() -> dict:
@@ -35,16 +35,15 @@ async def get_elevator_incidents(elevator_id: int, limit: int = 20) -> dict:
     The narrative column is excluded by default — it can be very large.
     Use search_incident_narratives to search narrative text semantically.
     """
-    elevator_id = validate_elevator_id(elevator_id)
-    limit = validate_limit(limit, max_val=100)
+    inp = GetElevatorIncidentsInput(elevator_id=elevator_id, limit=limit)
 
     async with get_connection() as conn:
         exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM elevators WHERE elevator_id = $1)",
-            elevator_id,
+            inp.elevator_id,
         )
         if not exists:
-            return {"found": False, "elevator_id": elevator_id, "incidents": []}
+            return {"found": False, "elevator_id": inp.elevator_id, "incidents": []}
 
         rows = await conn.fetch(
             """
@@ -62,13 +61,13 @@ async def get_elevator_incidents(elevator_id: int, limit: int = 20) -> dict:
             ORDER BY date_of_occurrence DESC NULLS LAST
             LIMIT $2
             """,
-            elevator_id,
-            limit,
+            inp.elevator_id,
+            inp.limit,
         )
 
     return {
         "found": True,
-        "elevator_id": elevator_id,
+        "elevator_id": inp.elevator_id,
         "total_returned": len(rows),
         "incidents": [dict(r) for r in rows],
     }

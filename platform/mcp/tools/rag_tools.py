@@ -19,7 +19,7 @@ rag_query() with where={"source_type": "incident"}.
 
 from platform.mcp.db import get_connection
 from platform.mcp.rag import rag_query
-from platform.mcp.tools._validators import validate_limit, validate_query_string
+from platform.mcp.tools.models import SearchIncidentNarrativesInput, SearchMaintenanceDocsInput
 
 # Update this constant once rag_preprocessing.py is updated for .txt ingestion.
 # It must match the source_type value written into ChromaDB metadata during preprocessing.
@@ -34,15 +34,14 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
     with source document name and similarity distance.
     Lower distance = more similar (cosine distance, range 0–2).
     """
-    query = validate_query_string(query, max_len=500)
-    n_results = validate_limit(n_results, max_val=20)
+    inp = SearchMaintenanceDocsInput(query=query, n_results=n_results)
 
     where = {"source_type": MAINTENANCE_SOURCE_TYPE} if MAINTENANCE_SOURCE_TYPE else None
 
     try:
         results = rag_query(
-            query_text=query,
-            n_results=n_results,
+            query_text=inp.query,
+            n_results=inp.n_results,
             where=where,
         )
     except RuntimeError:
@@ -51,7 +50,7 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
         raise RuntimeError(f"Maintenance document search failed: {exc}") from exc
 
     return {
-        "query": query,
+        "query": inp.query,
         "total_returned": len(results),
         "results": results,
     }
@@ -63,8 +62,7 @@ async def search_incident_narratives(query: str, limit: int = 5) -> dict:
     Uses plainto_tsquery — treats the query as plain text, immune to tsquery injection.
     Returns matching incident records with a highlighted excerpt from the narrative.
     """
-    query = validate_query_string(query, max_len=200)
-    limit = validate_limit(limit, max_val=20)
+    inp = SearchIncidentNarrativesInput(query=query, limit=limit)
 
     sql = """
         SELECT
@@ -91,10 +89,10 @@ async def search_incident_narratives(query: str, limit: int = 5) -> dict:
     """
 
     async with get_connection() as conn:
-        rows = await conn.fetch(sql, query, limit)
+        rows = await conn.fetch(sql, inp.query, inp.limit)
 
     return {
-        "query": query,
+        "query": inp.query,
         "total_returned": len(rows),
         "results": [dict(r) for r in rows],
     }

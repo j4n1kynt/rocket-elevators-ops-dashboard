@@ -9,8 +9,8 @@ Two-phase confirmation is enforced:
   Phase 2 (confirmed=True):  re-validate, re-check elevator, then INSERT.
 
 The LLM must present the Phase 1 summary to the user and receive explicit
-approval before calling Phase 2. The `confirmed` parameter must be a strict
-bool — strings like "yes" or integers like 1 are rejected.
+approval before calling Phase 2. The `confirmed` parameter uses Pydantic strict mode — strings like "yes" or
+integers like 1 are rejected at the model layer before the function body runs.
 
 inspection_id is generated via the sequence mcp_inspection_id_seq (starting at
 9,000,000), created in db.init_pool() at server startup. IDs are intentionally
@@ -18,14 +18,9 @@ above the source-data range (~43,002 max) to avoid collisions.
 """
 
 import os
-from datetime import date
 
 from platform.mcp.db import get_connection
-from platform.mcp.tools._validators import (
-    validate_elevator_id,
-    validate_inspection_date,
-    validate_reason,
-)
+from platform.mcp.tools.models import ScheduleInspectionInput
 
 
 async def schedule_inspection(
@@ -46,40 +41,40 @@ async def schedule_inspection(
         reason          — Brief reason for scheduling (max 500 chars)
         confirmed       — Must be True to commit the write; False returns a preview only
     """
-    if not isinstance(confirmed, bool):
-        raise ValueError("confirmed must be a boolean (true or false), not a string or number.")
-
-    elevator_id = validate_elevator_id(elevator_id)
-    parsed_date: date = validate_inspection_date(inspection_date)
-    reason = validate_reason(reason)
+    inp = ScheduleInspectionInput(
+        elevator_id=elevator_id,
+        inspection_date=inspection_date,
+        reason=reason,
+        confirmed=confirmed,
+    )
 
     async with get_connection() as conn:
         row = await conn.fetchrow(
             "SELECT location, status FROM elevators WHERE elevator_id = $1",
-            elevator_id,
+            inp.elevator_id,
         )
 
     if not row:
         return {
             "success": False,
-            "confirmed": confirmed,
-            "error": f"Elevator {elevator_id} not found in the database.",
+            "confirmed": inp.confirmed,
+            "error": f"Elevator {inp.elevator_id} not found in the database.",
         }
 
     location, status = row["location"], row["status"]
 
-    if not confirmed and not os.environ.get("MCP_SKIP_CONFIRMATION"):
+    if not inp.confirmed and not os.environ.get("MCP_SKIP_CONFIRMATION"):
         return {
             "success": False,
             "confirmed": False,
             "pending_confirmation": True,
             "summary": (
                 f"You are about to schedule an inspection:\n"
-                f"  Elevator ID : {elevator_id}\n"
+                f"  Elevator ID : {inp.elevator_id}\n"
                 f"  Location    : {location}\n"
                 f"  Status      : {status}\n"
-                f"  Date        : {parsed_date}\n"
-                f"  Reason      : {reason}\n"
+                f"  Date        : {inp.inspection_date}\n"
+                f"  Reason      : {inp.reason}\n"
                 f"\nPlease confirm to proceed."
             ),
         }
@@ -106,15 +101,15 @@ async def schedule_inspection(
 
     async with get_connection() as conn:
         async with conn.transaction():
-            new_id = await conn.fetchval(insert_sql, elevator_id, parsed_date)
+            new_id = await conn.fetchval(insert_sql, inp.elevator_id, inp.inspection_date)
 
     return {
         "success": True,
         "confirmed": True,
         "inspection_id": new_id,
-        "elevator_id": elevator_id,
+        "elevator_id": inp.elevator_id,
         "location": location,
-        "inspection_date": str(parsed_date),
-        "reason": reason,
+        "inspection_date": str(inp.inspection_date),
+        "reason": inp.reason,
         "outcome": "Pending",
     }

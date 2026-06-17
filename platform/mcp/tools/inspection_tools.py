@@ -6,7 +6,12 @@ Tools: get_tssa_shutdown_elevators, get_inspection_history,
 """
 
 from platform.mcp.db import get_connection
-from platform.mcp.tools._validators import validate_elevator_id, validate_limit
+from platform.mcp.tools.models import (
+    GetElevatorsNeedingFollowupInput,
+    GetElevatorRiskInput,
+    GetInspectionHistoryInput,
+    GetTssaShutdownElevatorsInput,
+)
 
 
 async def get_tssa_shutdown_elevators(limit: int = 50) -> dict:
@@ -17,7 +22,7 @@ async def get_tssa_shutdown_elevators(limit: int = 50) -> dict:
     are represented as non-passing inspection outcomes (anything other than
     'passed' or 'all orders resolved'). This query surfaces those elevators.
     """
-    limit = validate_limit(limit, max_val=200)
+    inp = GetTssaShutdownElevatorsInput(limit=limit)
 
     sql = """
         WITH latest AS (
@@ -44,7 +49,7 @@ async def get_tssa_shutdown_elevators(limit: int = 50) -> dict:
         LIMIT $1
     """
     async with get_connection() as conn:
-        rows = await conn.fetch(sql, limit)
+        rows = await conn.fetch(sql, inp.limit)
 
     return {
         "count": len(rows),
@@ -55,16 +60,15 @@ async def get_tssa_shutdown_elevators(limit: int = 50) -> dict:
 
 async def get_inspection_history(elevator_id: int, limit: int = 20) -> dict:
     """Return the inspection history for a specific elevator, newest first."""
-    elevator_id = validate_elevator_id(elevator_id)
-    limit = validate_limit(limit, max_val=100)
+    inp = GetInspectionHistoryInput(elevator_id=elevator_id, limit=limit)
 
     async with get_connection() as conn:
         exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM elevators WHERE elevator_id = $1)",
-            elevator_id,
+            inp.elevator_id,
         )
         if not exists:
-            return {"found": False, "elevator_id": elevator_id, "inspections": []}
+            return {"found": False, "elevator_id": inp.elevator_id, "inspections": []}
 
         rows = await conn.fetch(
             """
@@ -79,13 +83,13 @@ async def get_inspection_history(elevator_id: int, limit: int = 20) -> dict:
             ORDER BY latest_inspection_date DESC NULLS LAST
             LIMIT $2
             """,
-            elevator_id,
-            limit,
+            inp.elevator_id,
+            inp.limit,
         )
 
     return {
         "found": True,
-        "elevator_id": elevator_id,
+        "elevator_id": inp.elevator_id,
         "total_returned": len(rows),
         "inspections": [dict(r) for r in rows],
     }
@@ -96,7 +100,7 @@ async def get_elevators_needing_followup(limit: int = 50) -> dict:
     Return elevators whose most recent inspection outcome is 'Follow up'.
     Sorted oldest-first so operations can prioritize the most overdue.
     """
-    limit = validate_limit(limit, max_val=200)
+    inp = GetElevatorsNeedingFollowupInput(limit=limit)
 
     sql = """
         WITH latest AS (
@@ -122,7 +126,7 @@ async def get_elevators_needing_followup(limit: int = 50) -> dict:
         LIMIT $1
     """
     async with get_connection() as conn:
-        rows = await conn.fetch(sql, limit)
+        rows = await conn.fetch(sql, inp.limit)
 
     return {
         "count": len(rows),
@@ -135,15 +139,15 @@ async def get_elevator_risk(elevator_id: int) -> dict:
     Return the ML risk prediction for a specific elevator.
     Distinguishes between 'elevator not found' and 'no prediction available'.
     """
-    elevator_id = validate_elevator_id(elevator_id)
+    inp = GetElevatorRiskInput(elevator_id=elevator_id)
 
     async with get_connection() as conn:
         exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM elevators WHERE elevator_id = $1)",
-            elevator_id,
+            inp.elevator_id,
         )
         if not exists:
-            return {"elevator_found": False, "prediction_found": False, "elevator_id": elevator_id}
+            return {"elevator_found": False, "prediction_found": False, "elevator_id": inp.elevator_id}
 
         row = await conn.fetchrow(
             """
@@ -157,10 +161,10 @@ async def get_elevator_risk(elevator_id: int) -> dict:
             FROM predictions
             WHERE elevator_id = $1
             """,
-            elevator_id,
+            inp.elevator_id,
         )
         if not row:
-            return {"elevator_found": True, "prediction_found": False, "elevator_id": elevator_id}
+            return {"elevator_found": True, "prediction_found": False, "elevator_id": inp.elevator_id}
 
     return {"elevator_found": True, "prediction_found": True, **dict(row)}
 
