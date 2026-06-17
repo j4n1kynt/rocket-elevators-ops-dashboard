@@ -12,9 +12,7 @@ import os
 import threading
 from pathlib import Path
 
-import chromadb
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
@@ -23,17 +21,18 @@ CHROMADB_PATH = os.environ.get("MCP_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
-_client: chromadb.PersistentClient | None = None
-_model: SentenceTransformer | None = None
+_client = None
+_model = None
 _client_lock = threading.Lock()
 _model_lock = threading.Lock()
 
 
-def _get_client() -> chromadb.PersistentClient:
+def _get_client():
     global _client
     if _client is None:
         with _client_lock:
             if _client is None:
+                import chromadb  # lazy — not needed at server startup
                 resolved = str(Path(CHROMADB_PATH).resolve())
                 try:
                     _client = chromadb.PersistentClient(path=resolved)
@@ -45,11 +44,12 @@ def _get_client() -> chromadb.PersistentClient:
     return _client
 
 
-def _get_model() -> SentenceTransformer:
+def _get_model():
     global _model
     if _model is None:
         with _model_lock:
             if _model is None:
+                from sentence_transformers import SentenceTransformer  # lazy — not needed at server startup
                 try:
                     _model = SentenceTransformer(EMBEDDING_MODEL)
                 except Exception as exc:
@@ -81,6 +81,8 @@ def rag_query(
     try:
         collection = client.get_collection(name=collection_name)
     except Exception as exc:
+        if os.environ.get("ALLOW_EMPTY_CHROMADB"):
+            return []
         raise RuntimeError(
             f"ChromaDB collection '{collection_name}' not found: {exc}. "
             "Run 'py -3 intelligence/rag_preprocessing.py' to create and populate it."

@@ -20,10 +20,12 @@ Requires:
 """
 
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
+from platform.mcp.db import close_pool, init_pool
 from platform.mcp.tools.incident_tools import (
     get_elevator_incidents,
     get_incident_count_last_year,
@@ -39,17 +41,30 @@ from platform.mcp.tools.rag_tools import (
     search_incident_narratives,
     search_maintenance_docs,
 )
-from platform.mcp.tools.write_tools import _ensure_sequence, schedule_inspection
+from platform.mcp.tools.write_tools import schedule_inspection
 
 load_dotenv()
 
+
+@asynccontextmanager
+async def lifespan(app: FastMCP):
+    """
+    Server lifespan: create the asyncpg pool (includes health check + sequence
+    creation) on startup, drain it on shutdown.
+    """
+    await init_pool()
+    yield
+    await close_pool()
+
+
 mcp = FastMCP(
     name="rocket-elevators",
-    description=(
+    instructions=(
         "Live database and document search tools for the Rocket Elevators "
         "operations dashboard. Queries PostgreSQL (elevator, inspection, incident, "
         "risk data) and ChromaDB (maintenance documents)."
     ),
+    lifespan=lifespan,
 )
 
 # ── Read tools ────────────────────────────────────────────────────────────────
@@ -69,9 +84,4 @@ mcp.tool(schedule_inspection)
 
 if __name__ == "__main__":
     port = int(os.environ.get("MCP_PORT", 8765))
-
-    # Create the inspection ID sequence if it does not exist yet.
-    # Must run before any tool call that writes to the inspections table.
-    _ensure_sequence()
-
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

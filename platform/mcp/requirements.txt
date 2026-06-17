@@ -3,13 +3,13 @@
 # Do NOT add Flask, gunicorn, pdfplumber, or tiktoken here — those belong in the root requirements.txt
 
 # MCP framework
-fastmcp==2.5.2
+fastmcp==3.4.2
 
 # ASGI server — required by FastMCP's Streamable HTTP transport
-uvicorn==0.34.3
+uvicorn==0.35.0
 
-# PostgreSQL driver — same version as root requirements.txt, binary wheel for easy install
-psycopg2-binary==2.9.9
+# Async PostgreSQL driver — native async I/O for uvicorn's event loop
+asyncpg==0.30.0
 
 # Vector store — same version as root requirements.txt, shares data/chromadb store
 chromadb==1.5.9
@@ -21,4 +21,7 @@ sentence-transformers==5.6.0
 python-dotenv==1.1.0
 
 # numpy is a transitive dep of sentence-transformers; pin to match root requirements.txt
-numpy==2.4.4
+numpy==2.1.3
+
+# Testing
+pytest-asyncio>=0.24

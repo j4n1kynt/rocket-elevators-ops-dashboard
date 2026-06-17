@@ -1,25 +1,35 @@
 """
 PostgreSQL connection pool for the FastMCP server.
 
-Uses the same DATABASE_URL -> DB_* fallback logic as etl_to_database.py and platform/api/db.go.
-Uses ThreadedConnectionPool (not SimpleConnectionPool) because Streamable HTTP transport
-can receive concurrent tool calls.
+Uses asyncpg for native async I/O, compatible with uvicorn's event loop.
+The pool is created once in init_pool() (called from the FastMCP lifespan)
+and shared for the lifetime of the server process.
 
-Do not import from etl_to_database.py — that script has side-effectful module-level code.
+Uses the same DATABASE_URL -> DB_* fallback logic as etl_to_database.py
+and platform/api/db.go.
+
+Do not import from etl_to_database.py — that script has side-effectful
+module-level code.
 """
 
 import contextlib
 import os
-import threading
 
-import psycopg2
-import psycopg2.pool
+import asyncpg
 from dotenv import load_dotenv
 
 load_dotenv()
 
-_pool: psycopg2.pool.ThreadedConnectionPool | None = None
-_pool_lock = threading.Lock()
+_pool: asyncpg.Pool | None = None
+
+# Inspection ID sequence used by schedule_inspection in write_tools.py.
+# Created here so init_pool() can guarantee it exists before any tool call.
+_SEQUENCE_DDL = """
+    CREATE SEQUENCE IF NOT EXISTS mcp_inspection_id_seq
+    START 9000000
+    INCREMENT 1
+    NO CYCLE
+"""
 
 
 def _get_dsn() -> str:
@@ -35,53 +45,57 @@ def _get_dsn() -> str:
             "DB_PASSWORD / DB_NAME for local Docker. See .env.example."
         )
 
-    return (
-        f"host={os.environ['DB_HOST']} "
-        f"port={os.environ.get('DB_PORT', '5432')} "
-        f"user={os.environ['DB_USER']} "
-        f"password={os.environ['DB_PASSWORD']} "
-        f"dbname={os.environ['DB_NAME']}"
-    )
+    host = os.environ["DB_HOST"]
+    port = os.environ.get("DB_PORT", "5432")
+    user = os.environ["DB_USER"]
+    password = os.environ["DB_PASSWORD"]
+    dbname = os.environ["DB_NAME"]
+    return f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
 
 
-def get_pool() -> psycopg2.pool.ThreadedConnectionPool:
+async def init_pool() -> None:
+    """
+    Create the asyncpg pool, verify connectivity, and ensure the inspection
+    ID sequence exists. Called once from the FastMCP lifespan at server startup.
+    Raises RuntimeError if the database is unreachable or misconfigured.
+    """
     global _pool
-    if _pool is None:
-        with _pool_lock:
-            if _pool is None:  # double-checked locking — safe under GIL + lock
-                try:
-                    _pool = psycopg2.pool.ThreadedConnectionPool(
-                        minconn=1,
-                        maxconn=10,
-                        dsn=_get_dsn(),
-                    )
-                except psycopg2.OperationalError as exc:
-                    raise RuntimeError(
-                        f"Failed to connect to PostgreSQL: {exc}. "
-                        "Ensure the database is running and credentials in .env are correct."
-                    ) from exc
-    return _pool
-
-
-@contextlib.contextmanager
-def get_connection():
-    """Context manager — always returns the connection to the pool on exit."""
     try:
-        pool = get_pool()
-        conn = pool.getconn()
-    except psycopg2.pool.PoolError as exc:
+        _pool = await asyncpg.create_pool(_get_dsn(), min_size=2, max_size=10)
+    except (asyncpg.InvalidCatalogNameError, OSError, Exception) as exc:
         raise RuntimeError(
-            f"Connection pool exhausted or unavailable: {exc}. "
-            "The pool allows up to 10 concurrent connections."
+            f"Failed to connect to PostgreSQL: {exc}. "
+            "Ensure the database is running and credentials in .env are correct."
         ) from exc
 
-    try:
-        yield conn
-    except Exception:
+    async with _pool.acquire() as conn:
+        await conn.execute("SELECT 1")       # startup health check
         try:
-            conn.rollback()
-        except Exception:
-            pass  # connection may already be broken; rollback failure is non-fatal
-        raise
-    finally:
-        pool.putconn(conn)
+            await conn.execute(_SEQUENCE_DDL)
+        except asyncpg.InsufficientPrivilegeError:
+            # Non-fatal in CI / read-only roles — schedule_inspection will fail if
+            # called, but all read tools remain functional.
+            pass
+
+
+async def close_pool() -> None:
+    """Drain and close the pool. Called from the FastMCP lifespan at server shutdown."""
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
+
+
+@contextlib.asynccontextmanager
+async def get_connection():
+    """
+    Async context manager — acquires a connection from the pool for one tool call
+    and returns it automatically on exit.
+    """
+    if _pool is None:
+        raise RuntimeError(
+            "Connection pool is not initialized. "
+            "Ensure init_pool() ran at server startup via the lifespan hook."
+        )
+    async with _pool.acquire() as conn:
+        yield conn
