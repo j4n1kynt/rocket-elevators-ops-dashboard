@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, "feat/**"]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rocketuser
+          POSTGRES_PASSWORD: rocketpass
+          POSTGRES_DB: rocket_elevators
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rocketuser"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://rocketuser:rocketpass@localhost:5432/rocket_elevators
+      MCP_SKIP_CONFIRMATION: "1"
+      MCP_CHROMADB_PATH: /tmp/chromadb-ci
+      ALLOW_EMPTY_CHROMADB: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install root dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install MCP dependencies
+        run: pip install -r platform/mcp/requirements.txt pytest-asyncio
+
+      - name: MCP DB healthcheck
+        run: PYTHONPATH=. python -m platform.mcp.healthcheck
+
+      - name: Run tests
+        run: pytest intelligence/tests/ -v
