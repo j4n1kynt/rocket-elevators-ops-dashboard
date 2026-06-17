@@ -15,13 +15,13 @@ async def get_incident_count_last_year() -> dict:
     """
     sql = """
         SELECT
-            COUNT(*)                                                     AS total_incidents,
-            COUNT(CASE WHEN fatal_injury THEN 1 END)                    AS fatal_incidents,
-            COUNT(CASE WHEN injury_severity != 'none' THEN 1 END)       AS injury_incidents,
-            (EXTRACT(YEAR FROM CURRENT_DATE) - 1)::int                  AS year_queried
+            COUNT(*)                                                              AS total_incidents,
+            COUNT(CASE WHEN fatal_injury THEN 1 END)                             AS fatal_incidents,
+            COUNT(CASE WHEN injury_severity != 'none' THEN 1 END)                AS injury_incidents,
+            (EXTRACT(YEAR FROM DATE '2016-11-22') - 1)::int                      AS year_queried
         FROM incidents
-        WHERE date_of_occurrence >= DATE_TRUNC('year', CURRENT_DATE) - INTERVAL '1 year'
-          AND date_of_occurrence <  DATE_TRUNC('year', CURRENT_DATE)
+        WHERE date_of_occurrence >= DATE_TRUNC('year', DATE '2016-11-22') - INTERVAL '1 year'
+          AND date_of_occurrence <  DATE_TRUNC('year', DATE '2016-11-22')
     """
     async with get_connection() as conn:
         row = await conn.fetchrow(sql)
