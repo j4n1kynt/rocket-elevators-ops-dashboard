@@ -57,7 +57,7 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
     }
 
 
-def search_incident_narratives(query: str, limit: int = 5) -> dict:
+async def search_incident_narratives(query: str, limit: int = 5) -> dict:
     """
     Full-text search across incident narrative text using PostgreSQL FTS.
     Uses plainto_tsquery — treats the query as plain text, immune to tsquery injection.
@@ -76,28 +76,25 @@ def search_incident_narratives(query: str, limit: int = 5) -> dict:
             ts_headline(
                 'english',
                 narrative,
-                plainto_tsquery('english', %(q)s),
+                plainto_tsquery('english', $1),
                 'MaxWords=50, MinWords=20, StartSel=**, StopSel=**'
             ) AS narrative_excerpt,
             ts_rank(
                 to_tsvector('english', narrative),
-                plainto_tsquery('english', %(q)s)
+                plainto_tsquery('english', $1)
             ) AS relevance_score
         FROM incidents
         WHERE narrative IS NOT NULL
-          AND to_tsvector('english', narrative) @@ plainto_tsquery('english', %(q)s)
+          AND to_tsvector('english', narrative) @@ plainto_tsquery('english', $1)
         ORDER BY relevance_score DESC
-        LIMIT %(limit)s
+        LIMIT $2
     """
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, {"q": query, "limit": limit})
-            rows = cur.fetchall()
-            cols = [d[0] for d in cur.description]
+    async with get_connection() as conn:
+        rows = await conn.fetch(sql, query, limit)
 
     return {
         "query": query,
         "total_returned": len(rows),
-        "results": [dict(zip(cols, row)) for row in rows],
+        "results": [dict(r) for r in rows],
     }

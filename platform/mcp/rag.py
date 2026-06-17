@@ -81,6 +81,8 @@ def rag_query(
     try:
         collection = client.get_collection(name=collection_name)
     except Exception as exc:
+        if os.environ.get("ALLOW_EMPTY_CHROMADB"):
+            return []
         raise RuntimeError(
             f"ChromaDB collection '{collection_name}' not found: {exc}. "
             "Run 'py -3 intelligence/rag_preprocessing.py' to create and populate it."

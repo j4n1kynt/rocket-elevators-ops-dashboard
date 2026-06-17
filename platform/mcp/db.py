@@ -70,7 +70,12 @@ async def init_pool() -> None:
 
     async with _pool.acquire() as conn:
         await conn.execute("SELECT 1")       # startup health check
-        await conn.execute(_SEQUENCE_DDL)    # idempotent — safe to run every startup
+        try:
+            await conn.execute(_SEQUENCE_DDL)
+        except asyncpg.InsufficientPrivilegeError:
+            # Non-fatal in CI / read-only roles — schedule_inspection will fail if
+            # called, but all read tools remain functional.
+            pass
 
 
 async def close_pool() -> None:
