@@ -45,7 +45,7 @@ jobs:
         run: pip install -r platform/mcp/requirements.txt pytest-asyncio
 
       - name: MCP DB healthcheck
-        run: python platform/mcp/healthcheck.py
+        run: PYTHONPATH=. python -m platform.mcp.healthcheck
 
       - name: Run tests
         run: pytest intelligence/tests/ -v
