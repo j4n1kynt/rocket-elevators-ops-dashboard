@@ -57,10 +57,16 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
             "results": [],
         }
 
+    scored = []
     for result in results:
-        result["similarity_score"] = max(0.0, round(1 - result["distance"], 4))
+        meta = result.get("metadata") or {}
+        scored.append({
+            "text": result["text"],
+            "source_name": meta.get("doc_name", "unknown"),
+            "similarity_score": max(0.0, round(1 - result["distance"], 4)),
+        })
 
-    confident = [r for r in results if r["similarity_score"] >= SIMILARITY_THRESHOLD]
+    confident = [r for r in scored if r["similarity_score"] >= SIMILARITY_THRESHOLD]
 
     if not confident:
         return {
