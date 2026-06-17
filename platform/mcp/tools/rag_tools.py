@@ -26,13 +26,17 @@ from platform.mcp.tools.models import SearchIncidentNarrativesInput, SearchMaint
 # Example future value: "maintenance_txt"
 MAINTENANCE_SOURCE_TYPE: str | None = None  # None = no filter, search all indexed documents
 
+# Cosine distance from ChromaDB is 1 − cosine_similarity. Clamped to [0, 1] to guard
+# against floating-point noise on unnormalized embeddings producing distance > 1.
+SIMILARITY_THRESHOLD = 0.5
+
 
 def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
     """
     Semantically search maintenance documents stored in ChromaDB.
     Source format is .txt (not PDF). Returns the closest matching chunks
-    with source document name and similarity distance.
-    Lower distance = more similar (cosine distance, range 0–2).
+    with source document name and similarity score (0–1, higher is more similar).
+    Results below SIMILARITY_THRESHOLD are filtered out.
     """
     try:
         inp = SearchMaintenanceDocsInput(query=query, n_results=n_results)
@@ -45,13 +49,33 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
             where=where,
         )
 
+    if not results:
         return {
             "query": inp.query,
-            "total_returned": len(results),
-            "results": results,
+            "message": "No relevant documentation found",
+            "total_returned": 0,
+            "results": [],
         }
-    except Exception as exc:
-        return {"error": True, "message": str(exc)}
+
+    for result in results:
+        result["similarity_score"] = max(0.0, round(1 - result["distance"], 4))
+
+    confident = [r for r in results if r["similarity_score"] >= SIMILARITY_THRESHOLD]
+
+    if not confident:
+        return {
+            "query": inp.query,
+            "message": "No confident matches found",
+            "total_returned": 0,
+            "results": [],
+        }
+
+    return {
+        "query": inp.query,
+        "message": None,
+        "total_returned": len(confident),
+        "results": confident,
+    }
 
 
 async def search_incident_narratives(query: str, limit: int = 5) -> dict:
