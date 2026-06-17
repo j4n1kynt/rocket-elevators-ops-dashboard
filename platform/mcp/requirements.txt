@@ -6,7 +6,7 @@
 fastmcp==3.4.2
 
 # ASGI server — required by FastMCP's Streamable HTTP transport
-uvicorn==0.34.3
+uvicorn==0.35.0
 
 # Async PostgreSQL driver — native async I/O for uvicorn's event loop
 asyncpg==0.30.0
