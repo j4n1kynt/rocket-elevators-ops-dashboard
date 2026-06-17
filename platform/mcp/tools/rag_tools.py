@@ -34,26 +34,24 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
     with source document name and similarity distance.
     Lower distance = more similar (cosine distance, range 0–2).
     """
-    inp = SearchMaintenanceDocsInput(query=query, n_results=n_results)
-
-    where = {"source_type": MAINTENANCE_SOURCE_TYPE} if MAINTENANCE_SOURCE_TYPE else None
-
     try:
+        inp = SearchMaintenanceDocsInput(query=query, n_results=n_results)
+
+        where = {"source_type": MAINTENANCE_SOURCE_TYPE} if MAINTENANCE_SOURCE_TYPE else None
+
         results = rag_query(
             query_text=inp.query,
             n_results=inp.n_results,
             where=where,
         )
-    except RuntimeError:
-        raise
-    except Exception as exc:
-        raise RuntimeError(f"Maintenance document search failed: {exc}") from exc
 
-    return {
-        "query": inp.query,
-        "total_returned": len(results),
-        "results": results,
-    }
+        return {
+            "query": inp.query,
+            "total_returned": len(results),
+            "results": results,
+        }
+    except Exception as exc:
+        return {"error": True, "message": str(exc)}
 
 
 async def search_incident_narratives(query: str, limit: int = 5) -> dict:
@@ -62,37 +60,40 @@ async def search_incident_narratives(query: str, limit: int = 5) -> dict:
     Uses plainto_tsquery — treats the query as plain text, immune to tsquery injection.
     Returns matching incident records with a highlighted excerpt from the narrative.
     """
-    inp = SearchIncidentNarrativesInput(query=query, limit=limit)
+    try:
+        inp = SearchIncidentNarrativesInput(query=query, limit=limit)
 
-    sql = """
-        SELECT
-            incident_id,
-            elevator_id,
-            date_of_occurrence::text,
-            category,
-            incident_summary,
-            ts_headline(
-                'english',
-                narrative,
-                plainto_tsquery('english', $1),
-                'MaxWords=50, MinWords=20, StartSel=**, StopSel=**'
-            ) AS narrative_excerpt,
-            ts_rank(
-                to_tsvector('english', narrative),
-                plainto_tsquery('english', $1)
-            ) AS relevance_score
-        FROM incidents
-        WHERE narrative IS NOT NULL
-          AND to_tsvector('english', narrative) @@ plainto_tsquery('english', $1)
-        ORDER BY relevance_score DESC
-        LIMIT $2
-    """
+        sql = """
+            SELECT
+                incident_id,
+                elevator_id,
+                date_of_occurrence::text,
+                category,
+                incident_summary,
+                ts_headline(
+                    'english',
+                    narrative,
+                    plainto_tsquery('english', $1),
+                    'MaxWords=50, MinWords=20, StartSel=**, StopSel=**'
+                ) AS narrative_excerpt,
+                ts_rank(
+                    to_tsvector('english', narrative),
+                    plainto_tsquery('english', $1)
+                ) AS relevance_score
+            FROM incidents
+            WHERE narrative IS NOT NULL
+              AND to_tsvector('english', narrative) @@ plainto_tsquery('english', $1)
+            ORDER BY relevance_score DESC
+            LIMIT $2
+        """
 
-    async with get_connection() as conn:
-        rows = await conn.fetch(sql, inp.query, inp.limit)
+        async with get_connection() as conn:
+            rows = await conn.fetch(sql, inp.query, inp.limit)
 
-    return {
-        "query": inp.query,
-        "total_returned": len(rows),
-        "results": [dict(r) for r in rows],
-    }
+        return {
+            "query": inp.query,
+            "total_returned": len(rows),
+            "results": [dict(r) for r in rows],
+        }
+    except Exception as exc:
+        return {"error": True, "message": str(exc)}
