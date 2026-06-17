@@ -13,8 +13,8 @@ approval before calling Phase 2. The `confirmed` parameter must be a strict
 bool — strings like "yes" or integers like 1 are rejected.
 
 inspection_id is generated via the sequence mcp_inspection_id_seq (starting at
-9,000,000), created at server startup. IDs are intentionally above the source-data
-range (~43,002 max) to avoid collisions.
+9,000,000), created in db.init_pool() at server startup. IDs are intentionally
+above the source-data range (~43,002 max) to avoid collisions.
 """
 
 from datetime import date
@@ -26,23 +26,8 @@ from platform.mcp.tools._validators import (
     validate_reason,
 )
 
-_SEQUENCE_DDL = """
-    CREATE SEQUENCE IF NOT EXISTS mcp_inspection_id_seq
-    START 9000000
-    INCREMENT 1
-    NO CYCLE
-"""
 
-
-def _ensure_sequence() -> None:
-    """Create the inspection ID sequence if it does not exist. Called at server startup."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(_SEQUENCE_DDL)
-        conn.commit()
-
-
-def schedule_inspection(
+async def schedule_inspection(
     elevator_id: int,
     inspection_date: str,
     reason: str,
@@ -67,13 +52,11 @@ def schedule_inspection(
     parsed_date: date = validate_inspection_date(inspection_date)
     reason = validate_reason(reason)
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT location, status FROM elevators WHERE elevator_id = %(eid)s",
-                {"eid": elevator_id},
-            )
-            row = cur.fetchone()
+    async with get_connection() as conn:
+        row = await conn.fetchrow(
+            "SELECT location, status FROM elevators WHERE elevator_id = $1",
+            elevator_id,
+        )
 
     if not row:
         return {
@@ -82,7 +65,7 @@ def schedule_inspection(
             "error": f"Elevator {elevator_id} not found in the database.",
         }
 
-    location, status = row
+    location, status = row["location"], row["status"]
 
     if not confirmed:
         return {
@@ -111,23 +94,18 @@ def schedule_inspection(
         )
         VALUES (
             nextval('mcp_inspection_id_seq'),
-            %(elevator_id)s,
+            $1,
             'Scheduled',
-            %(inspection_date)s,
-            %(inspection_date)s,
+            $2,
+            $2,
             'Pending'
         )
         RETURNING inspection_id
     """
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(insert_sql, {
-                "elevator_id": elevator_id,
-                "inspection_date": parsed_date,
-            })
-            new_id = cur.fetchone()[0]
-        conn.commit()
+    async with get_connection() as conn:
+        async with conn.transaction():
+            new_id = await conn.fetchval(insert_sql, elevator_id, parsed_date)
 
     return {
         "success": True,

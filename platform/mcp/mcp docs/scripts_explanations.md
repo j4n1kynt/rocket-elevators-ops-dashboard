@@ -11,7 +11,7 @@ Detailed purpose and design rationale for every file in `platform/mcp/`.
 The entry point for the entire MCP server. It creates the `FastMCP` application instance, registers all 10 tools by passing each function to `mcp.tool()`, and starts the Streamable HTTP server on the port defined by `MCP_PORT` (default 8765).
 
 **Why it exists:**
-FastMCP requires a single app object that knows about every available tool. `server.py` is the assembly point — it imports from all four tool files and wires them into the app. It also calls `_ensure_sequence()` at startup to guarantee the PostgreSQL sequence used by `schedule_inspection` exists before any write tool is called.
+FastMCP requires a single app object that knows about every available tool. `server.py` is the assembly point — it imports from all four tool files and wires them into the app. It also defines the server lifespan, which initializes the asyncpg connection pool (and runs the startup health check) before the first tool call is accepted.
 
 **How to run:**
 ```bash
@@ -22,27 +22,32 @@ py -3 -m platform.mcp.server
 - Registers tools in two labeled groups (read vs. write) to make the list easier to scan.
 - `host="0.0.0.0"` allows both local and container-to-container connections. Change to `127.0.0.1` to restrict to localhost only.
 - `load_dotenv()` is called here so environment variables are available to all imports.
+- The `lifespan` async context manager calls `init_pool()` on startup and `close_pool()` on shutdown. If PostgreSQL is unreachable at startup, `init_pool()` raises `RuntimeError` and the server refuses to start rather than failing silently on the first tool call.
 
 ---
 
 ## `db.py`
 
 **What it does:**
-Manages a single shared PostgreSQL connection pool for the entire server process. Exposes one public interface: the `get_connection()` context manager, which tools use to borrow a connection, execute queries, and automatically return the connection when done.
+Manages a single shared asyncpg connection pool for the entire server process. Exposes three public functions: `init_pool()` and `close_pool()` for lifecycle management (called from the FastMCP lifespan), and the `get_connection()` async context manager, which tools use to borrow a connection, execute queries, and automatically return the connection when done.
 
 **Why it exists:**
-Every tool needs database access but should not manage its own connections. Opening and closing a new connection per tool call would be slow and would exhaust PostgreSQL's connection limit quickly. A shared pool (minconn=1, maxconn=10) amortizes the connection cost across all tool calls.
+Every tool needs database access but should not manage its own connections. Opening and closing a new connection per tool call would be slow and would exhaust PostgreSQL's connection limit quickly. A shared pool (min_size=2, max_size=10) amortizes the connection cost across all tool calls.
 
 **Key functions:**
 
 | Function | Purpose |
 |----------|---------|
-| `_get_dsn()` | Builds the connection string. Tries `DATABASE_URL` first (Neon/remote), falls back to individual `DB_*` vars (local Docker). Raises `RuntimeError` with a list of missing variables if neither is configured. |
-| `get_pool()` | Lazily initializes the pool on first call. Uses `threading.Lock()` with double-checked locking to prevent two concurrent HTTP requests from both creating a pool simultaneously. |
-| `get_connection()` | Context manager. Borrows a connection from the pool, yields it to the caller, rolls back on exception, and always returns the connection to the pool in `finally`. |
+| `_get_dsn()` | Builds the connection string. Tries `DATABASE_URL` first (Neon/remote), falls back to individual `DB_*` vars (local Docker) and assembles a `postgresql://` URL. Raises `RuntimeError` with a list of missing variables if neither is configured. |
+| `init_pool()` | Creates the asyncpg pool, runs a `SELECT 1` health check, and creates the inspection ID sequence. Called once from the FastMCP lifespan at startup. Raises `RuntimeError` if the database is unreachable — the server will not start. |
+| `close_pool()` | Drains and closes the pool. Called from the FastMCP lifespan at shutdown. |
+| `get_connection()` | Async context manager. Acquires a connection from the pool, yields it to the caller, and returns it to the pool automatically on exit. |
 
-**Why `ThreadedConnectionPool` instead of `SimpleConnectionPool`:**
-`SimpleConnectionPool` is not thread-safe. Streamable HTTP can process multiple tool calls concurrently across threads. `ThreadedConnectionPool` uses internal locking to safely hand out connections to multiple threads at the same time.
+**Why asyncpg instead of psycopg2:**
+The MCP server runs on uvicorn, which operates a single-threaded async event loop. psycopg2 is synchronous — every database call would block the event loop and prevent other tool calls from running concurrently. asyncpg is a native async PostgreSQL driver that integrates directly with the event loop, allowing true concurrent execution of multiple tool calls.
+
+**Inspection ID sequence:**
+`_SEQUENCE_DDL` (creating `mcp_inspection_id_seq` starting at 9,000,000) is defined here and executed inside `init_pool()`. This keeps write-related DDL decoupled from `write_tools.py` and guarantees the sequence exists before any tool call is accepted.
 
 ---
 
@@ -172,8 +177,8 @@ Phase 2 — confirmed=True:
 
 The LLM presents the Phase 1 summary to the user ("You are about to schedule... Please confirm.") before calling Phase 2. `confirmed` must be a strict Python `bool` — `"yes"`, `1`, or any other truthy value raises `ValueError` immediately.
 
-**`_ensure_sequence()` and why it's needed:**
-The `inspections` table uses `INTEGER PRIMARY KEY` (not `SERIAL`), so PostgreSQL won't auto-generate IDs. Real TSSA inspection records loaded by the ETL pipeline have IDs up to ~143,181. The sequence `mcp_inspection_id_seq` starts at 9,000,000 — far above that range — ensuring MCP-scheduled inspections never collide with source data. The function is called once at server startup in `server.py`.
+**Inspection ID sequence:**
+The `inspections` table uses `INTEGER PRIMARY KEY` (not `SERIAL`), so PostgreSQL won't auto-generate IDs. Real TSSA inspection records loaded by the ETL pipeline have IDs up to ~143,181. The sequence `mcp_inspection_id_seq` starts at 9,000,000 — far above that range — ensuring MCP-scheduled inspections never collide with source data. The sequence DDL and its creation are now handled in `db.init_pool()` at server startup (see `db.py`).
 
 ---
 
@@ -191,7 +196,7 @@ The root `requirements.txt` installs Flask, gunicorn, pdfplumber, and tiktoken �
 |---------|---------|--------|
 | `fastmcp` | 2.5.2 | MCP framework — tool registration, protocol handling |
 | `uvicorn` | 0.34.3 | ASGI server — required by Streamable HTTP transport |
-| `psycopg2-binary` | 2.9.9 | PostgreSQL driver — matches root `requirements.txt` |
+| `asyncpg` | 0.30.0 | Async PostgreSQL driver — native async I/O for uvicorn's event loop |
 | `chromadb` | 1.5.9 | Vector store client — matches root `requirements.txt` |
 | `sentence-transformers` | 5.6.0 | Embedding model — must match `rag_preprocessing.py` |
 | `python-dotenv` | 1.1.0 | Loads `.env` at startup |
