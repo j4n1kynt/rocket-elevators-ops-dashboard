@@ -1,0 +1,228 @@
+package main
+
+import (
+	"reflect"
+	"testing"
+	"time"
+)
+
+// fixedNow gives the date extractor a stable "current year" so tests are
+// deterministic regardless of when they run.
+var fixedNow = time.Date(2026, time.June, 16, 0, 0, 0, 0, time.UTC)
+
+const eps = 0.001
+
+// ── Phase A: classification + advisory default ──────────────────────────────
+
+func TestClassifyIntent(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  string
+		want Intent
+	}{
+		// 1. empty message
+		{"empty", "", IntentAdvisory},
+		// 2. general knowledge
+		{"general_knowledge", "What is a hydraulic elevator?", IntentAdvisory},
+		// 3. data query
+		{"data_query_shutdown", "Which elevators are shut down by TSSA?", IntentDataQuery},
+		// 4. rag (steps to replace -> rag, not action)
+		{"rag_steps", "What are the steps to replace a governor?", IntentRAG},
+		// 5. action
+		{"action_schedule", "Schedule an inspection for elevator 12345 on July 15", IntentAction},
+		// 6. case-insensitive data query
+		{"data_query_uppercase", "WHICH ELEVATORS ARE SHUT DOWN?", IntentDataQuery},
+		// extra coverage
+		{"data_query_followup", "Which elevators need follow up inspections?", IntentDataQuery},
+		{"rag_howto", "How do I troubleshoot a stuck door?", IntentRAG},
+		// 26. ID present but advisory phrasing -> advisory (below floor)
+		{"id_advisory_phrasing", "Is elevator 12345 a hydraulic type?", IntentAdvisory},
+		// 28. punctuation-only
+		{"punctuation_only", "???", IntentAdvisory},
+		{"whitespace_only", "   ", IntentAdvisory},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ClassifyIntent(c.msg, fixedNow)
+			if got.Intent != c.want {
+				t.Fatalf("ClassifyIntent(%q) intent = %q; want %q (reason: %s)",
+					c.msg, got.Intent, c.want, got.Reason)
+			}
+		})
+	}
+}
+
+// ── Phase B: entity extraction ──────────────────────────────────────────────
+
+func TestExtractElevatorIDs(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  string
+		want []string
+	}{
+		{"context_cue", "show me elevator 12345", []string{"12345"}},
+		{"no_id", "which elevators are shut down?", nil},
+		{"multiple_standalone", "compare 10054 and 10078", []string{"10054", "10078"}},
+		{"short_id_with_cue", "device 10 status", []string{"10"}},
+		{"count_not_id", "replace 3 governors", nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := extractElevatorIDs(c.msg)
+			if !reflect.DeepEqual(got, c.want) {
+				t.Fatalf("extractElevatorIDs(%q) = %v; want %v", c.msg, got, c.want)
+			}
+		})
+	}
+}
+
+func TestExtractDates(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  string
+		want []string
+	}{
+		{"natural_no_year", "on July 15", []string{"2026-07-15"}},
+		{"iso", "by 2026-07-15 please", []string{"2026-07-15"}},
+		{"natural_with_year", "July 15, 2027", []string{"2027-07-15"}},
+		{"invalid_date", "February 30", nil},
+		{"no_date", "schedule an inspection", nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := extractDates(c.msg, fixedNow)
+			if !reflect.DeepEqual(got, c.want) {
+				t.Fatalf("extractDates(%q) = %v; want %v", c.msg, got, c.want)
+			}
+		})
+	}
+}
+
+func TestExtractActionType(t *testing.T) {
+	cases := []struct {
+		msg  string
+		want string
+	}{
+		{"schedule an inspection", "schedule_inspection"},
+		{"replace a governor", "replace"},
+		{"how many incidents?", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.msg, func(t *testing.T) {
+			if got := extractActionType(c.msg); got != c.want {
+				t.Fatalf("extractActionType(%q) = %q; want %q", c.msg, got, c.want)
+			}
+		})
+	}
+}
+
+// ── Phase C: confidence + fallback ──────────────────────────────────────────
+
+func TestConfidenceAboveFloor(t *testing.T) {
+	// 17. strong keyword + entities -> confidence >= floor, intent stands
+	got := ClassifyIntent("Schedule an inspection for elevator 12345 on July 15", fixedNow)
+	if got.Intent != IntentAction {
+		t.Fatalf("intent = %q; want action", got.Intent)
+	}
+	if got.Confidence < ConfidenceFloor {
+		t.Fatalf("confidence = %.3f; want >= %.2f", got.Confidence, ConfidenceFloor)
+	}
+}
+
+func TestConfidenceFallbackToAdvisory(t *testing.T) {
+	// 18. a single weak keyword only -> below floor -> advisory
+	got := ClassifyIntent("please list those", fixedNow)
+	if got.Intent != IntentAdvisory {
+		t.Fatalf("intent = %q; want advisory (reason: %s)", got.Intent, got.Reason)
+	}
+	if got.Confidence >= ConfidenceFloor {
+		t.Fatalf("confidence = %.3f; want < %.2f", got.Confidence, ConfidenceFloor)
+	}
+	if got.Reason == "" {
+		t.Fatalf("fallback must record a reason")
+	}
+}
+
+func TestConfidenceFormula(t *testing.T) {
+	// 19. data query "which" (0.5) + "shut down" (1.0) = 1.5 -> 1.5/2.5 = 0.6
+	got := ClassifyIntent("Which elevators are shut down?", fixedNow)
+	want := 1.5 / 2.5
+	if diff := got.Confidence - want; diff > eps || diff < -eps {
+		t.Fatalf("confidence = %.4f; want ~%.4f", got.Confidence, want)
+	}
+	// 21. exactly at the floor does NOT fall back
+	if got.Intent != IntentDataQuery {
+		t.Fatalf("intent = %q; want data_query (confidence at floor should stand)", got.Intent)
+	}
+}
+
+func TestAdvisoryByDefaultConfidence(t *testing.T) {
+	// 22. no signals at all -> advisory with confidence 0
+	got := ClassifyIntent("Tell me about elevators in general", fixedNow)
+	if got.Intent != IntentAdvisory {
+		t.Fatalf("intent = %q; want advisory", got.Intent)
+	}
+	if got.Confidence != 0 {
+		t.Fatalf("confidence = %.3f; want 0 for pure advisory", got.Confidence)
+	}
+}
+
+// ── Phase D: full result, trace, determinism ────────────────────────────────
+
+func TestActionEntitiesPopulated(t *testing.T) {
+	// 23. full action scenario fills all entities
+	got := ClassifyIntent("Schedule an inspection for elevator 12345 on July 15", fixedNow)
+	want := Entities{
+		ElevatorIDs: []string{"12345"},
+		Dates:       []string{"2026-07-15"},
+		ActionType:  "schedule_inspection",
+	}
+	if !reflect.DeepEqual(got.Entities, want) {
+		t.Fatalf("entities = %+v; want %+v", got.Entities, want)
+	}
+}
+
+func TestSignalsAndReason(t *testing.T) {
+	// 24 + 25. winner has non-empty signals and a stable reason
+	got := ClassifyIntent("Which elevators are shut down by TSSA?", fixedNow)
+	if len(got.Signals) == 0 {
+		t.Fatalf("expected non-empty signals for a classified intent")
+	}
+	if got.Reason == "" {
+		t.Fatalf("expected a non-empty reason")
+	}
+}
+
+func TestDeterminism(t *testing.T) {
+	// 27. same input -> identical result
+	msg := "Schedule an inspection for elevator 12345 on July 15"
+	a := ClassifyIntent(msg, fixedNow)
+	b := ClassifyIntent(msg, fixedNow)
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("classification not deterministic:\n a=%+v\n b=%+v", a, b)
+	}
+}
+
+// ── Routing ─────────────────────────────────────────────────────────────────
+
+func TestRouteIntent(t *testing.T) {
+	cases := []struct {
+		intent     Intent
+		wantTarget string
+		wantStub   bool
+	}{
+		{IntentDataQuery, "mcp_data_tool", true},
+		{IntentRAG, "rag_search", true},
+		{IntentAction, "action_executor", true},
+		{IntentAdvisory, "advisory", false},
+	}
+	for _, c := range cases {
+		t.Run(string(c.intent), func(t *testing.T) {
+			r := routeIntent(Classification{Intent: c.intent})
+			if r.Target != c.wantTarget || r.Stub != c.wantStub {
+				t.Fatalf("routeIntent(%q) = {%q,%t}; want {%q,%t}",
+					c.intent, r.Target, r.Stub, c.wantTarget, c.wantStub)
+			}
+		})
+	}
+}
