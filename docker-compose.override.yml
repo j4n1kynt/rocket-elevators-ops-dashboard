@@ -1,0 +1,18 @@
+# Local dev override (not committed): a native Windows PostgreSQL already owns
+# host port 5432, colliding with Docker's port proxy. Publish the container on
+# 5433 instead so host-side clients (the FastMCP server, local `go run`) get a
+# clean connection.
+#
+# The API container connects to the db over Docker's internal network, so its
+# DB_PORT must stay the container-internal 5432 regardless of the host port.
+services:
+  db:
+    # !override replaces the base [5432:5432] list instead of concatenating with
+    # it — otherwise the container still tries to bind host 5432 (native PG owns it).
+    ports: !override
+      - "5433:5432"
+
+  api:
+    environment:
+      DB_PORT: "5432"
+      MCP_SERVER_URL: "http://host.docker.internal:8765"
