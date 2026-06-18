@@ -4,7 +4,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install Python deps first so this layer is cached when only app code changes.
+# Install CPU-only torch first. On Linux the default torch pulls the full
+# multi-GB CUDA stack, which is useless on Render (no GPU) and bloats the image.
+# Installing it from the CPU index means sentence-transformers reuses it below.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install the rest of the deps (torch is already satisfied, so no CUDA pull).
 COPY platform/mcp/requirements.txt platform/mcp/requirements.txt
 RUN pip install --no-cache-dir -r platform/mcp/requirements.txt
 
