@@ -1,5 +1,11 @@
 # MCP server for the Rocket Elevators chatbot (AND-107).
 # FastMCP Streamable HTTP server. The Go API connects to it as an MCP client.
+#
+# Build from the REPO ROOT, not platform/mcp/ — the COPY paths below are
+# relative to the repo root:
+#   docker build -f platform/mcp/Dockerfile .
+# On Render: leave "Root Directory" empty and set Dockerfile Path to
+# "platform/mcp/Dockerfile".
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -7,7 +13,9 @@ WORKDIR /app
 # Install CPU-only torch first. On Linux the default torch pulls the full
 # multi-GB CUDA stack, which is useless on Render (no GPU) and bloats the image.
 # Installing it from the CPU index means sentence-transformers reuses it below.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+# Pinned to the version verified on the CPU index for py3.12 (keeps builds
+# reproducible and compatible with sentence-transformers==5.6.0).
+RUN pip install --no-cache-dir torch==2.12.1 --index-url https://download.pytorch.org/whl/cpu
 
 # Install the rest of the deps (torch is already satisfied, so no CUDA pull).
 COPY platform/mcp/requirements.txt platform/mcp/requirements.txt
