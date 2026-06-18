@@ -83,5 +83,6 @@ mcp.tool(schedule_inspection)
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("MCP_PORT", 8765))
+    # Prefer MCP_PORT; fall back to PORT (injected by Render and similar hosts).
+    port = int(os.environ.get("MCP_PORT") or os.environ.get("PORT", "8765"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
