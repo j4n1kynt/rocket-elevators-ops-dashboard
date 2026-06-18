@@ -19,7 +19,7 @@ load_dotenv()
 # Must match constants in intelligence/rag_preprocessing.py
 CHROMADB_PATH = os.environ.get("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
-EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 _client = None
 _model = None

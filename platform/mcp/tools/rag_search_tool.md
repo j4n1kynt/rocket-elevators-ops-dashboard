@@ -24,7 +24,7 @@ Go API → MCP Server → search_maintenance_docs() → rag_query() → ChromaDB
 
 - **Collection:** `maintenance_documents`
 - **Distance metric:** cosine (`hnsw:space: cosine`)
-- **Embedding model:** `BAAI/bge-large-en-v1.5` (1024-dim) — used by both preprocessing and query
+- **Embedding model:** `BAAI/bge-small-en-v1.5` (384-dim) — used by both preprocessing and query
 - **Chunk size:** 500 tokens with 50-token overlap
 - **Metadata written per chunk:** `doc_name`, `chunk_sequence`, `token_count`, `source_type`, `created_at`, `model_version`
 
@@ -194,5 +194,5 @@ None at this time.
 | `try:` block with no `except` — `SyntaxError` on import | Merge conflict resolution from `dev` left the `try:` wrapper without a closing `except` | Wrapped entire function body in `try/except`, matching `search_incident_narratives` pattern |
 | `ValidationError` swallowed — `test_validation.py` 5 failures | Broad `except Exception` caught `pydantic.ValidationError` before it could propagate | Added explicit `except ValidationError: raise` before the broad handler; imported `ValidationError` from pydantic |
 | `result["text"]` and `result["distance"]` with hard `[]` access | If ChromaDB returns a chunk without these keys, a `KeyError` would raise | Switched to `result.get("text", "")` and `result.get("distance", 1.0)` — distance defaults to 1.0 so similarity computes to 0.0 and gets filtered out |
-| Embedding model mismatch — dimension error or meaningless similarities | `rag.py` used `all-MiniLM-L6-v2` (384-dim) while `rag_preprocessing.py` indexed with `BAAI/bge-large-en-v1.5` (1024-dim) | Updated `EMBEDDING_MODEL` in `rag.py` to `BAAI/bge-large-en-v1.5` — both files now use the same model and vector space |
+| Embedding model mismatch — dimension error or meaningless similarities | `rag.py` used `all-MiniLM-L6-v2` (384-dim) while `rag_preprocessing.py` indexed with `BAAI/bge-large-en-v1.5` (1024-dim) | Updated `EMBEDDING_MODEL` in `rag.py` to match `rag_preprocessing.py` — both files must use the same model and vector space. Currently both use `BAAI/bge-small-en-v1.5` (384-dim). |
 | `metadata` access raising `TypeError` on `None` | ChromaDB returns `None` for chunks upserted without metadata | Added `(result.get("metadata") or {})` guard before calling `.get("doc_name")` |

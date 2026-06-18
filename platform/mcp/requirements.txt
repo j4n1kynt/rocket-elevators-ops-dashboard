@@ -14,7 +14,7 @@ asyncpg==0.30.0
 # Vector store — same version as root requirements.txt, shares data/chromadb store
 chromadb==1.5.9
 
-# Embeddings — must match EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5" in rag_preprocessing.py
+# Embeddings — must match EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5" in rag_preprocessing.py
 sentence-transformers==5.6.0
 
 # Env file loading

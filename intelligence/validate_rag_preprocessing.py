@@ -61,7 +61,7 @@ def main():
 
     # [4] Similarity search — embed query with our own model to avoid ChromaDB ONNX download
     try:
-        _model = SentenceTransformer("BAAI/bge-large-en-v1.5")
+        _model = SentenceTransformer("BAAI/bge-small-en-v1.5")
         query_vec = _model.encode(["elevator safety inspection"], show_progress_bar=False).tolist()
         results = coll.query(query_embeddings=query_vec, n_results=3)
         search_ok = len(results["ids"][0]) == 3

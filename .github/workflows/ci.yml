@@ -42,7 +42,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: hf-bge-large-en-v1.5
+          key: hf-bge-small-en-v1.5
 
       - name: Install root dependencies
         run: pip install -r requirements.txt
