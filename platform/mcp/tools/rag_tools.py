@@ -86,8 +86,6 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
         }
     except ValidationError:
         raise
-    except ValidationError:
-        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
 

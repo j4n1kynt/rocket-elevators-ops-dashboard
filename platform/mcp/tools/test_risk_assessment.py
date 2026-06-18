@@ -12,6 +12,7 @@ Run: pytest platform/mcp/tools/test_risk_assessment.py -v
 import asyncio
 import contextlib
 import os
+from datetime import date
 from unittest.mock import patch
 
 import asyncpg
@@ -93,7 +94,7 @@ def seed_and_teardown():
                         "HIGH",
                         "Repeated failed inspections and outstanding compliance orders.",
                         "v1-test",
-                        "2026-06-18",
+                        date(2026, 6, 18),
                     ),
                     (
                         _ID_NULL_EXPLANATION,
@@ -101,7 +102,7 @@ def seed_and_teardown():
                         "MEDIUM",
                         None,
                         "v1-test",
-                        "2026-06-18",
+                        date(2026, 6, 18),
                     ),
                 ],
             )
