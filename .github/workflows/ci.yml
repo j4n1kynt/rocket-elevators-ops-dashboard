@@ -38,10 +38,6 @@ jobs:
         with:
           python-version: "3.10"
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: platform/api/go.mod
-
       - name: Cache HuggingFace models
         uses: actions/cache@v4
         with:
@@ -57,18 +53,6 @@ jobs:
       - name: MCP DB healthcheck
         run: PYTHONPATH=. python -m platform.mcp.healthcheck
 
-      - name: Go build
-        run: go build ./...
-        working-directory: platform/api
-
-      - name: Go vet
-        run: go vet ./...
-        working-directory: platform/api
-
-      - name: Go tests
-        run: go test ./...
-        working-directory: platform/api
-
       - name: Run Python tests
         run: pytest intelligence/tests/ -v
 
@@ -77,3 +61,24 @@ jobs:
 
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: platform/api/go.mod
+
+      - name: Go build
+        run: go build ./...
+        working-directory: platform/api
+
+      - name: Go vet
+        run: go vet ./...
+        working-directory: platform/api
+
+      - name: Go test
+        run: go test ./...
+        working-directory: platform/api

@@ -88,22 +88,28 @@ def rag_query(
             "Run 'py -3 intelligence/rag_preprocessing.py' to create and populate it."
         ) from exc
 
-    sample = collection.peek(limit=1)
-    if sample.get("embeddings") and sample["embeddings"][0]:
-        stored_dim = len(sample["embeddings"][0])
-        model_dim = model.get_sentence_embedding_dimension()
-        if stored_dim != model_dim:
-            raise RuntimeError(
-                f"Embedding dimension mismatch: ChromaDB collection '{collection_name}' "
-                f"has {stored_dim}-dim vectors but model '{EMBEDDING_MODEL}' produces "
-                f"{model_dim}-dim vectors. "
-                "Regenerate the index: py -3 intelligence/rag_preprocessing.py --force"
-            )
-
     try:
         embedding = model.encode(query_text, normalize_embeddings=False).tolist()
     except Exception as exc:
         raise RuntimeError(f"Failed to generate embedding for query: {exc}") from exc
+
+    # Guard against a stale index built with a different embedding model.
+    # A dimension mismatch here means ChromaDB was populated with another model
+    # (e.g. the old 384-dim all-MiniLM-L6-v2). Surface an actionable error
+    # instead of ChromaDB's opaque internal failure.
+    try:
+        peek = collection.peek(limit=1)
+        stored = peek.get("embeddings") or []
+        if stored is not None and len(stored) > 0 and len(stored[0]) != len(embedding):
+            raise RuntimeError(
+                f"Embedding dimension mismatch: index has {len(stored[0])}-dim vectors "
+                f"but '{EMBEDDING_MODEL}' produces {len(embedding)}-dim. "
+                "Re-run 'py -3 intelligence/rag_preprocessing.py --force' to rebuild the index."
+            )
+    except RuntimeError:
+        raise
+    except Exception:
+        pass  # peek is best-effort; don't block queries if unavailable
 
     kwargs: dict = {"query_embeddings": [embedding], "n_results": n_results}
     if where:
