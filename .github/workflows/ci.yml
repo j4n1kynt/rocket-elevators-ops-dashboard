@@ -50,6 +50,9 @@ jobs:
       - name: Install MCP dependencies
         run: pip install -r platform/mcp/requirements.txt pytest-asyncio
 
+      - name: Apply database schema
+        run: psql $DATABASE_URL -f platform/api/migrations/001_initial_schema.sql
+
       - name: MCP DB healthcheck
         run: PYTHONPATH=. python -m platform.mcp.healthcheck
 
@@ -58,6 +61,12 @@ jobs:
 
       - name: Run Python tests
         run: pytest intelligence/tests/ -v
+
+      - name: Run MCP validation tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_validation.py -v
+
+      - name: Run MCP risk assessment integration tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_risk_assessment.py -v
 
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py

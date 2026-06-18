@@ -19,6 +19,8 @@ above the source-data range (~43,002 max) to avoid collisions.
 
 import os
 
+from pydantic import ValidationError
+
 from platform.mcp.db import get_connection
 from platform.mcp.tools.models import ScheduleInspectionInput
 
@@ -114,5 +116,7 @@ async def schedule_inspection(
             "reason": inp.reason,
             "outcome": "Pending",
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}

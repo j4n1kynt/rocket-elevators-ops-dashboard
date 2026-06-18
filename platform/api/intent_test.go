@@ -35,6 +35,14 @@ func TestClassifyIntent(t *testing.T) {
 		// extra coverage
 		{"data_query_followup", "Which elevators need follow up inspections?", IntentDataQuery},
 		{"rag_howto", "How do I troubleshoot a stuck door?", IntentRAG},
+		// Risk phrases — FEATURE-2 (elevator ID present supplies the entity bonus)
+		{"risk_high_risk_hyphen", "Why is elevator 12345 high-risk?", IntentDataQuery},
+		{"risk_explain_risk", "Explain the risk for elevator 12345", IntentDataQuery},
+		{"risk_level_with_id", "What is the risk level for elevator 12345?", IntentDataQuery},
+		{"risk_dangerous", "Is elevator 12345 dangerous?", IntentDataQuery},
+		{"risk_assessment", "Show me the risk assessment for elevator 12345", IntentDataQuery},
+		{"risk_rated_high", "Why is elevator 12345 rated HIGH?", IntentDataQuery},
+		{"risk_score", "What is the risk score for elevator 12345?", IntentDataQuery},
 		// 26. ID present but advisory phrasing -> advisory (below floor)
 		{"id_advisory_phrasing", "Is elevator 12345 a hydraulic type?", IntentAdvisory},
 		// 28. punctuation-only
@@ -140,6 +148,29 @@ func TestConfidenceFallbackToAdvisory(t *testing.T) {
 	}
 	if got.Reason == "" {
 		t.Fatalf("fallback must record a reason")
+	}
+}
+
+func TestRiskPhraseConfidenceFloor(t *testing.T) {
+	phrases := []string{
+		"Why is elevator 12345 high-risk?",
+		"Explain the risk for elevator 12345",
+		"What is the risk level for elevator 12345?",
+		"Is elevator 12345 dangerous?",
+		"Show me the risk assessment for elevator 12345",
+		"Why is elevator 12345 rated HIGH?",
+		"What is the risk score for elevator 12345?",
+	}
+	for _, p := range phrases {
+		t.Run(p, func(t *testing.T) {
+			got := ClassifyIntent(p, fixedNow)
+			if got.Intent != IntentDataQuery {
+				t.Fatalf("intent = %q; want data_query (reason: %s)", got.Intent, got.Reason)
+			}
+			if got.Confidence < ConfidenceFloor {
+				t.Fatalf("confidence = %.3f; want >= %.2f", got.Confidence, ConfidenceFloor)
+			}
+		})
 	}
 }
 

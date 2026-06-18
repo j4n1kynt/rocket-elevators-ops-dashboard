@@ -4,6 +4,8 @@ MCP tools for incident queries.
 Tools: get_incident_count_last_year, get_elevator_incidents
 """
 
+from pydantic import ValidationError
+
 from platform.mcp.db import get_connection
 from platform.mcp.tools.models import GetElevatorIncidentsInput
 
@@ -28,6 +30,8 @@ async def get_incident_count_last_year() -> dict:
             row = await conn.fetchrow(sql)
 
         return dict(row)
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
 
@@ -75,5 +79,7 @@ async def get_elevator_incidents(elevator_id: int, limit: int = 20) -> dict:
             "total_returned": len(rows),
             "incidents": [dict(r) for r in rows],
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}

@@ -131,5 +131,7 @@ async def search_incident_narratives(query: str, limit: int = 5) -> dict:
             "total_returned": len(rows),
             "results": [dict(r) for r in rows],
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}

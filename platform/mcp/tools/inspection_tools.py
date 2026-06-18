@@ -5,6 +5,8 @@ Tools: get_tssa_shutdown_elevators, get_inspection_history,
        get_elevators_needing_followup, get_elevator_risk, get_fleet_stats
 """
 
+from pydantic import ValidationError
+
 from platform.mcp.db import get_connection
 from platform.mcp.tools.models import (
     GetElevatorsNeedingFollowupInput,
@@ -57,6 +59,8 @@ async def get_tssa_shutdown_elevators(limit: int = 50) -> dict:
             "note": "No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.",
             "elevators": [dict(r) for r in rows],
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
 
@@ -97,6 +101,8 @@ async def get_inspection_history(elevator_id: int, limit: int = 20) -> dict:
             "total_returned": len(rows),
             "inspections": [dict(r) for r in rows],
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
 
@@ -139,6 +145,8 @@ async def get_elevators_needing_followup(limit: int = 50) -> dict:
             "count": len(rows),
             "elevators": [dict(r) for r in rows],
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
 
@@ -177,6 +185,8 @@ async def get_elevator_risk(elevator_id: int) -> dict:
                 return {"elevator_found": True, "prediction_found": False, "elevator_id": inp.elevator_id}
 
         return {"elevator_found": True, "prediction_found": True, **dict(row)}
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
 
@@ -223,5 +233,7 @@ async def get_fleet_stats() -> dict:
             "inspection_pass_rate_pct": pass_rate,
             "equipment_type_distribution": {row["type"]: row["cnt"] for row in type_rows},
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
