@@ -13,7 +13,7 @@ from sentence_transformers import SentenceTransformer
 CHROMADB_PATH   = os.getenv("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
 MIN_CHUNKS      = 30    # floor for 6 PDFs at 500-token chunk size
-EXPECTED_DIM    = 1024
+EXPECTED_DIM    = 384
 
 
 def _ok(flag):
