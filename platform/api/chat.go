@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -22,72 +23,101 @@ import (
 //go:embed prompts/system_prompt.md
 var systemPromptBase string
 
-func getOllamaURL() string {
-	if v := os.Getenv("OLLAMA_URL"); v != "" {
+func getOpenRouterBaseURL() string {
+	if v := os.Getenv("OPENROUTER_BASE_URL"); v != "" {
 		return v
 	}
-	return "http://localhost:11434"
+	return "https://openrouter.ai/api/v1"
 }
 
-func getOllamaModel() string {
-	if v := os.Getenv("OLLAMA_MODEL"); v != "" {
+func getOpenRouterModel() string {
+	if v := os.Getenv("OPENROUTER_MODEL"); v != "" {
 		return v
 	}
-	return "mistral:latest"
+	return "google/gemma-4-31b-it:free"
 }
 
-// ollamaClient is shared across all calls so TCP connections to Ollama are
+func getOpenRouterKey() string {
+	return os.Getenv("OPENROUTER_API_KEY")
+}
+
+// llmClient is shared across all calls so TCP connections to the provider are
 // pooled. No Timeout is set — callers pass a context that governs the deadline.
-var ollamaClient = &http.Client{}
+var llmClient = &http.Client{}
 
-// ── Ollama client ─────────────────────────────────────────────────────────────
+// ── OpenRouter client (OpenAI-compatible) ──────────────────────────────────────
 
-type ollamaMsg struct {
+type llmMsg struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type ollamaChatReq struct {
-	Model    string      `json:"model"`
-	Messages []ollamaMsg `json:"messages"`
-	Stream   bool        `json:"stream"`
+type openAIChatReq struct {
+	Model    string   `json:"model"`
+	Messages []llmMsg `json:"messages"`
+	Stream   bool     `json:"stream"`
 }
 
-type ollamaChatResp struct {
-	Message ollamaMsg `json:"message"`
+// openAIChatResp matches the OpenAI/OpenRouter response shape: the reply lives
+// in choices[0].message.content, and an "error" object is returned on failure.
+type openAIChatResp struct {
+	Choices []struct {
+		Message llmMsg `json:"message"`
+	} `json:"choices"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
-func callOllama(ctx context.Context, baseURL, model string, messages []ollamaMsg) (string, error) {
-	payload, err := json.Marshal(ollamaChatReq{Model: model, Messages: messages, Stream: false})
+func callLLM(ctx context.Context, baseURL, apiKey, model string, messages []llmMsg) (string, error) {
+	if apiKey == "" {
+		return "", fmt.Errorf("OPENROUTER_API_KEY is not set")
+	}
+
+	payload, err := json.Marshal(openAIChatReq{Model: model, Messages: messages, Stream: false})
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/chat", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(payload))
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("ngrok-skip-browser-warning", "true")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	resp, err := ollamaClient.Do(req)
+	resp, err := llmClient.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return "", err
 		}
-		return "", fmt.Errorf("ollama unreachable: %w", err)
+		return "", fmt.Errorf("llm provider unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ollama returned status %d", resp.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return "", fmt.Errorf("llm returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	var result ollamaChatResp
+	var result openAIChatResp
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
-	return strings.TrimSpace(result.Message.Content), nil
+	if result.Error != nil {
+		return "", fmt.Errorf("llm error: %s", result.Error.Message)
+	}
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("llm returned no choices")
+	}
+	content := strings.TrimSpace(result.Choices[0].Message.Content)
+	if content == "" {
+		// Some models (e.g. gpt-oss) can return null/empty content while
+		// routing text through a separate reasoning channel. Treat this as
+		// an error so the caller does not send a blank reply.
+		return "", fmt.Errorf("llm returned empty content")
+	}
+	return content, nil
 }
 
 // ── buildMCPArgs / isToolError ────────────────────────────────────────────────
@@ -173,7 +203,7 @@ func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 //
 // Classifies the user message, calls the appropriate MCP tool for data_query /
 // rag / action intents, injects the result as live context into the system
-// prompt, then calls Ollama. Falls back to advisory-only on MCP error.
+// prompt, then calls the LLM (OpenRouter). Falls back to advisory-only on MCP error.
 func PostChat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -222,23 +252,30 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 	if dataContext != "" {
 		systemContent += "\n\n## Live Data Context\n" + dataContext
 	}
-	messages := []ollamaMsg{{Role: "system", Content: systemContent}}
+	messages := []llmMsg{{Role: "system", Content: systemContent}}
 	for _, h := range history {
-		messages = append(messages, ollamaMsg{Role: h.Role, Content: h.Content})
+		messages = append(messages, llmMsg{Role: h.Role, Content: h.Content})
 	}
-	messages = append(messages, ollamaMsg{Role: "user", Content: msg})
+	messages = append(messages, llmMsg{Role: "user", Content: msg})
 
 	ctx, cancel := context.WithTimeout(r.Context(), 330*time.Second)
 	defer cancel()
-	reply, err := callOllama(ctx, getOllamaURL(), getOllamaModel(), messages)
+	reply, err := callLLM(ctx, getOpenRouterBaseURL(), getOpenRouterKey(), getOpenRouterModel(), messages)
 	if err != nil {
+		log.Printf("llm call failed: %v", err)
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
 			writeJSON(w, 503, ErrorResponse{Error: "The assistant took too long to respond. Please try again."})
 		case errors.Is(err, context.Canceled):
 			// client disconnected — nothing to write
+		case strings.Contains(err.Error(), "API_KEY is not set"):
+			writeJSON(w, 503, ErrorResponse{Error: "OPENROUTER_API_KEY is not set. Configure it before using the chat."})
+		case strings.Contains(err.Error(), "status 401"):
+			writeJSON(w, 503, ErrorResponse{Error: "OpenRouter rejected the API key (401). Check OPENROUTER_API_KEY."})
+		case strings.Contains(err.Error(), "status 429"):
+			writeJSON(w, 503, ErrorResponse{Error: "OpenRouter rate limit reached (429). Free models are limited — wait and retry."})
 		case strings.Contains(err.Error(), "unreachable") || strings.Contains(err.Error(), "connection refused"):
-			writeJSON(w, 503, ErrorResponse{Error: "Ollama is unreachable. Make sure Ollama is running."})
+			writeJSON(w, 503, ErrorResponse{Error: "The LLM provider is unreachable. Check your network or OPENROUTER_BASE_URL."})
 		default:
 			writeJSON(w, 500, ErrorResponse{Error: "assistant failed to respond"})
 		}
@@ -251,22 +288,4 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 	)
 
 	writeJSON(w, 200, ChatResponse{Reply: reply, History: updatedHistory})
-}
-
-// WarmUpOllama sends a tiny request at startup so Ollama loads the model into
-// memory. mistral:7b cold start exceeds 300s (EVAL-1); doing this once at boot
-// keeps the first real user message fast. Safe to call in a goroutine.
-func WarmUpOllama() {
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
-	defer cancel()
-
-	model := getOllamaModel()
-	log.Printf("ollama warm-up starting (model %s)…", model)
-	if _, err := callOllama(ctx, getOllamaURL(), model, []ollamaMsg{
-		{Role: "user", Content: "ping"},
-	}); err != nil {
-		log.Printf("ollama warm-up failed (first chat may be slow): %v", err)
-		return
-	}
-	log.Printf("ollama warm-up complete — model %s is resident", model)
 }
