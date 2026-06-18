@@ -53,11 +53,11 @@ jobs:
       - name: MCP DB healthcheck
         run: PYTHONPATH=. python -m platform.mcp.healthcheck
 
-      - name: Run Python tests
-        run: pytest intelligence/tests/ -v
-
       - name: Seed RAG fixture for CI
         run: PYTHONPATH=. python intelligence/tests/seed_rag_ci.py
+
+      - name: Run Python tests
+        run: pytest intelligence/tests/ -v
 
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py
