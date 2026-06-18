@@ -50,6 +50,9 @@ jobs:
       - name: Install MCP dependencies
         run: pip install -r platform/mcp/requirements.txt pytest-asyncio
 
+      - name: Apply database schema
+        run: psql $DATABASE_URL -f platform/api/migrations/001_initial_schema.sql
+
       - name: MCP DB healthcheck
         run: PYTHONPATH=. python -m platform.mcp.healthcheck
 
