@@ -63,7 +63,7 @@ Provides a single function, `rag_query()`, that takes a plain-text query string,
 
 | Constant | Value | Why it must match |
 |----------|-------|-------------------|
-| `CHROMADB_PATH` | `data/chromadb` (or `MCP_CHROMADB_PATH`) | Must point to the same store that was written during preprocessing |
+| `CHROMADB_PATH` | `data/chromadb` (or `RAG_CHROMADB_PATH`) | Must point to the same store that was written during preprocessing |
 | `COLLECTION_NAME` | `maintenance_documents` | Must match the collection name used in `rag_preprocessing.py` |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Must match the model used to generate the stored embeddings |
 

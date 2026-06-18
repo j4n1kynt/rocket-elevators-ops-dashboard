@@ -134,7 +134,7 @@ func readFirstSSEData(r io.Reader) ([]byte, error) {
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 // CallMCPTool opens a fresh MCP session, calls toolName with args, and returns
-// the text content from the tool result. The caller controls the deadline via ctx.
+// the text content from the tool result. Effective deadline is min(ctx, 10s).
 func CallMCPTool(ctx context.Context, toolName string, args map[string]any) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

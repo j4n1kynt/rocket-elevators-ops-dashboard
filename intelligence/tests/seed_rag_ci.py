@@ -63,7 +63,7 @@ def main() -> None:
                 "doc_name":       doc_name,
                 "chunk_sequence": seq,
                 "token_count":    len(text.split()),
-                "source_type":    "maintenance_txt",
+                "source_type":    "maintenance_pdf",
                 "created_at":     now,
                 "model_version":  EMBEDDING_MODEL,
             })

@@ -31,7 +31,7 @@ Both the Go API and Claude Code connect via `http://localhost:8765/mcp`.
 rocket-elevators-ops-dashboard/
 │
 ├── .mcp.json                          # Claude Code MCP config (Streamable HTTP, port 8765)
-├── .env.example                       # Updated — added MCP_CHROMADB_PATH + MCP_PORT
+├── .env.example                       # Updated — added RAG_CHROMADB_PATH + MCP_PORT
 ├── FastMCP_PStructure.md              # This file
 │
 └── platform/
@@ -97,7 +97,7 @@ Install: `pip install -r platform/mcp/requirements.txt`
 ## `.env` Variables Added
 
 ```bash
-MCP_CHROMADB_PATH=data/chromadb   # Path to ChromaDB store (relative to project root)
+RAG_CHROMADB_PATH=data/chromadb   # Path to ChromaDB store (relative to project root)
 MCP_PORT=8765                      # Streamable HTTP port
 ```
 

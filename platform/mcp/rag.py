@@ -99,7 +99,7 @@ def rag_query(
     # instead of ChromaDB's opaque internal failure.
     try:
         peek = collection.peek(limit=1)
-        stored = peek.get("embeddings") or []
+        stored = peek.get("embeddings")
         if stored is not None and len(stored) > 0 and len(stored[0]) != len(embedding):
             raise RuntimeError(
                 f"Embedding dimension mismatch: index has {len(stored[0])}-dim vectors "
