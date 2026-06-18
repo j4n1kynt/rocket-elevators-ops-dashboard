@@ -59,6 +59,12 @@ jobs:
       - name: Run Python tests
         run: pytest intelligence/tests/ -v
 
+      - name: Run MCP validation tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_validation.py -v
+
+      - name: Run MCP risk assessment integration tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_risk_assessment.py -v
+
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py
 
