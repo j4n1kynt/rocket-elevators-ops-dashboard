@@ -73,3 +73,16 @@ func TestCallLLMNoChoices(t *testing.T) {
 		t.Errorf("expected no-choices error, got %v", err)
 	}
 }
+
+func TestCallLLMEmptyContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"  "}}]}`)
+	}))
+	defer srv.Close()
+
+	_, err := callLLM(context.Background(), srv.URL, "k", "m", []llmMsg{{Role: "user", Content: "x"}})
+	if err == nil || !strings.Contains(err.Error(), "empty content") {
+		t.Errorf("expected empty-content error, got %v", err)
+	}
+}

@@ -34,7 +34,7 @@ func getOpenRouterModel() string {
 	if v := os.Getenv("OPENROUTER_MODEL"); v != "" {
 		return v
 	}
-	return "qwen/qwen3-next-80b-a3b-instruct:free"
+	return "google/gemma-4-31b-it:free"
 }
 
 func getOpenRouterKey() string {
@@ -110,7 +110,14 @@ func callLLM(ctx context.Context, baseURL, apiKey, model string, messages []llmM
 	if len(result.Choices) == 0 {
 		return "", fmt.Errorf("llm returned no choices")
 	}
-	return strings.TrimSpace(result.Choices[0].Message.Content), nil
+	content := strings.TrimSpace(result.Choices[0].Message.Content)
+	if content == "" {
+		// Some models (e.g. gpt-oss) can return null/empty content while
+		// routing text through a separate reasoning channel. Treat this as
+		// an error so the caller does not send a blank reply.
+		return "", fmt.Errorf("llm returned empty content")
+	}
+	return content, nil
 }
 
 // ── buildMCPArgs / isToolError ────────────────────────────────────────────────

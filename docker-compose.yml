@@ -34,7 +34,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-api_password}
       DB_NAME: ${DB_NAME:-rocket_elevators}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-qwen/qwen3-next-80b-a3b-instruct:free}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemma-4-31b-it:free}
 
 volumes:
   pgdata:
