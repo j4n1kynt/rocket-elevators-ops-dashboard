@@ -150,6 +150,10 @@ func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 		return "search_maintenance_docs", map[string]any{"query": msg, "n_results": 5}
 
 	case IntentAction:
+		// confirmed=false is intentional: this sprint only supports the Phase 1
+		// preview (tool returns a summary for the user to review). Phase 2
+		// (confirmed=true → actual INSERT) requires a multi-turn confirmation
+		// flow and is tracked as a future task.
 		args := map[string]any{"confirmed": false, "reason": msg}
 		if hasID {
 			id, _ := strconv.Atoi(c.Entities.ElevatorIDs[0])

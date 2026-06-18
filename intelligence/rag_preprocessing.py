@@ -241,7 +241,7 @@ def validate_chunks(chunks: list) -> tuple:
 
 async def generate_embeddings_async(chunks: list) -> tuple:
     """
-    Generate 1024-dim embeddings for all chunks using sentence-transformers.
+    Generate embeddings for all chunks using sentence-transformers (EMBEDDING_MODEL).
     Batches are dispatched concurrently via asyncio.Semaphore(EMBEDDING_CONCURRENCY)
     and asyncio.to_thread — reuses the bounded concurrency pattern from
     generate_explanations.py (Semaphore + to_thread + gather(return_exceptions=True)).
