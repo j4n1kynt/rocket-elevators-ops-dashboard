@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 func getMCPServerURL() string {
@@ -119,6 +120,7 @@ func readFirstSSEData(r io.Reader) ([]byte, error) {
 		if after, ok := strings.CutPrefix(line, "data:"); ok {
 			trimmed := strings.TrimSpace(after)
 			if trimmed != "" {
+				io.Copy(io.Discard, r) //nolint:errcheck
 				return []byte(trimmed), nil
 			}
 		}
@@ -134,6 +136,9 @@ func readFirstSSEData(r io.Reader) ([]byte, error) {
 // CallMCPTool opens a fresh MCP session, calls toolName with args, and returns
 // the text content from the tool result. The caller controls the deadline via ctx.
 func CallMCPTool(ctx context.Context, toolName string, args map[string]any) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	base := getMCPServerURL()
 	id1, id2 := 1, 2
 

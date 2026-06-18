@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Must match constants in intelligence/rag_preprocessing.py
-CHROMADB_PATH = os.environ.get("MCP_CHROMADB_PATH", "data/chromadb")
+CHROMADB_PATH = os.environ.get("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 
@@ -87,6 +87,18 @@ def rag_query(
             f"ChromaDB collection '{collection_name}' not found: {exc}. "
             "Run 'py -3 intelligence/rag_preprocessing.py' to create and populate it."
         ) from exc
+
+    sample = collection.peek(limit=1)
+    if sample.get("embeddings") and sample["embeddings"][0]:
+        stored_dim = len(sample["embeddings"][0])
+        model_dim = model.get_sentence_embedding_dimension()
+        if stored_dim != model_dim:
+            raise RuntimeError(
+                f"Embedding dimension mismatch: ChromaDB collection '{collection_name}' "
+                f"has {stored_dim}-dim vectors but model '{EMBEDDING_MODEL}' produces "
+                f"{model_dim}-dim vectors. "
+                "Regenerate the index: py -3 intelligence/rag_preprocessing.py --force"
+            )
 
     try:
         embedding = model.encode(query_text, normalize_embeddings=False).tolist()
