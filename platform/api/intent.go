@@ -53,7 +53,7 @@ type Signal struct {
 // Classification is the full deterministic result.
 type Classification struct {
 	Intent     Intent
-	Confidence float64  // 0.0–1.0
+	Confidence float64 // 0.0–1.0
 	Entities   Entities
 	Signals    []Signal // every keyword that matched, in scan order — the TRACE
 	Reason     string   // one-line explanation, for logs
