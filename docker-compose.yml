@@ -33,8 +33,8 @@ services:
       DB_USER: ${DB_USER:-api_user}
       DB_PASSWORD: ${DB_PASSWORD:-api_password}
       DB_NAME: ${DB_NAME:-rocket_elevators}
-      OLLAMA_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: mistral:7b
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-qwen/qwen3-next-80b-a3b-instruct:free}
 
 volumes:
   pgdata:
