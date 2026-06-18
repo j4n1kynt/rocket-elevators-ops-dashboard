@@ -90,7 +90,17 @@ func callOllama(ctx context.Context, baseURL, model string, messages []ollamaMsg
 	return strings.TrimSpace(result.Message.Content), nil
 }
 
-// ── buildMCPArgs ──────────────────────────────────────────────────────────────
+// ── buildMCPArgs / isToolError ────────────────────────────────────────────────
+
+// isToolError reports whether a tool's JSON payload is an application-level
+// error envelope ({"error": true, ...}) rather than real data.
+func isToolError(jsonText string) bool {
+	var probe struct {
+		Error bool `json:"error"`
+	}
+	_ = json.Unmarshal([]byte(jsonText), &probe)
+	return probe.Error
+}
 
 // buildMCPArgs maps a classification and original message to an MCP tool name
 // and arguments. Called only for data_query, rag, and action intents.
@@ -126,6 +136,13 @@ func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 			return "get_elevator_risk", map[string]any{"elevator_id": id}
 
 		default:
+			// A query naming a specific elevator but matching no sub-keyword
+			// (e.g. "status of elevator 12345") should look up that elevator,
+			// not return fleet-wide aggregates.
+			if hasID {
+				id, _ := strconv.Atoi(c.Entities.ElevatorIDs[0])
+				return "get_elevator_risk", map[string]any{"elevator_id": id}
+			}
 			return "get_fleet_stats", map[string]any{}
 		}
 
@@ -171,7 +188,12 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		classification.Intent, classification.Confidence, route.Target, route.Stub, classification.Reason)
 
 	var dataContext string
-	if classification.Intent == IntentDataQuery ||
+	if classification.Intent == IntentAction &&
+		(len(classification.Entities.ElevatorIDs) == 0 || len(classification.Entities.Dates) == 0) {
+		// Don't call the write tool with missing required fields — it would
+		// ValidationError → silent advisory. Tell the model to ask for them.
+		dataContext = "[ACTION NEEDS MORE INFO]\nThe user wants to schedule an inspection but did not provide both an elevator ID and a date. Ask them for whichever is missing before proceeding. Do not invent values."
+	} else if classification.Intent == IntentDataQuery ||
 		classification.Intent == IntentRAG ||
 		classification.Intent == IntentAction {
 		toolName, mcpArgs := buildMCPArgs(classification, msg)
@@ -179,6 +201,8 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		defer mcpCancel()
 		if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
 			log.Printf("mcp tool %s failed: %v — falling back to advisory", toolName, err)
+		} else if isToolError(result) {
+			log.Printf("mcp tool %s returned an error payload: %s — falling back to advisory", toolName, result)
 		} else {
 			dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
 		}

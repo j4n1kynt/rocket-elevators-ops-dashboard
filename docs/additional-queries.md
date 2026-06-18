@@ -9,8 +9,10 @@ Three additional chat queries supported beyond the 5 core PBI scenarios. All ret
 
 **Example prompts:**
 - "What is the risk level of elevator 10234?"
-- "Is elevator 88712 high risk?"
-- "Show me the risk prediction for elevator 45001"
+- "What is the risk level of elevator 88712?"
+- "Show me the risk level for elevator 45001"
+
+> **Classifier note:** The phrase "risk level" (weight 1.0) + extracted elevator ID (entity bonus 0.5) reaches the 0.6 confidence floor. Shorter phrasings like "Is elevator X high risk?" score 0.5 and fall back to advisory. Use "risk level" in the prompt.
 
 **MCP tool:** `get_elevator_risk`
 **Intent trigger:** `data_query` + keyword `"risk"` + extracted elevator ID
@@ -23,12 +25,14 @@ The ML risk prediction for the elevator: risk level (LOW / MEDIUM / HIGH), risk 
 ## 2. Fleet-wide statistics
 
 **Example prompts:**
-- "What does the fleet look like overall?"
-- "How many elevators are high risk?"
-- "Give me a summary of the fleet"
+- "How many elevators are at each risk level?"
+- "List elevators by risk level"
+- "Which elevators have which risk level?"
 
 **MCP tool:** `get_fleet_stats`
 **Intent trigger:** `data_query` with no specific sub-keyword match (default fallback)
+
+> **Classifier note:** The phrase "risk level" (weight 1.0) + a second keyword like "how many" or "list" (0.5 each) reaches the 0.6 confidence floor without an elevator ID, routing to the default case → `get_fleet_stats`. Generic prompts like "Give me a fleet summary" have no matching keywords and fall back to advisory.
 
 **What it returns:**
 Three aggregate values from three separate queries:
