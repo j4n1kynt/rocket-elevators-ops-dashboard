@@ -17,6 +17,8 @@ adds narratives to the vector store, at which point this tool can switch to
 rag_query() with where={"source_type": "incident"}.
 """
 
+from pydantic import ValidationError
+
 from platform.mcp.db import get_connection
 from platform.mcp.rag import rag_query
 from platform.mcp.tools.models import SearchIncidentNarrativesInput, SearchMaintenanceDocsInput
@@ -82,6 +84,8 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
             "total_returned": len(confident),
             "results": confident,
         }
+    except ValidationError:
+        raise
     except Exception as exc:
         return {"error": True, "message": str(exc)}
 
