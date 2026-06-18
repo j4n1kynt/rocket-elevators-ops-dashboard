@@ -49,33 +49,41 @@ def search_maintenance_docs(query: str, n_results: int = 5) -> dict:
             where=where,
         )
 
-    if not results:
+        if not results:
+            return {
+                "query": inp.query,
+                "message": "No relevant documentation found",
+                "total_returned": 0,
+                "results": [],
+            }
+
+        scored = []
+        for result in results:
+            meta = result.get("metadata") or {}
+            scored.append({
+                "text": result.get("text", ""),
+                "source_name": f"Maintenance Document {meta.get('doc_name', 'unknown')}",
+                "similarity_score": max(0.0, round(1 - result.get("distance", 1.0), 4)),
+            })
+
+        confident = [r for r in scored if r["similarity_score"] >= SIMILARITY_THRESHOLD]
+
+        if not confident:
+            return {
+                "query": inp.query,
+                "message": "No confident matches found",
+                "total_returned": 0,
+                "results": [],
+            }
+
         return {
             "query": inp.query,
-            "message": "No relevant documentation found",
-            "total_returned": 0,
-            "results": [],
+            "message": None,
+            "total_returned": len(confident),
+            "results": confident,
         }
-
-    for result in results:
-        result["similarity_score"] = max(0.0, round(1 - result["distance"], 4))
-
-    confident = [r for r in results if r["similarity_score"] >= SIMILARITY_THRESHOLD]
-
-    if not confident:
-        return {
-            "query": inp.query,
-            "message": "No confident matches found",
-            "total_returned": 0,
-            "results": [],
-        }
-
-    return {
-        "query": inp.query,
-        "message": None,
-        "total_returned": len(confident),
-        "results": confident,
-    }
+    except Exception as exc:
+        return {"error": True, "message": str(exc)}
 
 
 async def search_incident_narratives(query: str, limit: int = 5) -> dict:
