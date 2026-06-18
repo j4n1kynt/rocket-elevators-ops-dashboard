@@ -211,9 +211,9 @@ func TestRouteIntent(t *testing.T) {
 		wantTarget string
 		wantStub   bool
 	}{
-		{IntentDataQuery, "mcp_data_tool", true},
-		{IntentRAG, "rag_search", true},
-		{IntentAction, "action_executor", true},
+		{IntentDataQuery, "mcp_data_tool", false},
+		{IntentRAG, "rag_search", false},
+		{IntentAction, "action_executor", false},
 		{IntentAdvisory, "advisory", false},
 	}
 	for _, c := range cases {

@@ -42,7 +42,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: hf-bge-large-en-v1.5
+          key: hf-bge-small-en-v1.5
 
       - name: Install root dependencies
         run: pip install -r requirements.txt
@@ -53,11 +53,11 @@ jobs:
       - name: MCP DB healthcheck
         run: PYTHONPATH=. python -m platform.mcp.healthcheck
 
-      - name: Run Python tests
-        run: pytest intelligence/tests/ -v
-
       - name: Seed RAG fixture for CI
         run: PYTHONPATH=. python intelligence/tests/seed_rag_ci.py
+
+      - name: Run Python tests
+        run: pytest intelligence/tests/ -v
 
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py

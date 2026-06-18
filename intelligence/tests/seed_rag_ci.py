@@ -3,7 +3,7 @@ CI fixture: seed a minimal ChromaDB collection so validate_rag_preprocessing.py
 can run in CI without real PDFs.
 
 Creates 36 synthetic chunks (6 per source doc × 6 doc names) using
-BAAI/bge-large-en-v1.5 — the same model used by rag_preprocessing.py —
+BAAI/bge-small-en-v1.5 — the same model used by rag_preprocessing.py —
 so the dimension and metadata checks in validate_rag_preprocessing.py pass.
 
 Usage (CI):
@@ -19,7 +19,7 @@ from sentence_transformers import SentenceTransformer
 
 CHROMADB_PATH   = os.getenv("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
-EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 DOC_NAMES       = ["10078", "10079", "10080", "10081", "10082", "10083"]
 
 SYNTHETIC_TEXTS = [

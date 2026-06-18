@@ -88,7 +88,7 @@ Install: `pip install -r platform/mcp/requirements.txt`
 - `uvicorn` — ASGI server required by Streamable HTTP transport
 - `psycopg2-binary` — same version as root `requirements.txt`
 - `chromadb` — same version as root `requirements.txt`; shares `data/chromadb` store
-- `sentence-transformers` — must match `EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"` in `rag_preprocessing.py`
+- `sentence-transformers` — must match `EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"` in `rag_preprocessing.py`
 - `python-dotenv` — loads `.env` at startup
 - `numpy` — pinned to match root `requirements.txt`
 

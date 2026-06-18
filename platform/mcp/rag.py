@@ -19,7 +19,8 @@ load_dotenv()
 # Must match constants in intelligence/rag_preprocessing.py
 CHROMADB_PATH = os.environ.get("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
-EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+MODEL_VERSION   = "bge-small-en-v1.5-v1"  # written into chunk metadata by rag_preprocessing.py
 
 _client = None
 _model = None
@@ -94,18 +95,27 @@ def rag_query(
         raise RuntimeError(f"Failed to generate embedding for query: {exc}") from exc
 
     # Guard against a stale index built with a different embedding model.
-    # A dimension mismatch here means ChromaDB was populated with another model
-    # (e.g. the old 384-dim all-MiniLM-L6-v2). Surface an actionable error
-    # instead of ChromaDB's opaque internal failure.
+    # Dimension check alone is no longer sufficient: bge-small-en-v1.5 and the
+    # old all-MiniLM-L6-v2 are both 384-dim, so the sizes would match but results
+    # would be meaningless. Also check model_version stored in chunk metadata.
     try:
         peek = collection.peek(limit=1)
         stored = peek.get("embeddings")
+        stored_meta = peek.get("metadatas")
         if stored is not None and len(stored) > 0 and len(stored[0]) != len(embedding):
             raise RuntimeError(
                 f"Embedding dimension mismatch: index has {len(stored[0])}-dim vectors "
                 f"but '{EMBEDDING_MODEL}' produces {len(embedding)}-dim. "
                 "Re-run 'py -3 intelligence/rag_preprocessing.py --force' to rebuild the index."
             )
+        if stored_meta and len(stored_meta) > 0:
+            stored_version = (stored_meta[0] or {}).get("model_version", "")
+            if stored_version and stored_version != MODEL_VERSION:
+                raise RuntimeError(
+                    f"Index model version mismatch: index was built with '{stored_version}' "
+                    f"but current model version is '{MODEL_VERSION}'. "
+                    "Re-run 'py -3 intelligence/rag_preprocessing.py --force' to rebuild the index."
+                )
     except RuntimeError:
         raise
     except Exception:

@@ -10,8 +10,8 @@ package main
 // Keyword seed lists come from docs/chat-design/chatbot_design_doc.md §3.4.
 //
 // This file is PURE: no DB, no HTTP, no Ollama. That keeps the tests fast and
-// deterministic. Routing (routeIntent) only decides a target — the data_query /
-// rag / action targets are STUBS until FOUNDATION-2/3 build the real tools.
+// deterministic. Routing (routeIntent) decides the target; PostChat in chat.go
+// calls the appropriate MCP tool and injects the result into the system prompt.
 
 import (
 	"fmt"
@@ -308,9 +308,7 @@ func ClassifyIntent(msg string, now time.Time) Classification {
 
 // ── Routing ─────────────────────────────────────────────────────────────────
 
-// RouteResult names where a classified message should go. Stub is true for
-// targets not yet implemented (FOUNDATION-2/3), which currently fall through to
-// the advisory LLM call in PostChat.
+// RouteResult names where a classified message should go.
 type RouteResult struct {
 	Target string
 	Stub   bool
@@ -319,12 +317,12 @@ type RouteResult struct {
 func routeIntent(c Classification) RouteResult {
 	switch c.Intent {
 	case IntentDataQuery:
-		return RouteResult{Target: "mcp_data_tool", Stub: true} // FOUNDATION-2
+		return RouteResult{Target: "mcp_data_tool"}
 	case IntentRAG:
-		return RouteResult{Target: "rag_search", Stub: true} // FOUNDATION-3
+		return RouteResult{Target: "rag_search"}
 	case IntentAction:
-		return RouteResult{Target: "action_executor", Stub: true} // FOUNDATION-2/3
+		return RouteResult{Target: "action_executor"}
 	default:
-		return RouteResult{Target: "advisory", Stub: false} // real today
+		return RouteResult{Target: "advisory"}
 	}
 }

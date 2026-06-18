@@ -154,11 +154,11 @@ def test_validate_rejects_zero_tokens():
 
 @pytest.mark.slow
 def test_embedding_shape_and_no_nan():
-    """Embed one sentence and check 1024-dim output with no NaN values."""
+    """Embed one sentence and check 384-dim output with no NaN values."""
     from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer("BAAI/bge-large-en-v1.5")
+    model = SentenceTransformer("BAAI/bge-small-en-v1.5")
     vec = model.encode(["elevator safety inspection"], show_progress_bar=False)[0]
-    assert vec.shape == (1024,), f"Expected (1024,), got {vec.shape}"
+    assert vec.shape == (384,), f"Expected (384,), got {vec.shape}"
     assert not np.isnan(vec).any(), "NaN values found in embedding"
 
 
