@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Must match constants in intelligence/rag_preprocessing.py
-CHROMADB_PATH = os.environ.get("MCP_CHROMADB_PATH", "data/chromadb")
+CHROMADB_PATH = os.environ.get("RAG_CHROMADB_PATH", "data/chromadb")
 COLLECTION_NAME = "maintenance_documents"
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 
@@ -92,6 +92,24 @@ def rag_query(
         embedding = model.encode(query_text, normalize_embeddings=False).tolist()
     except Exception as exc:
         raise RuntimeError(f"Failed to generate embedding for query: {exc}") from exc
+
+    # Guard against a stale index built with a different embedding model.
+    # A dimension mismatch here means ChromaDB was populated with another model
+    # (e.g. the old 384-dim all-MiniLM-L6-v2). Surface an actionable error
+    # instead of ChromaDB's opaque internal failure.
+    try:
+        peek = collection.peek(limit=1)
+        stored = peek.get("embeddings")
+        if stored is not None and len(stored) > 0 and len(stored[0]) != len(embedding):
+            raise RuntimeError(
+                f"Embedding dimension mismatch: index has {len(stored[0])}-dim vectors "
+                f"but '{EMBEDDING_MODEL}' produces {len(embedding)}-dim. "
+                "Re-run 'py -3 intelligence/rag_preprocessing.py --force' to rebuild the index."
+            )
+    except RuntimeError:
+        raise
+    except Exception:
+        pass  # peek is best-effort; don't block queries if unavailable
 
     kwargs: dict = {"query_embeddings": [embedding], "n_results": n_results}
     if where:
