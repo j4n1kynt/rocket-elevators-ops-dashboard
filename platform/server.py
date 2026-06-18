@@ -518,14 +518,18 @@ def chat():
         api_resp = requests.post(
             f"{GO_API}/api/chat",
             json={"message": message, "history": history},
-            timeout=330,  # Ollama cold start can exceed 300s (EVAL-1)
+            timeout=330,  # the LLM can be slow on free models
         )
         if api_resp.status_code == 503:
+            try:
+                detail = api_resp.json().get("error", "")
+            except Exception:
+                detail = ""
             return render_template(
                 "_chat_reply.html",
                 message=message,
                 reply_html=None,
-                error="The assistant is currently unavailable. Make sure Ollama is running.",
+                error=detail or "The assistant is currently unavailable. Please try again in a moment.",
                 history=json.dumps(history),
             )
         api_resp.raise_for_status()
