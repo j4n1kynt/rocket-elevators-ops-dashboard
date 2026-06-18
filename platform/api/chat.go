@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,10 +18,6 @@ import (
 // systemPromptBase is the OpsBot system prompt (PROMPT-1 / EVAL-1 deliverable),
 // embedded at build time. The Dockerfile must COPY platform/api/prompts so this
 // file is present during `go build`.
-//
-// OpsBot is advisory and educational only: it has NO live data access and does
-// not look up individual elevators. This matches the behavior validated in
-// docs/system-prompt-evaluation.md — no fleet data is injected into the prompt.
 //
 //go:embed prompts/system_prompt.md
 var systemPromptBase string
@@ -93,12 +90,69 @@ func callOllama(ctx context.Context, baseURL, model string, messages []ollamaMsg
 	return strings.TrimSpace(result.Message.Content), nil
 }
 
+// ── buildMCPArgs ──────────────────────────────────────────────────────────────
+
+// buildMCPArgs maps a classification and original message to an MCP tool name
+// and arguments. Called only for data_query, rag, and action intents.
+func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
+	lower := strings.ToLower(msg)
+	hasID := len(c.Entities.ElevatorIDs) > 0
+
+	switch c.Intent {
+	case IntentDataQuery:
+		switch {
+		case strings.Contains(lower, "shutdown") || strings.Contains(lower, "shut down") ||
+			strings.Contains(lower, "tssa") || strings.Contains(lower, "out of service"):
+			return "get_tssa_shutdown_elevators", map[string]any{"limit": 20}
+
+		case hasID && (strings.Contains(lower, "inspection history") ||
+			strings.Contains(lower, "past inspection") ||
+			strings.Contains(lower, "last inspected")):
+			id, _ := strconv.Atoi(c.Entities.ElevatorIDs[0])
+			return "get_inspection_history", map[string]any{"elevator_id": id, "limit": 10}
+
+		case hasID && strings.Contains(lower, "incident"):
+			id, _ := strconv.Atoi(c.Entities.ElevatorIDs[0])
+			return "get_elevator_incidents", map[string]any{"elevator_id": id, "limit": 10}
+
+		case strings.Contains(lower, "follow") || strings.Contains(lower, "overdue"):
+			return "get_elevators_needing_followup", map[string]any{"limit": 20}
+
+		case strings.Contains(lower, "incident"):
+			return "get_incident_count_last_year", map[string]any{}
+
+		case hasID && strings.Contains(lower, "risk"):
+			id, _ := strconv.Atoi(c.Entities.ElevatorIDs[0])
+			return "get_elevator_risk", map[string]any{"elevator_id": id}
+
+		default:
+			return "get_fleet_stats", map[string]any{}
+		}
+
+	case IntentRAG:
+		return "search_maintenance_docs", map[string]any{"query": msg, "n_results": 5}
+
+	case IntentAction:
+		args := map[string]any{"confirmed": false, "reason": msg}
+		if hasID {
+			id, _ := strconv.Atoi(c.Entities.ElevatorIDs[0])
+			args["elevator_id"] = id
+		}
+		if len(c.Entities.Dates) > 0 {
+			args["inspection_date"] = c.Entities.Dates[0]
+		}
+		return "schedule_inspection", args
+
+	default:
+		return "get_fleet_stats", map[string]any{}
+	}
+}
+
 // ── PostChat handler ──────────────────────────────────────────────────────────
 //
-// Advisory-only: the model receives the OpsBot system prompt, the conversation
-// history, and the latest user message. No live fleet data is fetched or injected
-// — OpsBot answers from its embedded domain knowledge and directs users to the
-// dashboard for any live-data request, exactly as validated in EVAL-1.
+// Classifies the user message, calls the appropriate MCP tool for data_query /
+// rag / action intents, injects the result as live context into the system
+// prompt, then calls Ollama. Falls back to advisory-only on MCP error.
 func PostChat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -111,14 +165,24 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FOUNDATION-4: classify the message and decide a route. The data_query /
-	// rag / action targets are stubs (FOUNDATION-2/3 not built yet), so every
-	// route still falls through to the advisory Ollama call below. The intent
-	// and reason are logged so each decision is traceable.
 	classification := ClassifyIntent(msg, time.Now())
 	route := routeIntent(classification)
 	log.Printf("chat intent=%s confidence=%.2f route=%s stub=%t reason=%q",
 		classification.Intent, classification.Confidence, route.Target, route.Stub, classification.Reason)
+
+	var dataContext string
+	if classification.Intent == IntentDataQuery ||
+		classification.Intent == IntentRAG ||
+		classification.Intent == IntentAction {
+		toolName, mcpArgs := buildMCPArgs(classification, msg)
+		mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer mcpCancel()
+		if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
+			log.Printf("mcp tool %s failed: %v — falling back to advisory", toolName, err)
+		} else {
+			dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+		}
+	}
 
 	// Cap history at 10 turns (20 messages) — drop oldest pair first
 	history := req.History
@@ -126,7 +190,11 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		history = history[2:]
 	}
 
-	messages := []ollamaMsg{{Role: "system", Content: systemPromptBase}}
+	systemContent := systemPromptBase
+	if dataContext != "" {
+		systemContent += "\n\n## Live Data Context\n" + dataContext
+	}
+	messages := []ollamaMsg{{Role: "system", Content: systemContent}}
 	for _, h := range history {
 		messages = append(messages, ollamaMsg{Role: h.Role, Content: h.Content})
 	}
