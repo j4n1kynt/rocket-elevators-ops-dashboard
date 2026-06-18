@@ -57,7 +57,7 @@ The MCP server runs on uvicorn, which operates a single-threaded async event loo
 Provides a single function, `rag_query()`, that takes a plain-text query string, generates a vector embedding for it, and retrieves the most semantically similar chunks from the ChromaDB collection. Returns a list of dicts with the chunk text, metadata, and cosine distance.
 
 **Why it exists:**
-`rag_tools.py` needs to search ChromaDB, but it should not manage the ChromaDB client or the embedding model directly. `rag.py` encapsulates both as lazy singletons — the 90MB SentenceTransformer model is loaded once on first use and reused for every subsequent query.
+`rag_tools.py` needs to search ChromaDB, but it should not manage the ChromaDB client or the embedding model directly. `rag.py` encapsulates both as lazy singletons — the ~1.3GB SentenceTransformer model is loaded once on first use and reused for every subsequent query.
 
 **Key constants (must stay in sync with `rag_preprocessing.py`):**
 
@@ -65,7 +65,7 @@ Provides a single function, `rag_query()`, that takes a plain-text query string,
 |----------|-------|-------------------|
 | `CHROMADB_PATH` | `data/chromadb` (or `RAG_CHROMADB_PATH`) | Must point to the same store that was written during preprocessing |
 | `COLLECTION_NAME` | `maintenance_documents` | Must match the collection name used in `rag_preprocessing.py` |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Must match the model used to generate the stored embeddings |
+| `EMBEDDING_MODEL` | `BAAI/bge-large-en-v1.5` | Must match the model used to generate the stored embeddings |
 
 **Why `normalize_embeddings=False`:**
 `rag_preprocessing.py` encodes document chunks with `normalize_embeddings=False`. If query embeddings were encoded with `normalize_embeddings=True`, the vector magnitudes would differ and cosine similarity scores would be incorrect. Both sides must use the same setting.
