@@ -47,6 +47,9 @@ jobs:
       - name: Install root dependencies
         run: pip install -r requirements.txt
 
+      - name: Install intelligence pipeline dependencies
+        run: pip install -r intelligence/requirements.txt
+
       - name: Install MCP dependencies
         run: pip install -r platform/mcp/requirements.txt pytest-asyncio
 
