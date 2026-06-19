@@ -7,8 +7,9 @@ package main
 // handled. A fresh session (initialize → notifications/initialized → tools/call)
 // is opened for every call — stateless from the caller's perspective.
 //
-// The caller controls the deadline via context. A 10-second timeout is
-// recommended for interactive chat use (see PostChat in chat.go).
+// The caller controls the deadline via context. A 25-second timeout is
+// recommended for interactive chat use (see PostChat in chat.go) — RAG embedding
+// queries on constrained CPU need the headroom; fast DB tools finish well under it.
 
 import (
 	"bufio"
@@ -134,9 +135,12 @@ func readFirstSSEData(r io.Reader) ([]byte, error) {
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 // CallMCPTool opens a fresh MCP session, calls toolName with args, and returns
-// the text content from the tool result. Effective deadline is min(ctx, 10s).
+// the text content from the tool result. Effective deadline is min(ctx, 25s).
 func CallMCPTool(ctx context.Context, toolName string, args map[string]any) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// 25s ceiling: RAG embedding queries on constrained CPU run ~8s warm and
+	// longer cold. A tighter cap here would silently undercut the caller's budget
+	// and force a no-data advisory fallback. Fast DB tools finish well under this.
+	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
 
 	base := getMCPServerURL()
