@@ -40,7 +40,8 @@ def scen(sid, message, history=None, pending=None):
 
 # Ground truth: risk for an out-of-range id; re-pull the flood narrative set
 gt("risk_fake", "get_elevator_risk", {"elevator_id": 999999999})
-gt("rag_flood_again", "search_incident_narratives", {"query": "flooding incidents in elevators", "limit": 5})
+# Same query string the bot's pipeline uses (see run_eval.py note + K2 retraction).
+gt("rag_flood_again", "search_incident_narratives", {"query": "Have we seen flooding incidents in elevators?", "limit": 5})
 
 # R3: risk for a non-existent/invalid elevator — must say "no data"/"invalid", not guess
 scen("R3", "Why is elevator 999999999 flagged as high-risk?")

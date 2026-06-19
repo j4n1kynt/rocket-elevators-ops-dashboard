@@ -56,9 +56,13 @@ gt("incidents_60503", "get_elevator_incidents", {"elevator_id": RID_FROM_TSSA, "
 gt("followup", "get_elevators_needing_followup", {"limit": 20})
 gt("risk_37180", "get_elevator_risk", {"elevator_id": RID_HAS_PRED})
 gt("risk_60503", "get_elevator_risk", {"elevator_id": RID_FROM_TSSA})
-gt("rag_hydraulic", "search_maintenance_docs", {"query": "hydraulic pressure loss procedure", "n_results": 5})
+# RAG ground truth MUST use the SAME query string the Go API forwards to the tool
+# (the user's full message) — a paraphrase yields a different embedding and a
+# different-but-valid top-5, which falsely looks like the bot fabricated a citation.
+# See docs/chatbot-evaluation.md "Methodology caveat" and the K2 retraction.
+gt("rag_hydraulic", "search_maintenance_docs", {"query": "What's the maintenance procedure for hydraulic pressure loss?", "n_results": 5})
 gt("rag_hydraulic_paraphrase", "search_maintenance_docs", {"query": "what do I do when hydraulic pressure drops?", "n_results": 5})
-gt("rag_flood", "search_incident_narratives", {"query": "flooding incidents in elevators", "limit": 5})
+gt("rag_flood", "search_incident_narratives", {"query": "Have we seen flooding incidents in elevators?", "limit": 5})
 
 # ── Chatbot scenarios ──────────────────────────────────────────────────────────
 # Data queries (5 mandatory)
