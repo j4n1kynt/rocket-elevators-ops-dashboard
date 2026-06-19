@@ -11,6 +11,7 @@ licenses, and review the risk level of each device — all in one place.
 |---|---|
 | **Dashboard (web app)** | https://rocket-elevators-ops-dashboard-1.onrender.com/ |
 | **Go REST API** | https://rocket-elevators-ops-dashboard.onrender.com/api |
+| **MCP server** | https://rocket-elevators-ops-dashboard-2.onrender.com/ |
 | **Database** | PostgreSQL 16, hosted on the [Neon](https://neon.tech) platform |
 
 ## Ceremonies and Trello links
