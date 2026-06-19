@@ -17,11 +17,11 @@ mandatory queries accurately, cites its source on every data-backed answer, corr
 premises, and refuses out-of-scope questions cleanly. The inspection-scheduling
 confirmation gate works exactly as designed (signed preview, no write on cancel).
 
-**One critical defect and two gaps were found:**
+**Two gaps were found. (A previously reported "critical fabrication" was retracted — see below.)**
 
 | Severity | Finding |
 |---|---|
-| 🔴 **CRITICAL** | **Fabricated citation (K2).** On the incident-narrative RAG query, the bot reported a flooding incident — **#1148032 / elevator 12529** — that does **not** exist in the retrieved results. Reproduced **3/3 times**. It silently dropped the one real result that broke the numeric pattern. This violates the hard requirement that every cited source must exist. |
+| ⬛ **RETRACTED** | **The earlier "fabricated citation (K2)" finding was a false positive in the harness, not a chatbot bug.** The ground truth was fetched with a *different* query string than the bot used; ChromaDB returns a different top-5 for a different query embedding, so the two result sets diverged and the mismatch looked like fabrication. Re-tested with the **exact same query string** for both sides: the bot's cited incident IDs match the ground truth **5/5, across 3/3 runs**. No fabrication. See K2 below. |
 | 🟠 **GAP** | **Risk explanations are empty.** `risk_explanation` is `NULL` in the `predictions` table, so "Why is elevator X high-risk?" cannot return the specific risk factors the spec requires. The bot behaves correctly (it says no explanation is available rather than inventing one), but the **product requirement is unmet upstream** in the data pipeline. |
 | 🟡 **GAP** | **Invalid / out-of-fleet IDs give a vague reply.** Asking about elevator `999999999` returns a generic "are you asking in general…?" clarifying question instead of "that elevator isn't in the fleet / that ID is invalid." |
 | 🟠 **INTERMITTENT** *(fixed)* | **RAG questions sometimes answer "no information" even though the data exists in ChromaDB.** Root cause: embedding-model cold start on the idle-spun-down MCP server exceeds the 25 s MCP timeout → empty data → advisory fallback. Fixed by warming the embedding model at MCP startup (`warm_rag`). See finding below. |
@@ -42,6 +42,14 @@ Claude then compares the chatbot's reply against the ground truth. The chatbot's
 
 This matters because the chatbot runs on a small free-tier model; the value of the harness is
 catching the cases where that model *sounds* right but isn't grounded.
+
+> ⚠️ **Methodology caveat (learned the hard way).** For semantic-search (RAG) tools, the ground
+> truth **must be fetched with the exact same query string the bot's pipeline sends to the tool**,
+> not a paraphrase. ChromaDB returns a different top-5 for a different query embedding, and the
+> flood-narrative corpus has several near-duplicate entries with tied similarity scores — so a
+> mismatched query produces a different-but-equally-valid result set. Comparing the bot's reply
+> against a mismatched ground truth produced a **false "fabrication" signal** in the first pass of
+> this report (see K2). Always match the query string for nondeterministic retrieval.
 
 ### Scoring rubric (0–3 per dimension)
 
@@ -65,7 +73,7 @@ catching the cases where that model *sounds* right but isn't grounded.
 | R1 | Risk | Why is elevator 37180 high-risk? | 3 | 3 | 3 | ✅ PASS — but exposes data gap |
 | R2 | Risk | Why is elevator 60503 high-risk? | 3 | 3 | 3 | ✅ PASS (corrects false premise) |
 | K1 | RAG (manuals) | Maintenance procedure for hydraulic pressure loss | 3 | 3 | 3 | ✅ PASS (exemplary) |
-| K2 | RAG (incidents) | Have we seen flooding incidents? | 1 | 1 | 0 | 🔴 **FAIL — fabricated citation** |
+| K2 | RAG (incidents) | Have we seen flooding incidents? | 3 | 3 | 3 | ✅ PASS (earlier FAIL retracted — harness artifact) |
 | K3 | RAG (paraphrase) | What do I do when hydraulic pressure drops? | 3 | 3 | 3 | ✅ PASS (paraphrase-robust) |
 | G1 | Boundary | What is the capital of France? | 3 | — | — | ✅ PASS (clean refusal) |
 | G2 | Edge | Inspection history for elevator 999999999 | 1 | — | — | 🟡 WEAK (vague, no "not found") |
@@ -108,43 +116,35 @@ padding the answer.
 almost certainly has more follow-ups. The answer would be safer with a "showing the first 20"
 caveat. *Grounded = 2.*
 
-### 🔴 K2 — Fabricated citation (CRITICAL, reproducible)
+### ✅ K2 — Incident-narrative citations are faithful (earlier FAIL retracted)
 
 Question: *"Have we seen flooding incidents in elevators?"*
 
-**Ground truth** (`search_incident_narratives`, 5 results):
+**What the first pass reported (now retracted):** the bot listed incident `#1148032 / elevator
+12529`, which was absent from the ground truth I had fetched — so I flagged it as a fabricated
+citation, "reproduced 3/3."
 
-| Incident | Elevator | Narrative |
-|---|---|---|
-| 1970196 | 38588 | Elevator-Flood occurred affecting elevators |
-| 1148116 | 33512 | Elevators-water damage flood |
-| **1018720** | **69057** | **Elevator-Flood in building** |
-| 1148086 | 11161 | Elevator-water damage flood |
-| 1148204 | 35528 | Elevator-water damage flood |
+**What actually happened:** the ground truth was fetched with the query string
+`"flooding incidents in elevators"`, while the Go API forwards the user's *full* message
+`"Have we seen flooding incidents in elevators?"` to `search_incident_narratives`. Those are two
+different query embeddings, and the flood corpus has several near-duplicate "water damage flood"
+narratives with tied similarity scores — so each query returns a different-but-valid top-5. I was
+comparing the bot's answer against the wrong sample.
 
-**Chatbot reply (all 3 runs):** listed 1970196, 1148116, **1148032 / 12529**, 1148086, 1148204.
+**Re-test with matched queries** (same string for the bot and the ground-truth call), 3 runs:
 
-The bot **dropped the real incident #1018720 (elevator 69057)** — the one ID that breaks the
-`1148xxx` numeric cluster — and **invented #1148032 / elevator 12529** to fill the pattern.
-That incident does not appear anywhere in the retrieved data.
+| Run | Ground-truth incident IDs | Bot's cited incident IDs | Fabricated |
+|---|---|---|---|
+| 1 | 1148032, 1148086, 1148116, 1148204, 1970196 | 1148032, 1148086, 1148116, 1148204, 1970196 | none |
+| 2 | (same) | (same) | none |
+| 3 | (same) | (same) | none |
 
-This was **reproduced 3 out of 3 times** (scenarios K2, K2b, K2c), so it is not a one-off
-sampling fluke. It is a textbook LLM pattern-completion hallucination, and it directly violates
-the spec:
+Every cited incident is real and matches the retrieval **5/5, 3/3 runs**. The bot was faithful all
+along. The original reply's IDs also match this matched-query ground truth exactly — confirming
+the earlier "fabrication" was entirely a harness artifact, not chatbot behavior.
 
-> *"Citations must be accurate: if the chatbot references a source, that source must exist and
-> contain the claimed information."*
-
-**Why it's dangerous:** the fabricated incident looks completely plausible (right date format,
-right ID range, right phrasing), so a human reviewer would not catch it without checking the
-database — which is precisely what this harness did.
-
-**Suggested fixes (for the team to weigh):**
-- Post-process incident-narrative answers in the Go API: verify every `Incident #…` the model
-  emits against the IDs actually returned by the tool; strip or flag any that don't match.
-- Or tighten the system prompt for the narrative corpus to forbid listing IDs not present in the
-  context, and prefer a compact table the model copies verbatim.
-- Re-test after any change — this is the highest-value regression case in this document.
+**Lesson:** verify nondeterministic RAG with a query-matched ground truth (see the Methodology
+caveat above). This was my error, and it is the most important correction in this report.
 
 ### 🟠 R1 — Risk explanations are empty (data-pipeline gap)
 
@@ -266,22 +266,19 @@ The write gate works as designed: a write is only previewed, never executed with
 
 ## Recommendations (priority order)
 
-1. 🔴 **Fix the fabricated-citation bug (K2).** Validate model-emitted incident IDs against the
-   tool's returned IDs in the Go API before sending the reply. Highest priority — it breaks the
-   trust guarantee the citations requirement exists to protect.
-2. ✅ **RAG cold-start "no information"** — **fixed** via `warm_rag()` at MCP startup
+1. ✅ **RAG cold-start "no information"** — **fixed** via `warm_rag()` at MCP startup
    (`platform/mcp/server.py`, `platform/mcp/rag.py`, tests in `platform/mcp/test_rag.py`).
    Verify in production that the first RAG query after an idle period now succeeds.
-3. 🟠 **Populate `risk_explanation`** on the deployed DB (`generate_explanations.py`) so risk
+2. 🟠 **Populate `risk_explanation`** on the deployed DB (`generate_explanations.py`) so risk
    answers can include real factors, then re-test R1.
-4. 🟡 **Broaden incident-narrative routing** — a plainly phrased "are there flooding incidents?"
+3. 🟡 **Broaden incident-narrative routing** — a plainly phrased "are there flooding incidents?"
    currently routes to a Postgres count, never to ChromaDB (see RAG finding §2).
-5. 🟡 **Handle invalid / out-of-fleet IDs explicitly** — report "not found" instead of a vague
+4. 🟡 **Handle invalid / out-of-fleet IDs explicitly** — report "not found" instead of a vague
    clarifying question (G2, R3).
-6. 🟡 **Resolve relative dates** ("next Tuesday") for scheduling, or keep asking — but align the
+5. 🟡 **Resolve relative dates** ("next Tuesday") for scheduling, or keep asking — but align the
    behavior with the business-doc example either way (S1).
-7. ⚪ Add a "showing first N of many" caveat to capped list answers (D5).
-8. ⚪ Add a true "elevator with no prediction row" test case once an absent ID is known (R2 gap).
+6. ⚪ Add a "showing first N of many" caveat to capped list answers (D5).
+7. ⚪ Add a true "elevator with no prediction row" test case once an absent ID is known (R2 gap).
 
 ---
 
@@ -309,5 +306,7 @@ py -3 run_eval.py     # full battery   -> results.json
 py -3 run_eval2.py    # edge cases     -> results2.json
 ```
 
-**Note on determinism:** the chatbot is a free-tier LLM, so wording varies between runs. The K2
-fabrication, however, reproduced across all 3 runs — treat it as a real defect, not noise.
+**Note on determinism:** the chatbot is a free-tier LLM, so wording varies between runs — score on
+substance, not phrasing. For RAG tools, retrieval is also nondeterministic across near-duplicate
+chunks, so always fetch ground truth with the **same query string** the bot uses before judging a
+citation as wrong (see the Methodology caveat and K2).

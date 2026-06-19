@@ -40,6 +40,11 @@ py -3 harness.py mcp get_inspection_history '{"elevator_id": 60503, "limit": 10}
 
 ## Notes
 
+- ⚠️ **Match the query string for RAG ground truth.** When checking a RAG citation, fetch the
+  ground truth with the **same query the Go API sends to the tool** (the user's full message), not
+  a paraphrase. ChromaDB returns a different top-5 for a different embedding, and near-duplicate
+  chunks have tied scores — a mismatched query looks like the bot fabricated a source. This caused
+  a false "fabrication" finding that was later retracted (see `docs/chatbot-evaluation.md` K2).
 - The Phase-2 **confirmed write** ("yes") is intentionally **not** exercised, to avoid writing a
   test inspection into the deployed database. The cancel path (`run_eval2.py` S3→S4) proves the
   confirmation gate holds. Run a confirmed-write test only against a disposable/staging DB.
