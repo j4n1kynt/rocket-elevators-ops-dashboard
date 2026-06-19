@@ -136,6 +136,36 @@ func isToolError(jsonText string) bool {
 	return probe.Error
 }
 
+// hasConfidentResults reports whether a search tool payload returned at least one
+// result that cleared the tool's similarity threshold (total_returned > 0). The
+// advisory RAG fallback uses it to decide whether to ground the answer in the
+// manuals or stay in advisory mode — a 0 count means nothing relevant was found.
+func hasConfidentResults(jsonText string) bool {
+	var probe struct {
+		TotalReturned int `json:"total_returned"`
+	}
+	if err := json.Unmarshal([]byte(jsonText), &probe); err != nil {
+		return false
+	}
+	return probe.TotalReturned > 0
+}
+
+// shouldTryRagFallback reports whether an advisory-classified message is
+// substantive enough to justify a semantic maintenance-doc search. The keyword
+// classifier (intent.go) misses natural-language procedural questions like
+// "what do I do when hydraulic pressure drops?", which spec FEATURE-3 requires
+// us to answer. Rather than enumerate domain keywords — the exact brittleness we
+// are fixing — this gate is content-agnostic: a real question is either phrased
+// as one or long enough to carry intent. It only filters trivial chatter
+// (greetings, "thanks") so we do not pay embedding latency on non-questions.
+func shouldTryRagFallback(msg string) bool {
+	trimmed := strings.TrimSpace(msg)
+	if strings.Contains(trimmed, "?") {
+		return true
+	}
+	return len(strings.Fields(trimmed)) >= 4
+}
+
 // extractScheduleError returns the error message from a schedule_inspection
 // payload where success=false and the "error" field is a non-empty string.
 // Returns "" when the payload is not an error (e.g. pending_confirmation or success).
@@ -520,6 +550,24 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 			} else if isToolError(result) {
 				log.Printf("mcp tool %s returned an error payload: %s — falling back to advisory", toolName, result)
 			} else {
+				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+			}
+		} else if classification.Intent == IntentAdvisory && shouldTryRagFallback(msg) {
+			// FEATURE-3: the keyword classifier (intent.go) only routes to RAG when a
+			// procedural anchor word is present, so natural-language questions like
+			// "what do I do when hydraulic pressure drops?" fall through to advisory and
+			// never reach the manuals. The spec requires answering those. Run a semantic
+			// search and let the similarity threshold — not keywords — decide relevance:
+			// inject only when a confident match clears the tool's 0.5 floor, otherwise
+			// stay advisory so out-of-scope chatter is unaffected.
+			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 25*time.Second)
+			defer mcpCancel()
+			if result, err := CallMCPTool(mcpCtx, "search_maintenance_docs", map[string]any{"query": msg, "n_results": 5}); err != nil {
+				log.Printf("rag fallback search failed: %v — staying advisory", err)
+			} else if isToolError(result) {
+				log.Printf("rag fallback returned an error payload — staying advisory")
+			} else if hasConfidentResults(result) {
+				log.Printf("rag fallback matched maintenance docs for an advisory-classified query")
 				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
 			}
 		}
