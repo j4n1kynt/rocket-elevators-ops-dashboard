@@ -87,6 +87,7 @@ The project has three main layers:
 - **Frontend:** HTMX 2.0.4, Tailwind CSS, Jinja2 — no custom JavaScript
 - **Analysis:** Jupyter, scikit-learn, NLTK
 - **Database:** PostgreSQL 16 (Neon in production, Docker for local dev)
+- **Chatbot LLM:** OpenRouter (free tier) in production; Ollama for local dev
 - **Deployment:** Render
 
 ## Repository Structure
