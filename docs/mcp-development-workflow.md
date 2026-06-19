@@ -19,7 +19,7 @@ rather than repeating the detail.
 > - `platform/mcp/mcp docs/rag_search_tool.md` — the maintenance-doc search tool
 > - `platform/mcp/mcp docs/incident_date_anchor_fix.md` — the "last year" date fix
 > - `docs/schedule_inspection.md` — the write action, end to end
-> - `docs/mcp_security_test.md` — the security audit
+> - `docs/mcp-security-test.md` — the security audit
 
 ---
 
@@ -486,7 +486,7 @@ it, "Phase 1 first" is advice, not enforcement.
 
 ## 10. Security
 
-A dedicated audit (`docs/mcp_security_test.md`) covered seven categories: SQL
+A dedicated audit (`docs/mcp-security-test.md`) covered seven categories: SQL
 injection, input validation, ChromaDB query safety, write-operation safety,
 environment-variable handling, connection-pool safety, and singleton
 initialization. All checks passed. The headline points:
