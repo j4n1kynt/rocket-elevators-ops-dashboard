@@ -29,7 +29,7 @@ async def get_incident_count_last_year() -> dict:
         async with get_connection() as conn:
             row = await conn.fetchrow(sql)
 
-        return dict(row)
+        return {"source": "incidents table (aggregate)", **dict(row)}
     except ValidationError:
         raise
     except Exception as exc:
@@ -77,6 +77,7 @@ async def get_elevator_incidents(elevator_id: int, limit: int = 20) -> dict:
             "found": True,
             "elevator_id": inp.elevator_id,
             "total_returned": len(rows),
+            "source": "incidents table",
             "incidents": [dict(r) for r in rows],
         }
     except ValidationError:
