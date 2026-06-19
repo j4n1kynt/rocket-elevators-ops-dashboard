@@ -3,7 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -132,6 +136,69 @@ func isToolError(jsonText string) bool {
 	return probe.Error
 }
 
+// extractScheduleError returns the error message from a schedule_inspection
+// payload where success=false and the "error" field is a non-empty string.
+// Returns "" when the payload is not an error (e.g. pending_confirmation or success).
+func extractScheduleError(jsonText string) string {
+	var probe struct {
+		Success bool   `json:"success"`
+		Error   string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(jsonText), &probe); err != nil {
+		return ""
+	}
+	if !probe.Success && probe.Error != "" {
+		return probe.Error
+	}
+	return ""
+}
+
+// buildPendingAction checks whether a schedule_inspection tool result is a
+// successful Phase 1 response (pending_confirmation=true) and, if so, builds
+// the PendingAction that must be stored client-side until the user confirms.
+// Returns nil for errors, Phase 2 successes, and non-scheduling results.
+func buildPendingAction(jsonText string, ents Entities, reason string) *PendingAction {
+	var probe struct {
+		PendingConfirmation bool   `json:"pending_confirmation"`
+		Summary             string `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(jsonText), &probe); err != nil {
+		return nil
+	}
+	if !probe.PendingConfirmation || probe.Summary == "" {
+		return nil
+	}
+	elevatorID := 0
+	if len(ents.ElevatorIDs) > 0 {
+		elevatorID, _ = strconv.Atoi(ents.ElevatorIDs[0])
+	}
+	date := ""
+	if len(ents.Dates) > 0 {
+		date = ents.Dates[0]
+	}
+	return &PendingAction{
+		ElevatorID:     elevatorID,
+		InspectionDate: date,
+		InspectionType: ents.InspectionType,
+		Reason:         reason,
+		Summary:        probe.Summary,
+	}
+}
+
+// cleanValidationError strips Pydantic boilerplate from MCP validation error
+// messages so the LLM receives a concise, user-facing description.
+// Input: "tool error: 1 validation error for ScheduleInspectionInput\nfield\n  Value error, <msg>"
+// Output: "<msg>"
+func cleanValidationError(raw string) string {
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if after, ok := strings.CutPrefix(line, "Value error, "); ok {
+			return after
+		}
+	}
+	return raw
+}
+
 // buildMCPArgs maps a classification and original message to an MCP tool name
 // and arguments. Called only for data_query, rag, and action intents.
 func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
@@ -180,17 +247,18 @@ func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 		return "search_maintenance_docs", map[string]any{"query": msg, "n_results": 5}
 
 	case IntentAction:
-		// confirmed=false is intentional: this sprint only supports the Phase 1
-		// preview (tool returns a summary for the user to review). Phase 2
-		// (confirmed=true → actual INSERT) requires a multi-turn confirmation
-		// flow and is tracked as a future task.
-		args := map[string]any{"confirmed": false, "reason": msg}
+		// Phase 1 only — confirmed=false returns a summary for the user to review.
+		// Phase 2 (confirmed=true) is triggered by detectConfirmation in PostChat.
+		args := map[string]any{"confirmed": false, "reason": capReason(msg)}
 		if hasID {
 			id, _ := strconv.Atoi(c.Entities.ElevatorIDs[0])
 			args["elevator_id"] = id
 		}
 		if len(c.Entities.Dates) > 0 {
 			args["inspection_date"] = c.Entities.Dates[0]
+		}
+		if c.Entities.InspectionType != "" {
+			args["inspection_type"] = c.Entities.InspectionType
 		}
 		return "schedule_inspection", args
 
@@ -199,11 +267,83 @@ func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 	}
 }
 
+// maxReasonLen mirrors the MCP server's Pydantic limit on the reason field.
+// Capping here turns an over-length scheduling message into a truncated reason
+// instead of a hard validation failure on Phase 1.
+const maxReasonLen = 500
+
+// capReason trims a scheduling reason to maxReasonLen, cutting on a rune
+// boundary so multibyte characters are never split. The message is already
+// whitespace-trimmed by the caller, so the result satisfies the server's
+// "len(stripped) <= 500" check.
+func capReason(s string) string {
+	r := []rune(s)
+	if len(r) <= maxReasonLen {
+		return s
+	}
+	return string(r[:maxReasonLen])
+}
+
+// chatSigningSecret signs pending scheduling actions (see PendingAction.Signature).
+// Set CHAT_SIGNING_SECRET to keep signatures valid across restarts; otherwise an
+// ephemeral per-process secret is used, which safely invalidates any pending
+// confirmation that spans a restart.
+var chatSigningSecret = loadSigningSecret()
+
+func loadSigningSecret() []byte {
+	if v := os.Getenv("CHAT_SIGNING_SECRET"); v != "" {
+		return []byte(v)
+	}
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand failure is effectively fatal for signing; fall back to a
+		// fixed value so the process still runs (signatures remain consistent
+		// within the process, which is all that is required).
+		log.Printf("WARNING: crypto/rand unavailable for CHAT_SIGNING_SECRET: %v — using a static fallback", err)
+		return []byte("rocket-elevators-static-fallback-secret")
+	}
+	log.Printf("CHAT_SIGNING_SECRET not set — using an ephemeral signing secret (pending confirmations will not survive a restart)")
+	return b
+}
+
+// signPendingAction computes the HMAC over the execution fields. Summary is
+// intentionally excluded — it is cosmetic and never used to drive the write.
+func signPendingAction(pa *PendingAction) string {
+	mac := hmac.New(sha256.New, chatSigningSecret)
+	fmt.Fprintf(mac, "%d\n%s\n%s\n%s", pa.ElevatorID, pa.InspectionDate, pa.InspectionType, pa.Reason)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// verifyPendingAction reports whether a client-supplied pending_action carries a
+// valid signature for its current field values (constant-time comparison).
+func verifyPendingAction(pa *PendingAction) bool {
+	if pa.Signature == "" {
+		return false
+	}
+	want := signPendingAction(pa)
+	return hmac.Equal([]byte(want), []byte(pa.Signature))
+}
+
+// detectConfirmation reports whether a message is a scheduling confirmation or
+// cancellation. Word-level matching avoids false positives ("know" ≠ "no").
+// Called only when a pending_action is present in the request (spec §7.2).
+func detectConfirmation(msg string) (isConfirm, isCancel bool) {
+	for _, w := range strings.Fields(strings.ToLower(msg)) {
+		switch w {
+		case "yes", "confirm", "confirmed", "proceed", "approve", "ok", "okay", "sure":
+			isConfirm = true
+		case "no", "cancel", "nope", "stop", "abort", "decline", "nevermind":
+			isCancel = true
+		}
+	}
+	return
+}
+
 // ── PostChat handler ──────────────────────────────────────────────────────────
 //
-// Classifies the user message, calls the appropriate MCP tool for data_query /
-// rag / action intents, injects the result as live context into the system
-// prompt, then calls the LLM (OpenRouter). Falls back to advisory-only on MCP error.
+// When pending_action is set, the confirmation check runs first and bypasses the
+// intent classifier. Otherwise, classifies the message, calls the appropriate MCP
+// tool, injects the result as live context, then calls the LLM (OpenRouter).
 func PostChat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -216,29 +356,104 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	classification := ClassifyIntent(msg, time.Now())
-	route := routeIntent(classification)
-	log.Printf("chat intent=%s confidence=%.2f route=%s stub=%t reason=%q",
-		classification.Intent, classification.Confidence, route.Target, route.Stub, classification.Reason)
-
 	var dataContext string
-	if classification.Intent == IntentAction &&
-		(len(classification.Entities.ElevatorIDs) == 0 || len(classification.Entities.Dates) == 0) {
-		// Don't call the write tool with missing required fields — it would
-		// ValidationError → silent advisory. Tell the model to ask for them.
-		dataContext = "[ACTION NEEDS MORE INFO]\nThe user wants to schedule an inspection but did not provide both an elevator ID and a date. Ask them for whichever is missing before proceeding. Do not invent values."
-	} else if classification.Intent == IntentDataQuery ||
-		classification.Intent == IntentRAG ||
-		classification.Intent == IntentAction {
-		toolName, mcpArgs := buildMCPArgs(classification, msg)
-		mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
-		defer mcpCancel()
-		if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
-			log.Printf("mcp tool %s failed: %v — falling back to advisory", toolName, err)
-		} else if isToolError(result) {
-			log.Printf("mcp tool %s returned an error payload: %s — falling back to advisory", toolName, result)
-		} else {
-			dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+	var pendingAction *PendingAction
+	skipClassify := false
+
+	// ── Confirmation handling (spec §7.2) ─────────────────────────────────────
+	// Runs before the intent classifier when the client carries a pending_action.
+	// Any response that is not yes/no abandons the pending state per spec.
+	if req.PendingAction != nil {
+		isConfirm, isCancel := detectConfirmation(msg)
+		pa := req.PendingAction
+
+		switch {
+		case isConfirm:
+			skipClassify = true
+			// The pending_action round-trips through the client, so its values
+			// are untrusted. Reject anything not signed by a genuine Phase 1
+			// preview on this server before writing.
+			if !verifyPendingAction(pa) {
+				log.Printf("chat confirmation rejected: invalid pending_action signature elevator=%d", pa.ElevatorID)
+				dataContext = "[ACTION VALIDATION ERROR]\nThe pending scheduling request could not be verified — it may have expired or been altered. No action was taken and nothing was written. Ask the user to start the scheduling request again."
+				break
+			}
+			log.Printf("chat confirmation=yes elevator=%d date=%s", pa.ElevatorID, pa.InspectionDate)
+			phase2Args := map[string]any{
+				"confirmed":       true,
+				"elevator_id":     pa.ElevatorID,
+				"inspection_date": pa.InspectionDate,
+				"reason":          pa.Reason,
+			}
+			if pa.InspectionType != "" {
+				phase2Args["inspection_type"] = pa.InspectionType
+			}
+			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer mcpCancel()
+			if result, err := CallMCPTool(mcpCtx, "schedule_inspection", phase2Args); err != nil {
+				log.Printf("schedule_inspection phase2 failed: %v", err)
+				errMsg := cleanValidationError(err.Error())
+				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+			} else if errMsg := extractScheduleError(result); errMsg != "" {
+				log.Printf("schedule_inspection phase2 error: %s", errMsg)
+				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+			} else {
+				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+			}
+			// pendingAction stays nil — scheduling complete or failed, either way clear it
+
+		case isCancel:
+			log.Printf("chat confirmation=cancelled elevator=%d", pa.ElevatorID)
+			skipClassify = true
+			dataContext = "[ACTION CANCELLED]\nThe user cancelled the inspection scheduling. Confirm that no action was taken and no database write occurred."
+			// pendingAction stays nil
+
+		default:
+			// Not yes/no — scheduling abandoned, treat as new intent (spec §7.2)
+			log.Printf("chat confirmation=abandoned elevator=%d", pa.ElevatorID)
+			// pendingAction stays nil; skipClassify stays false → falls through to classifier
+		}
+	}
+
+	// ── Intent classification and routing ─────────────────────────────────────
+	if !skipClassify {
+		classification := ClassifyIntent(msg, time.Now())
+		route := routeIntent(classification)
+		log.Printf("chat intent=%s confidence=%.2f route=%s stub=%t reason=%q",
+			classification.Intent, classification.Confidence, route.Target, route.Stub, classification.Reason)
+
+		if classification.Intent == IntentAction &&
+			(len(classification.Entities.ElevatorIDs) == 0 || len(classification.Entities.Dates) == 0) {
+			dataContext = "[ACTION NEEDS MORE INFO]\nThe user wants to schedule an inspection but did not provide both an elevator ID and a date. Ask them for whichever is missing before proceeding. Do not invent values."
+		} else if classification.Intent == IntentAction {
+			toolName, mcpArgs := buildMCPArgs(classification, msg)
+			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer mcpCancel()
+			if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
+				log.Printf("mcp tool %s failed: %v", toolName, err)
+				errMsg := cleanValidationError(err.Error())
+				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
+			} else if errMsg := extractScheduleError(result); errMsg != "" {
+				log.Printf("mcp tool %s returned a validation error: %s", toolName, errMsg)
+				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
+			} else {
+				pendingAction = buildPendingAction(result, classification.Entities, capReason(msg))
+				if pendingAction != nil {
+					pendingAction.Signature = signPendingAction(pendingAction)
+				}
+				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+			}
+		} else if classification.Intent == IntentDataQuery || classification.Intent == IntentRAG {
+			toolName, mcpArgs := buildMCPArgs(classification, msg)
+			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer mcpCancel()
+			if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
+				log.Printf("mcp tool %s failed: %v — falling back to advisory", toolName, err)
+			} else if isToolError(result) {
+				log.Printf("mcp tool %s returned an error payload: %s — falling back to advisory", toolName, result)
+			} else {
+				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+			}
 		}
 	}
 
@@ -287,5 +502,9 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		ChatMessage{Role: "assistant", Content: reply},
 	)
 
-	writeJSON(w, 200, ChatResponse{Reply: reply, History: updatedHistory})
+	writeJSON(w, 200, ChatResponse{
+		Reply:         reply,
+		History:       updatedHistory,
+		PendingAction: pendingAction,
+	})
 }

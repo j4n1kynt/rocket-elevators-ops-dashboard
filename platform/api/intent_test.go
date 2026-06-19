@@ -201,15 +201,43 @@ func TestAdvisoryByDefaultConfidence(t *testing.T) {
 // ── Phase D: full result, trace, determinism ────────────────────────────────
 
 func TestActionEntitiesPopulated(t *testing.T) {
-	// 23. full action scenario fills all entities
+	// 23. full action scenario fills all entities; no type keyword → InspectionType ""
 	got := ClassifyIntent("Schedule an inspection for elevator 12345 on July 15", fixedNow)
 	want := Entities{
-		ElevatorIDs: []string{"12345"},
-		Dates:       []string{"2026-07-15"},
-		ActionType:  "schedule_inspection",
+		ElevatorIDs:    []string{"12345"},
+		Dates:          []string{"2026-07-15"},
+		ActionType:     "schedule_inspection",
+		InspectionType: "",
 	}
 	if !reflect.DeepEqual(got.Entities, want) {
 		t.Fatalf("entities = %+v; want %+v", got.Entities, want)
+	}
+}
+
+func TestExtractInspectionType(t *testing.T) {
+	cases := []struct {
+		msg  string
+		want string
+	}{
+		{"Schedule a periodic inspection for elevator 12345", "Periodic"},
+		{"Book an annual inspection on July 15", "Periodic"},
+		{"Schedule a routine check for elevator 12345", "Periodic"},
+		{"Schedule a followup inspection for elevator 12345", "Followup"},
+		{"Book a follow up for elevator 12345 on July 15", "Followup"},
+		{"Schedule a follow-up inspection", "Followup"},
+		{"Schedule an initial inspection for elevator 12345", "Initial"},
+		{"Book an incident inspection for elevator 12345", "Incident"},
+		{"Schedule a near-miss inspection", "Incident"},
+		{"Schedule an alteration inspection for elevator 12345", "Alteration"},
+		{"Book a modification inspection on July 15", "Alteration"},
+		{"Schedule an inspection for elevator 12345 on July 15", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.msg, func(t *testing.T) {
+			if got := extractInspectionType(c.msg); got != c.want {
+				t.Fatalf("extractInspectionType(%q) = %q; want %q", c.msg, got, c.want)
+			}
+		})
 	}
 }
 

@@ -51,7 +51,10 @@ jobs:
         run: pip install -r platform/mcp/requirements.txt pytest-asyncio
 
       - name: Apply database schema
-        run: psql $DATABASE_URL -f platform/api/migrations/001_initial_schema.sql
+        run: |
+          psql $DATABASE_URL -f platform/api/migrations/001_initial_schema.sql
+          psql $DATABASE_URL -f platform/api/migrations/002_audit_log.sql
+          psql $DATABASE_URL -f platform/api/migrations/003_pending_inspection_unique.sql
 
       - name: MCP DB healthcheck
         run: PYTHONPATH=. python -m platform.mcp.healthcheck
@@ -67,6 +70,9 @@ jobs:
 
       - name: Run MCP risk assessment integration tests
         run: PYTHONPATH=. pytest platform/mcp/tools/test_risk_assessment.py -v
+
+      - name: Run MCP schedule inspection integration tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_schedule_inspection.py -v
 
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py

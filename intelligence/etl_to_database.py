@@ -123,13 +123,32 @@ def run_migration(conn):
             "WHERE table_schema = 'public' AND table_name = 'elevators')"
         )
         if cur.fetchone()[0]:
-            print("  schema already exists — skipping migration")
-            return
-    sql = Path("platform/api/migrations/001_initial_schema.sql").read_text()
+            print("  schema already exists — skipping 001_initial_schema.sql")
+        else:
+            sql = Path("platform/api/migrations/001_initial_schema.sql").read_text()
+            with conn.cursor() as cur:
+                cur.execute(sql)
+            conn.commit()
+            print("  001_initial_schema.sql applied")
+
+    # 002 and 003 use IF NOT EXISTS — always safe to run
+    sql = Path("platform/api/migrations/002_audit_log.sql").read_text()
     with conn.cursor() as cur:
         cur.execute(sql)
     conn.commit()
-    print("  migration applied")
+    print("  002_audit_log.sql applied")
+
+    # 003 is scoped to chatbot rows (inspection_id >= 9,000,000); the index can
+    # only fail if such rows already contain a duplicate — degrade gracefully.
+    sql = Path("platform/api/migrations/003_pending_inspection_unique.sql").read_text()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        conn.commit()
+        print("  003_pending_inspection_unique.sql applied")
+    except Exception as exc:
+        conn.rollback()
+        print(f"  WARNING: 003_pending_inspection_unique.sql skipped: {exc}")
 
 
 # ---------------------------------------------------------------------------

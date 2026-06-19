@@ -19,6 +19,7 @@ Requires:
   - Dependencies installed (pip install -r platform/mcp/requirements.txt)
 """
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -45,6 +46,34 @@ from platform.mcp.tools.write_tools import schedule_inspection
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
+
+def _guard_skip_confirmation() -> None:
+    """
+    MCP_SKIP_CONFIRMATION bypasses the human-approval gate and writes on the first
+    call. It is a test-only affordance. Refuse to start if it is set in a
+    production environment; warn loudly everywhere else.
+    """
+    if not os.environ.get("MCP_SKIP_CONFIRMATION"):
+        return
+    env = (
+        os.environ.get("APP_ENV")
+        or os.environ.get("ENV")
+        or os.environ.get("ENVIRONMENT")
+        or ""
+    ).strip().lower()
+    if env in ("production", "prod"):
+        raise RuntimeError(
+            "MCP_SKIP_CONFIRMATION is set in a production environment "
+            f"({env!r}). This disables the confirmation gate for inspection "
+            "scheduling — refusing to start."
+        )
+    logger.warning(
+        "MCP_SKIP_CONFIRMATION is set — inspection scheduling will WRITE to the "
+        "database without a confirmation step. Use only in tests."
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastMCP):
@@ -52,6 +81,7 @@ async def lifespan(app: FastMCP):
     Server lifespan: create the asyncpg pool (includes health check + sequence
     creation) on startup, drain it on shutdown.
     """
+    _guard_skip_confirmation()
     await init_pool()
     yield
     await close_pool()

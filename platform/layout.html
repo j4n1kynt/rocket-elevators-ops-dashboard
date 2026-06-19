@@ -198,6 +198,7 @@
           hx-on:htmx:after-request="this.querySelector('#chatInput').disabled=false;this.querySelector('#chatSend').disabled=false;this.querySelector('#chatInput').value=''"
           class="px-4 py-3 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white relative">
       <input id="chatHistory" type="hidden" name="history" value="[]" />
+      <input id="chatPendingAction" type="hidden" name="pending_action" value="null" />
       <input
         id="chatInput"
         type="text"
