@@ -43,6 +43,17 @@ func TestClassifyIntent(t *testing.T) {
 		{"risk_assessment", "Show me the risk assessment for elevator 12345", IntentDataQuery},
 		{"risk_rated_high", "Why is elevator 12345 rated HIGH?", IntentDataQuery},
 		{"risk_score", "What is the risk score for elevator 12345?", IntentDataQuery},
+		// FOUNDATION-1B — experiential / recurrence questions route to RAG
+		// (incident narrative corpus). "incident" alone is a DATA_QUERY keyword,
+		// so the experiential phrase must out-score it.
+		{"rag_have_we_seen", "have we seen flooding incidents?", IntentRAG},
+		{"rag_has_this_happened", "has this happened before?", IntentRAG},
+		{"rag_similar_incidents", "have we had similar incidents with the doors?", IntentRAG},
+		{"rag_procedure", "what's the procedure for hydraulic pressure loss?", IntentRAG},
+		{"rag_how_replace_governor", "how do I replace a governor?", IntentRAG},
+		// FOUNDATION-1B — structured incident queries must NOT regress to RAG.
+		{"data_incident_count", "how many incidents were reported last year?", IntentDataQuery},
+		{"data_incident_by_elevator", "what incidents have been reported for elevator 12345?", IntentDataQuery},
 		// 26. ID present but advisory phrasing -> advisory (below floor)
 		{"id_advisory_phrasing", "Is elevator 12345 a hydraulic type?", IntentAdvisory},
 		// 28. punctuation-only
@@ -235,6 +246,93 @@ func TestDeterminism(t *testing.T) {
 }
 
 // ── Routing ─────────────────────────────────────────────────────────────────
+
+// ── FOUNDATION-1B: RAG corpus split + incident routing in buildMCPArgs ───────
+
+func TestBuildMCPArgsRouting(t *testing.T) {
+	cases := []struct {
+		name     string
+		msg      string
+		wantTool string
+		// wantArgs is checked key-by-key; only the listed keys are asserted.
+		wantArgs map[string]any
+	}{
+		// Experiential / recurrence questions → incident narrative corpus.
+		{
+			"rag_have_we_seen_incidents",
+			"have we seen flooding incidents?",
+			"search_incident_narratives",
+			map[string]any{"query": "have we seen flooding incidents?", "limit": 5},
+		},
+		{
+			"rag_has_this_happened",
+			"has this happened before?",
+			"search_incident_narratives",
+			map[string]any{"query": "has this happened before?", "limit": 5},
+		},
+		{
+			"rag_similar_incidents",
+			"have we had similar incidents with the doors?",
+			"search_incident_narratives",
+			map[string]any{"query": "have we had similar incidents with the doors?", "limit": 5},
+		},
+		// Procedural / how-to questions → maintenance manual corpus (unchanged).
+		{
+			"rag_procedure",
+			"what's the procedure for hydraulic pressure loss?",
+			"search_maintenance_docs",
+			map[string]any{"query": "what's the procedure for hydraulic pressure loss?", "n_results": 5},
+		},
+		{
+			"rag_replace_governor",
+			"how do I replace a governor?",
+			"search_maintenance_docs",
+			map[string]any{"query": "how do I replace a governor?", "n_results": 5},
+		},
+		// A procedural question that happens to mention "incident" must route to
+		// the maintenance manuals — "procedure" (1.5) wins IntentRAG, and there is
+		// no bare "incident" cue to drag it onto the narrative corpus.
+		{
+			"rag_procedure_reporting_incident",
+			"What's the procedure for reporting an incident?",
+			"search_maintenance_docs",
+			map[string]any{"query": "What's the procedure for reporting an incident?", "n_results": 5},
+		},
+		// Structured incident queries must keep their existing data tools.
+		{
+			"data_incident_count",
+			"how many incidents were reported last year?",
+			"get_incident_count_last_year",
+			map[string]any{},
+		},
+		{
+			"data_incident_by_elevator",
+			"what incidents have been reported for elevator 12345?",
+			"get_elevator_incidents",
+			map[string]any{"elevator_id": 12345, "limit": 10},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cls := ClassifyIntent(c.msg, fixedNow)
+			tool, args := buildMCPArgs(cls, c.msg)
+			if tool != c.wantTool {
+				t.Fatalf("buildMCPArgs(%q) tool = %q; want %q (intent=%s reason=%s)",
+					c.msg, tool, c.wantTool, cls.Intent, cls.Reason)
+			}
+			for k, want := range c.wantArgs {
+				got, ok := args[k]
+				if !ok {
+					t.Fatalf("buildMCPArgs(%q) missing arg %q; got %+v", c.msg, k, args)
+				}
+				if got != want {
+					t.Fatalf("buildMCPArgs(%q) arg %q = %v (%T); want %v (%T)",
+						c.msg, k, got, got, want, want)
+				}
+			}
+		})
+	}
+}
 
 func TestRouteIntent(t *testing.T) {
 	cases := []struct {

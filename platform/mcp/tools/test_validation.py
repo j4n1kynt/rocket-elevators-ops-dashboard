@@ -139,7 +139,6 @@ def test_search_maintenance_docs_bad_input_skips_rag(query, n_results):
 
 # ── search_incident_narratives ────────────────────────────────────────────────
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("query,limit", [
     ("",        5),     # empty query
     ("   ",     5),     # whitespace-only query
@@ -147,8 +146,8 @@ def test_search_maintenance_docs_bad_input_skips_rag(query, n_results):
     ("test",    0),     # limit below minimum
     ("test",   21),     # limit exceeds max
 ])
-async def test_search_incident_narratives_bad_input_skips_db(query, limit):
-    with patch("platform.mcp.tools.rag_tools.get_connection") as mock_conn:
+def test_search_incident_narratives_bad_input_skips_rag(query, limit):
+    with patch("platform.mcp.tools.rag_tools.rag_query") as mock_rag:
         with pytest.raises(ValidationError):
-            await search_incident_narratives(query=query, limit=limit)
-        mock_conn.assert_not_called()
+            search_incident_narratives(query=query, limit=limit)
+        mock_rag.assert_not_called()

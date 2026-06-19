@@ -71,6 +71,9 @@ jobs:
       - name: Run MCP risk assessment integration tests
         run: PYTHONPATH=. pytest platform/mcp/tools/test_risk_assessment.py -v
 
+      - name: Run MCP RAG search tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_rag_search.py -v
+
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py
 
