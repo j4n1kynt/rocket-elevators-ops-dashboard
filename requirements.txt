@@ -1,3 +1,6 @@
+# Operations dashboard (Flask app + Go API stack) — this is what Render deploys.
+# Keep this LEAN: only what platform/server.py needs at runtime.
+# RAG / ML pipeline deps live in intelligence/requirements.txt — do NOT add them here.
 flask==3.1.1
 pandas==2.2.3
 requests==2.32.3

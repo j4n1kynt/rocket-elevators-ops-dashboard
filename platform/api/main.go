@@ -8,13 +8,16 @@ import (
 )
 
 func main() {
+	// Load .env for local `go run` so DATABASE_URL and friends are available.
+	// Real environment variables (e.g. from docker-compose) are never overridden.
+	if err := loadDotEnv(".env"); err != nil {
+		log.Printf("warning: could not read .env: %v", err)
+	}
+
 	if err := InitDB(); err != nil {
 		log.Fatalf("database unavailable: %v", err)
 	}
 	log.Printf("database connection established")
-
-	// Warm the Ollama model in the background so the first chat message is fast.
-	go WarmUpOllama()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -39,7 +42,7 @@ func main() {
 		Addr:        ":" + port,
 		Handler:     mux,
 		ReadTimeout: 5 * time.Second,
-		// WriteTimeout is 0 (disabled) — /api/chat blocks up to 330s for Ollama;
+		// WriteTimeout is 0 (disabled) — /api/chat blocks up to 330s for the LLM;
 		// all other routes enforce their own deadline via http.TimeoutHandler above.
 		IdleTimeout: 60 * time.Second,
 	}

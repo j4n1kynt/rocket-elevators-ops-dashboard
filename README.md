@@ -11,6 +11,7 @@ licenses, and review the risk level of each device — all in one place.
 |---|---|
 | **Dashboard (web app)** | https://rocket-elevators-ops-dashboard-1.onrender.com/ |
 | **Go REST API** | https://rocket-elevators-ops-dashboard.onrender.com/api |
+| **MCP server** | https://rocket-elevators-ops-dashboard-2.onrender.com/ |
 | **Database** | PostgreSQL 16, hosted on the [Neon](https://neon.tech) platform |
 
 ## Ceremonies and Trello links
@@ -86,6 +87,7 @@ The project has three main layers:
 - **Frontend:** HTMX 2.0.4, Tailwind CSS, Jinja2 — no custom JavaScript
 - **Analysis:** Jupyter, scikit-learn, NLTK
 - **Database:** PostgreSQL 16 (Neon in production, Docker for local dev)
+- **Chatbot LLM:** OpenRouter (free tier) in production; Ollama for local dev
 - **Deployment:** Render
 
 ## Repository Structure

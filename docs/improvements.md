@@ -416,6 +416,18 @@ action item. Requires updating `risk_explanation` to a `JSONB` column or adding 
 
 ---
 
+### PostgreSQL_Configuration: Hardcoded Credentials Replaced with Environment Variables
+
+Credentials should never live in source files. Any commit, diff, or code review that touches those files exposes the values — and once something is in git history, it is effectively public. The right approach is to keep secrets in a `.env` file that is listed in `.gitignore` and never committed, and to provide a `.env.example` alongside it so new contributors know exactly what to fill in.
+
+Most of the codebase already followed this rule. `platform/api/db.go`, `intelligence/etl_to_database.py`, and `platform/mcp/db.py` all read from environment variables with `DATABASE_URL` as the primary option and individual `DB_*` vars as the fallback. Two files were the remaining gaps.
+
+`intelligence/generate_explanations.py` had `DB_CTR`, `DB_USER`, `DB_NAME`, `OLLAMA_URL`, and `OLLAMA_MODEL` set as plain string constants at the top of the file. These were replaced with `os.environ.get(...)` calls that fall back to the same defaults, so nothing breaks for anyone running the script as-is. `load_dotenv()` was also added so the script picks up `.env` automatically, matching the pattern already used in `etl_to_database.py`.
+
+`docker-compose.yml` had the PostgreSQL credentials written directly into the service definitions. Replacing them with `${VAR:-default}` syntax means Docker Compose reads the values from `.env` at the project root when it is present, and falls back to the same defaults when it is not. No changes are needed to an existing local setup.
+
+---
+
 ### PROMPT-1: OpsBot System Prompt — Peer Review Improvements and Output Limit
 
 **What was changed:**

@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, "feat/**"]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rocketuser
+          POSTGRES_PASSWORD: rocketpass
+          POSTGRES_DB: rocket_elevators
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rocketuser"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://rocketuser:rocketpass@localhost:5432/rocket_elevators
+      MCP_SKIP_CONFIRMATION: "1"
+      RAG_CHROMADB_PATH: /tmp/chromadb-ci
+      ALLOW_EMPTY_CHROMADB: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-bge-small-en-v1.5
+
+      - name: Install root dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install intelligence pipeline dependencies
+        run: pip install -r intelligence/requirements.txt
+
+      - name: Install MCP dependencies
+        run: pip install -r platform/mcp/requirements.txt pytest-asyncio
+
+      - name: Apply database schema
+        run: |
+          psql $DATABASE_URL -f platform/api/migrations/001_initial_schema.sql
+          psql $DATABASE_URL -f platform/api/migrations/002_audit_log.sql
+          psql $DATABASE_URL -f platform/api/migrations/003_pending_inspection_unique.sql
+
+      - name: MCP DB healthcheck
+        run: PYTHONPATH=. python -m platform.mcp.healthcheck
+
+      - name: Seed RAG fixture for CI
+        run: PYTHONPATH=. python intelligence/tests/seed_rag_ci.py
+
+      - name: Run Python tests
+        run: pytest intelligence/tests/ -v
+
+      - name: Run MCP validation tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_validation.py -v
+
+      - name: Run MCP risk assessment integration tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_risk_assessment.py -v
+
+      - name: Run MCP schedule inspection integration tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_schedule_inspection.py -v
+
+      - name: Run MCP RAG search tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_rag_search.py -v
+
+      - name: Run MCP source attribution tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_source_attribution.py -v
+
+      - name: Validate RAG preprocessing
+        run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: platform/api/go.mod
+
+      - name: Go build
+        run: go build ./...
+        working-directory: platform/api
+
+      - name: Go vet
+        run: go vet ./...
+        working-directory: platform/api
+
+      - name: Go test
+        run: go test ./...
+        working-directory: platform/api

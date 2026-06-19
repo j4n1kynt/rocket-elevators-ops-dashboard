@@ -884,3 +884,60 @@ mechanism as the sidebar — `hx-target="#main-content"`, `hx-push-url="true"`):
   lower Overview area, loaded via `hx-trigger="load"` from `GET /api/fleet/alerts`. A
   "View all" link opens the full Alerts page. If the API is unreachable, the preview
   shows "Alerts unavailable."
+
+---
+
+## 7. Inspection Scheduling via Chat
+
+This section defines the inspection scheduling action available through the OpsBot chat widget. Scheduling is the first write-capable action in the system; all other chat interactions are read-only.
+
+### 7.1 Allowed Inspection Types
+
+When scheduling an inspection through the chatbot, the `inspection_type` parameter must be one of the following values:
+
+| Value | Maps to (TSSA source code) |
+|---|---|
+| `Periodic` | ED-Periodic Inspection |
+| `Followup` | ED-Followup Inspection |
+| `Initial` | ED-Initial Inspection |
+| `Incident` | ED-Perform L1 Incident Insp |
+| `Alteration` | ED-Minor A / Major Alteration Inspection |
+
+These are the only values accepted by the `schedule_inspection` MCP tool. Any other value is rejected with a validation error before a confirmation prompt is shown.
+
+---
+
+### 7.2 Pending Confirmation State
+
+The pending confirmation state follows the same client-side pass-through pattern as conversation history. A `pending_action` object is added to the `ChatRequest` and `ChatResponse` payloads alongside `history`.
+
+**Wire contract:**
+
+```
+ChatRequest  { message, history, pending_action? }
+ChatResponse { reply,   history, pending_action? }
+```
+
+`pending_action` is `null` when no scheduling action is awaiting confirmation. It is populated after a successful Phase 1 MCP call (validation passed, confirmation message generated):
+
+```
+PendingAction {
+  elevator_id      int     // validated elevator
+  inspection_date  string  // YYYY-MM-DD
+  inspection_type  string  // one of the 5 allowed values (§7.1)
+  reason           string  // original user message
+  summary          string  // Phase 1 confirmation text returned by the MCP tool
+}
+```
+
+**Client-side storage:** a hidden `<input id="chatPendingAction" name="pending_action">` field sits alongside `chatHistory` in the chat form. After each turn, `_chat_reply.html` updates it via an HTMX OOB swap, exactly as it does for history. When there is no pending action the field holds the string `"null"`.
+
+**Go API behaviour when `pending_action` is non-null:**
+
+| User response | Action |
+|---|---|
+| "yes" or "confirm" | Call `schedule_inspection` with `confirmed=true` and stored args; clear `pending_action` in response |
+| "no" or "cancel" | Set a cancellation context for the LLM; clear `pending_action`; skip MCP call |
+| Anything else | Treat as a new intent; clear `pending_action` (scheduling is abandoned) |
+
+The intent classifier is bypassed for the confirmation turn — matching is done by simple keyword check before classification runs.
