@@ -100,13 +100,27 @@ var keywordGroups = []keywordGroup{
 		{"which", 0.5},
 	}},
 	{IntentRAG, []keyword{
-		{"steps to", 1.0},
-		{"how to", 1.0},
-		{"how do i", 1.0},
-		{"how do you", 1.0},
-		{"procedure", 1.0},
-		{"instructions", 1.0},
-		{"troubleshoot", 1.0},
+		// Procedural anchors (manual corpus). Weight 1.5 so a single procedural
+		// phrase clears the confidence floor (1.5/2.5 = 0.6) on its own.
+		{"steps to", 1.5},
+		{"how to", 1.5},
+		{"how do i", 1.5},
+		{"how do you", 1.5},
+		{"procedure", 1.5},
+		{"instructions", 1.5},
+		{"troubleshoot", 1.5},
+		// Experiential / recurrence anchors (incident-narrative corpus). Weight
+		// 1.5 so they out-score the DATA_QUERY "incident" keyword (1.0): for
+		// "have we seen flooding incidents?" RAG=1.5 beats data_query=1.0, so the
+		// experiential signal wins WITHOUT touching tieBreakOrder (no 1.0–1.0 tie).
+		{"have we seen", 1.5},
+		{"have we had", 1.5},
+		{"has this happened", 1.5},
+		{"happened before", 1.5},
+		{"seen before", 1.5},
+		{"ever had", 1.5},
+		{"in the past", 1.5},
+		{"similar incident", 1.5},
 		{"guide", 0.5},
 		{"manual", 0.5},
 		{"replace", 0.5},

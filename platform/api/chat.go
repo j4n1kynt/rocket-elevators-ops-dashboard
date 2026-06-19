@@ -132,6 +132,35 @@ func isToolError(jsonText string) bool {
 	return probe.Error
 }
 
+// incidentNarrativeCues are experiential / recurrence phrases that mean "has
+// this kind of thing happened before?". They mirror the experiential anchors in
+// intent.go's RAG keyword group, plus a bare "incident" cue so an experiential
+// RAG question that mentions incidents lands on the narrative corpus. The list
+// is intentionally substring-based to match the rest of this file's style.
+var incidentNarrativeCues = []string{
+	"have we seen",
+	"have we had",
+	"has this happened",
+	"happened before",
+	"seen before",
+	"ever had",
+	"in the past",
+	"similar incident",
+	"incident",
+}
+
+// isIncidentNarrativeQuery reports whether a RAG message should search past
+// incident narratives instead of the maintenance manuals. lower must already be
+// lowercased.
+func isIncidentNarrativeQuery(lower string) bool {
+	for _, cue := range incidentNarrativeCues {
+		if strings.Contains(lower, cue) {
+			return true
+		}
+	}
+	return false
+}
+
 // buildMCPArgs maps a classification and original message to an MCP tool name
 // and arguments. Called only for data_query, rag, and action intents.
 func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
@@ -177,6 +206,13 @@ func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 		}
 
 	case IntentRAG:
+		// RAG splits across two corpora. Experiential / recurrence questions
+		// ("have we seen ... incidents?") search past incident narratives;
+		// everything else searches the maintenance manuals. The narrative tool
+		// uses `limit`; the manual tool keeps `n_results` (pinned contracts).
+		if isIncidentNarrativeQuery(lower) {
+			return "search_incident_narratives", map[string]any{"query": msg, "limit": 5}
+		}
 		return "search_maintenance_docs", map[string]any{"query": msg, "n_results": 5}
 
 	case IntentAction:
