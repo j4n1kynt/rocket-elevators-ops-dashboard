@@ -103,6 +103,7 @@ type PendingAction struct {
 	InspectionType string `json:"inspection_type"`
 	Reason         string `json:"reason"`
 	Summary        string `json:"summary"`
+	ExpiresAt      int64  `json:"expires_at,omitempty"` // Unix seconds; signed and checked in Phase 2
 	Signature      string `json:"signature,omitempty"`
 }
 

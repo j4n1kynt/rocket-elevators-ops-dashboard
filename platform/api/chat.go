@@ -325,6 +325,11 @@ func capReason(s string) string {
 	return string(r[:maxReasonLen])
 }
 
+// pendingActionTTL bounds how long a signed confirmation stays valid, so a
+// pending_action cannot be replayed after the previewed inspection has left the
+// 'Pending' state. Enforced in Phase 2 via PendingAction.ExpiresAt.
+const pendingActionTTL = 10 * time.Minute
+
 // chatSigningSecret signs pending scheduling actions (see PendingAction.Signature).
 // Set CHAT_SIGNING_SECRET to keep signatures valid across restarts; otherwise an
 // ephemeral per-process secret is used, which safely invalidates any pending
@@ -351,7 +356,7 @@ func loadSigningSecret() []byte {
 // intentionally excluded — it is cosmetic and never used to drive the write.
 func signPendingAction(pa *PendingAction) string {
 	mac := hmac.New(sha256.New, chatSigningSecret)
-	fmt.Fprintf(mac, "%d\n%s\n%s\n%s", pa.ElevatorID, pa.InspectionDate, pa.InspectionType, pa.Reason)
+	fmt.Fprintf(mac, "%d\n%s\n%s\n%s\n%d", pa.ElevatorID, pa.InspectionDate, pa.InspectionType, pa.Reason, pa.ExpiresAt)
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
@@ -408,6 +413,12 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		isConfirm, isCancel := detectConfirmation(msg)
 		pa := req.PendingAction
 
+		// Ambiguous reply (both confirm and cancel words, e.g. "yes... no"): for a
+		// write action, default to the safe choice — never write on ambiguity.
+		if isConfirm && isCancel {
+			isConfirm = false
+		}
+
 		switch {
 		case isConfirm:
 			skipClassify = true
@@ -417,6 +428,13 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 			if !verifyPendingAction(pa) {
 				log.Printf("chat confirmation rejected: invalid pending_action signature elevator=%d", pa.ElevatorID)
 				dataContext = "[ACTION VALIDATION ERROR]\nThe pending scheduling request could not be verified — it may have expired or been altered. No action was taken and nothing was written. Ask the user to start the scheduling request again."
+				break
+			}
+			// Expiry is part of the signed payload (tamper-proof); reject once the
+			// confirmation window has passed so a stale request is never replayed.
+			if pa.ExpiresAt > 0 && time.Now().Unix() > pa.ExpiresAt {
+				log.Printf("chat confirmation rejected: pending_action expired elevator=%d", pa.ElevatorID)
+				dataContext = "[ACTION VALIDATION ERROR]\nThis scheduling confirmation has expired. No action was taken and nothing was written. Ask the user to start the scheduling request again."
 				break
 			}
 			log.Printf("chat confirmation=yes elevator=%d date=%s", pa.ElevatorID, pa.InspectionDate)
@@ -480,6 +498,9 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 			} else {
 				pendingAction = buildPendingAction(result, classification.Entities, capReason(msg))
 				if pendingAction != nil {
+					// Expire the confirmation window so a signed pending_action cannot
+					// be replayed long after the previewed inspection left 'Pending'.
+					pendingAction.ExpiresAt = time.Now().Add(pendingActionTTL).Unix()
 					pendingAction.Signature = signPendingAction(pendingAction)
 				}
 				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result

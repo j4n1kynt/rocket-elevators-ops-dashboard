@@ -193,4 +193,6 @@ async def schedule_inspection(
         # A confirmed attempt that fails mid-write is a real action — audit it.
         if inp.confirmed:
             await _audit_error(inp, resolved_type, str(exc))
-        return {"error": True, "message": str(exc)}
+        # Match the {"success": False, "error": ...} shape so extractScheduleError()
+        # in chat.go detects this failure instead of treating it as success data.
+        return {"success": False, "error": str(exc)}
