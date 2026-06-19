@@ -74,6 +74,9 @@ jobs:
       - name: Run MCP RAG search tests
         run: PYTHONPATH=. pytest platform/mcp/tools/test_rag_search.py -v
 
+      - name: Run MCP source attribution tests
+        run: PYTHONPATH=. pytest platform/mcp/tools/test_source_attribution.py -v
+
       - name: Validate RAG preprocessing
         run: PYTHONPATH=. python intelligence/validate_rag_preprocessing.py
 

@@ -56,6 +56,7 @@ async def get_tssa_shutdown_elevators(limit: int = 50) -> dict:
 
         return {
             "count": len(rows),
+            "source": "inspections table (most-recent inspection per elevator)",
             "note": "No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.",
             "elevators": [dict(r) for r in rows],
         }
@@ -99,6 +100,7 @@ async def get_inspection_history(elevator_id: int, limit: int = 20) -> dict:
             "found": True,
             "elevator_id": inp.elevator_id,
             "total_returned": len(rows),
+            "source": "inspections table",
             "inspections": [dict(r) for r in rows],
         }
     except ValidationError:
@@ -143,6 +145,7 @@ async def get_elevators_needing_followup(limit: int = 50) -> dict:
 
         return {
             "count": len(rows),
+            "source": "inspections table (most-recent inspection per elevator)",
             "elevators": [dict(r) for r in rows],
         }
     except ValidationError:
@@ -184,7 +187,7 @@ async def get_elevator_risk(elevator_id: int) -> dict:
             if not row:
                 return {"elevator_found": True, "prediction_found": False, "elevator_id": inp.elevator_id}
 
-        return {"elevator_found": True, "prediction_found": True, **dict(row)}
+        return {"elevator_found": True, "prediction_found": True, "source": "predictions table", **dict(row)}
     except ValidationError:
         raise
     except Exception as exc:
@@ -224,6 +227,7 @@ async def get_fleet_stats() -> dict:
 
         return {
             "total_elevators": total,
+            "source": "fleet database (aggregate)",
             "risk_distribution": {
                 "low": risk_row["low"],
                 "medium": risk_row["medium"],
