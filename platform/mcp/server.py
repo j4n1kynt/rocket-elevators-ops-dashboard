@@ -19,6 +19,7 @@ Requires:
   - Dependencies installed (pip install -r platform/mcp/requirements.txt)
 """
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -27,6 +28,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from platform.mcp.db import close_pool, init_pool
+from platform.mcp.rag import warm_rag
 from platform.mcp.tools.incident_tools import (
     get_elevator_incidents,
     get_incident_count_last_year,
@@ -75,14 +77,40 @@ def _guard_skip_confirmation() -> None:
     )
 
 
+async def _warm_rag_at_startup() -> None:
+    """
+    Warm the RAG embedding model off the request path. Non-fatal: if ChromaDB is
+    not populated (or sentence-transformers is unavailable), the server still
+    starts so the PostgreSQL-backed tools keep working. Set MCP_SKIP_RAG_WARMUP to
+    skip entirely (e.g. in tests or DB-only deployments).
+
+    Run in a worker thread so the heavy synchronous model load does not block the
+    event loop during startup.
+    """
+    if os.environ.get("MCP_SKIP_RAG_WARMUP"):
+        logger.info("MCP_SKIP_RAG_WARMUP set — skipping RAG warm-up")
+        return
+    try:
+        await asyncio.to_thread(warm_rag)
+        logger.info("RAG embedding model warmed at startup")
+    except Exception as exc:  # noqa: BLE001 — warm-up must never block startup
+        logger.warning(
+            "RAG warm-up skipped (%s) — the first RAG query will pay the "
+            "cold-start cost and may hit the MCP timeout.",
+            exc,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastMCP):
     """
     Server lifespan: create the asyncpg pool (includes health check + sequence
-    creation) on startup, drain it on shutdown.
+    creation) and warm the RAG embedding model on startup, drain the pool on
+    shutdown.
     """
     _guard_skip_confirmation()
     await init_pool()
+    await _warm_rag_at_startup()
     yield
     await close_pool()
 

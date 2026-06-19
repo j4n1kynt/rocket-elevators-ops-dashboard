@@ -62,6 +62,27 @@ def _get_model():
     return _model
 
 
+def warm_rag() -> None:
+    """
+    Eagerly load the ChromaDB client and the embedding model so the first real
+    query does not pay the cold-start cost.
+
+    On a constrained host (e.g. Render free tier) the instance spins down when
+    idle; the first query after wake must both start the container and lazily load
+    the ~125 MB sentence-transformer model, which can exceed the Go API's per-call
+    MCP timeout and force a no-data advisory fallback. Calling this at server
+    startup moves that cost off the request path.
+
+    Raises on failure (e.g. ChromaDB not yet populated). The caller decides whether
+    that is fatal — at startup it should be treated as non-fatal so DB-only tools
+    still work. A trivial encode is included because SentenceTransformer defers some
+    weight initialization until the first encode, not construction.
+    """
+    _get_client()
+    model = _get_model()
+    model.encode("warmup", normalize_embeddings=False)
+
+
 def rag_query(
     query_text: str,
     n_results: int = 5,
