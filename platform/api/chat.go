@@ -134,9 +134,15 @@ func isToolError(jsonText string) bool {
 
 // incidentNarrativeCues are experiential / recurrence phrases that mean "has
 // this kind of thing happened before?". They mirror the experiential anchors in
-// intent.go's RAG keyword group, plus a bare "incident" cue so an experiential
-// RAG question that mentions incidents lands on the narrative corpus. The list
-// is intentionally substring-based to match the rest of this file's style.
+// intent.go's RAG keyword group so an experiential RAG question lands on the
+// narrative corpus. The list is intentionally substring-based to match the rest
+// of this file's style.
+//
+// No bare "incident" cue here on purpose: a procedural RAG question like
+// "what's the procedure for reporting an incident?" already wins IntentRAG via
+// "procedure" (1.5) and must route to the maintenance manuals, not the narrative
+// corpus. The 8 experiential phrases below fully capture the recurrence intent
+// without that false positive.
 var incidentNarrativeCues = []string{
 	"have we seen",
 	"have we had",
@@ -146,7 +152,6 @@ var incidentNarrativeCues = []string{
 	"ever had",
 	"in the past",
 	"similar incident",
-	"incident",
 }
 
 // isIncidentNarrativeQuery reports whether a RAG message should search past

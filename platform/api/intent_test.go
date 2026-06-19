@@ -289,6 +289,15 @@ func TestBuildMCPArgsRouting(t *testing.T) {
 			"search_maintenance_docs",
 			map[string]any{"query": "how do I replace a governor?", "n_results": 5},
 		},
+		// A procedural question that happens to mention "incident" must route to
+		// the maintenance manuals — "procedure" (1.5) wins IntentRAG, and there is
+		// no bare "incident" cue to drag it onto the narrative corpus.
+		{
+			"rag_procedure_reporting_incident",
+			"What's the procedure for reporting an incident?",
+			"search_maintenance_docs",
+			map[string]any{"query": "What's the procedure for reporting an incident?", "n_results": 5},
+		},
 		// Structured incident queries must keep their existing data tools.
 		{
 			"data_incident_count",
