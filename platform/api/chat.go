@@ -507,7 +507,13 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 			}
 		} else if classification.Intent == IntentDataQuery || classification.Intent == IntentRAG {
 			toolName, mcpArgs := buildMCPArgs(classification, msg)
-			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
+			// RAG tools (search_maintenance_docs / search_incident_narratives) run
+			// sentence-transformer embedding on the MCP server. On constrained CPU
+			// (e.g. Render free tier) a single query is ~8s warm and longer cold, so
+			// a 10s budget loses the race and the call falls back to advisory with no
+			// data. 25s gives the embedding query real headroom; the handler's own
+			// deadline (330s) still bounds the whole request.
+			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 25*time.Second)
 			defer mcpCancel()
 			if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
 				log.Printf("mcp tool %s failed: %v — falling back to advisory", toolName, err)
