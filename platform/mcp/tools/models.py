@@ -140,6 +140,9 @@ class GetElevatorRiskInput(BaseModel):
         return _check_elevator_id(v)
 
 
+_ALLOWED_INSPECTION_TYPES = {"Periodic", "Followup", "Initial", "Incident", "Alteration"}
+
+
 class ScheduleInspectionInput(BaseModel):
     model_config = ConfigDict(strict=True)
 
@@ -154,6 +157,13 @@ class ScheduleInspectionInput(BaseModel):
     reason: str = Field(
         ...,
         description="Brief reason for scheduling the inspection (max 500 characters).",
+    )
+    inspection_type: str = Field(
+        "",
+        description=(
+            "Type of inspection. Must be one of: Periodic, Followup, Initial, Incident, Alteration. "
+            "Leave empty to default to Periodic."
+        ),
     )
     confirmed: bool = Field(
         False,
@@ -185,6 +195,20 @@ class ScheduleInspectionInput(BaseModel):
         if d < date.today():
             raise ValueError("inspection_date must not be in the past.")
         return d
+
+    @field_validator("inspection_type", mode="before")
+    @classmethod
+    def validate_inspection_type(cls, v: object) -> str:
+        if not isinstance(v, str):
+            raise ValueError("inspection_type must be a string.")
+        if v == "":
+            return v
+        if v not in _ALLOWED_INSPECTION_TYPES:
+            allowed = ", ".join(sorted(_ALLOWED_INSPECTION_TYPES))
+            raise ValueError(
+                f"inspection_type must be one of: {allowed}. Got: {v!r}."
+            )
+        return v
 
     @field_validator("reason", mode="before")
     @classmethod

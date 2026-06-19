@@ -87,12 +87,34 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+// PendingAction holds the validated Phase 1 scheduling state that must survive
+// between the confirmation prompt turn and the user's yes/no reply (spec §7.2).
+// Stored client-side in a hidden form field and echoed on every request.
+//
+// Signature is an HMAC over the execution fields (elevator_id, date, type,
+// reason), computed by the server in Phase 1 and re-checked in Phase 2. Because
+// the client holds and replays this object, the signature is what makes Phase 1
+// a real gate: Phase 2 only writes values that a genuine Phase 1 preview on this
+// server produced — a forged or tampered pending_action is rejected before any
+// database write.
+type PendingAction struct {
+	ElevatorID     int    `json:"elevator_id"`
+	InspectionDate string `json:"inspection_date"`
+	InspectionType string `json:"inspection_type"`
+	Reason         string `json:"reason"`
+	Summary        string `json:"summary"`
+	ExpiresAt      int64  `json:"expires_at,omitempty"` // Unix seconds; signed and checked in Phase 2
+	Signature      string `json:"signature,omitempty"`
+}
+
 type ChatRequest struct {
-	Message string        `json:"message"`
-	History []ChatMessage `json:"history"`
+	Message       string         `json:"message"`
+	History       []ChatMessage  `json:"history"`
+	PendingAction *PendingAction `json:"pending_action,omitempty"`
 }
 
 type ChatResponse struct {
-	Reply   string        `json:"reply"`
-	History []ChatMessage `json:"history"`
+	Reply         string         `json:"reply"`
+	History       []ChatMessage  `json:"history"`
+	PendingAction *PendingAction `json:"pending_action,omitempty"`
 }

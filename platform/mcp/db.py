@@ -13,10 +13,13 @@ module-level code.
 """
 
 import contextlib
+import logging
 import os
 
 import asyncpg
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -29,6 +32,33 @@ _SEQUENCE_DDL = """
     START 9000000
     INCREMENT 1
     NO CYCLE
+"""
+
+# Audit log table — mirrors 002_audit_log.sql migration.
+# No FK constraints: audit rows are immutable and must not cascade-delete.
+_AUDIT_LOG_DDL = """
+    CREATE TABLE IF NOT EXISTS scheduling_audit_log (
+        log_id          BIGSERIAL   PRIMARY KEY,
+        elevator_id     INTEGER     NOT NULL,
+        inspection_id   INTEGER,
+        inspection_date DATE        NOT NULL,
+        inspection_type TEXT        NOT NULL,
+        reason          TEXT,
+        outcome         TEXT        NOT NULL CHECK (outcome IN ('success', 'error')),
+        error_message   TEXT,
+        performed_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_log_elevator_id  ON scheduling_audit_log (elevator_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_performed_at ON scheduling_audit_log (performed_at);
+"""
+
+# Duplicate pending-inspection guard — mirrors 003_pending_inspection_unique.sql.
+# Scoped to chatbot-created rows (inspection_id >= 9,000,000) so it never
+# conflicts with imported source data.
+_PENDING_UNIQUE_DDL = """
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_inspection
+        ON inspections (elevator_id, earliest_inspection_date, inspection_type)
+        WHERE outcome = 'Pending' AND inspection_id >= 9000000
 """
 
 
@@ -72,10 +102,24 @@ async def init_pool() -> None:
         await conn.execute("SELECT 1")       # startup health check
         try:
             await conn.execute(_SEQUENCE_DDL)
+            await conn.execute(_AUDIT_LOG_DDL)
         except asyncpg.InsufficientPrivilegeError:
             # Non-fatal in CI / read-only roles — schedule_inspection will fail if
             # called, but all read tools remain functional.
             pass
+
+        # The unique index can fail if pre-existing chatbot rows already contain a
+        # duplicate; degrade gracefully (log + continue) rather than crash startup.
+        try:
+            await conn.execute(_PENDING_UNIQUE_DDL)
+        except asyncpg.InsufficientPrivilegeError:
+            pass
+        except Exception as exc:
+            logger.warning(
+                "Could not create uq_pending_inspection index (duplicate-pending "
+                "guard inactive): %s",
+                exc,
+            )
 
 
 async def close_pool() -> None:

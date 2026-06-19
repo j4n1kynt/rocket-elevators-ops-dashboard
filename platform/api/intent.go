@@ -38,9 +38,10 @@ const ConfidenceFloor = 0.6
 
 // Entities holds everything pulled out of the message. Zero/nil when absent.
 type Entities struct {
-	ElevatorIDs []string // digit strings, e.g. ["12345"]; nil if none
-	Dates       []string // normalized "2006-01-02"; nil if none
-	ActionType  string   // "schedule_inspection", "replace", or "" if none
+	ElevatorIDs    []string // digit strings, e.g. ["12345"]; nil if none
+	Dates          []string // normalized "2006-01-02"; nil if none
+	ActionType     string   // "schedule_inspection", "replace", or "" if none
+	InspectionType string   // one of the 5 allowed values (spec §7.1), or "" if not mentioned
 }
 
 // Signal is one matched keyword and the weight it added. Drives the trace.
@@ -201,6 +202,30 @@ func extractDates(msg string, now time.Time) []string {
 	return out
 }
 
+// extractInspectionType matches the user's phrasing against the five allowed
+// inspection type values defined in spec §7.1. Returns "" when none is mentioned.
+// Ordered most-specific first to avoid false matches (e.g. "incident" before
+// looser terms like "periodic").
+func extractInspectionType(msg string) string {
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "incident") || strings.Contains(lower, "accident") ||
+		strings.Contains(lower, "near miss") || strings.Contains(lower, "near-miss"):
+		return "Incident"
+	case strings.Contains(lower, "alteration") || strings.Contains(lower, "modification"):
+		return "Alteration"
+	case strings.Contains(lower, "initial"):
+		return "Initial"
+	case strings.Contains(lower, "follow up") || strings.Contains(lower, "follow-up") ||
+		strings.Contains(lower, "followup"):
+		return "Followup"
+	case strings.Contains(lower, "periodic") || strings.Contains(lower, "annual") ||
+		strings.Contains(lower, "routine"):
+		return "Periodic"
+	}
+	return ""
+}
+
 // extractActionType maps action verbs to a canonical action name.
 func extractActionType(msg string) string {
 	lower := strings.ToLower(msg)
@@ -215,9 +240,10 @@ func extractActionType(msg string) string {
 
 func extractEntities(msg string, now time.Time) Entities {
 	return Entities{
-		ElevatorIDs: extractElevatorIDs(msg),
-		Dates:       extractDates(msg, now),
-		ActionType:  extractActionType(msg),
+		ElevatorIDs:    extractElevatorIDs(msg),
+		Dates:          extractDates(msg, now),
+		ActionType:     extractActionType(msg),
+		InspectionType: extractInspectionType(msg),
 	}
 }
 

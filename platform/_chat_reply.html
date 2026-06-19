@@ -19,3 +19,6 @@
 
 {# OOB: update history hidden field with the updated conversation #}
 <input id="chatHistory" hx-swap-oob="outerHTML" type="hidden" name="history" value="{{ history }}" />
+
+{# OOB: update pending action state (null when no scheduling is awaiting confirmation) #}
+<input id="chatPendingAction" hx-swap-oob="outerHTML" type="hidden" name="pending_action" value="{{ pending_action }}" />

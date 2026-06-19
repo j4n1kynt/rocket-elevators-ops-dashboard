@@ -32,3 +32,6 @@
 
 {# OOB: reset history to empty #}
 <input id="chatHistory" hx-swap-oob="outerHTML" type="hidden" name="history" value="[]" />
+
+{# OOB: clear any pending scheduling confirmation #}
+<input id="chatPendingAction" hx-swap-oob="outerHTML" type="hidden" name="pending_action" value="null" />
