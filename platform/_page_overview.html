@@ -1,7 +1,13 @@
 {#
-  Overview page body (spec §6.2). Summary cards + fleet health panel.
+  Overview page body (spec §6.2). Summary cards + fleet health panel + alerts preview.
   Cards are fleet-wide values computed at route load; they no longer react to
   table filters because the table lives on a separate page (spec §6.5).
+
+  Design — "The Instrument Panel" (DESIGN.md): the four metric numbers are the
+  focal point. Each card carries a hairline top rule keyed to its state color so
+  the state reads at a glance, then recedes; labels are small/uppercase/muted; the
+  big mono readout leads; the supporting note is quieter still. Rhythm follows the
+  8/12/20/28 spacing scale — cards p-5 (20px), section gap 28px (mb-7).
 #}
 <div class="flex-1 overflow-y-auto px-8 py-6">
 
@@ -9,55 +15,72 @@
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
 
     <!-- Card 1: Total Elevators — neutral, no accent (§4.3) -->
-    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Total Elevators</p>
-      <p id="card-total" class="readout text-4xl font-bold text-slate-800">{{ total_elevators }}</p>
-      <p class="text-xs text-slate-400 mt-2">Total registered devices</p>
+    <div class="relative bg-white rounded-lg border border-slate-200 shadow-sm p-5 overflow-hidden">
+      <span class="absolute inset-x-0 top-0 h-0.5 bg-slate-200" aria-hidden="true"></span>
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Elevators</p>
+      <p id="card-total" class="readout text-4xl font-bold text-slate-800 leading-none mt-3">{{ total_elevators }}</p>
+      <p class="text-xs text-slate-500 mt-3">Total registered devices</p>
     </div>
 
     <!-- Card 2: Active Elevators — green accent (§4.3); drill-down to filtered Fleet (§6.7) -->
     <a href="/fleet?status=ACTIVE"
        hx-get="/fleet?status=ACTIVE" hx-target="#main-content" hx-swap="innerHTML transition:true"
        hx-push-url="true" hx-indicator="#main-content"
-       class="group block bg-white rounded-lg border border-slate-200 shadow-sm p-5 hover:border-slate-300 hover:shadow transition cursor-pointer">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
+       class="group relative block bg-white rounded-lg border border-slate-200 shadow-sm p-5 overflow-hidden hover:border-slate-300 hover:shadow transition cursor-pointer">
+      <span class="absolute inset-x-0 top-0 h-0.5 bg-green-600" aria-hidden="true"></span>
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center justify-between">
         Active Elevators
         <span class="text-slate-300 group-hover:text-slate-500 transition-colors" aria-hidden="true">&rarr;</span>
       </p>
-      <p id="card-active" class="readout text-4xl font-bold text-green-600">{{ active_elevators }}</p>
-      <p class="text-xs text-slate-400 mt-2">Active licenses &middot; view in fleet</p>
+      <p id="card-active" class="readout text-4xl font-bold text-green-600 leading-none mt-3">{{ active_elevators }}</p>
+      <p class="text-xs text-slate-500 mt-3">Active licenses &middot; view in fleet</p>
     </a>
 
     <!-- Card 3: Overdue Inspections — red accent (§4.3) -->
-    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Overdue Inspections</p>
-      <p id="card-overdue" class="readout text-4xl font-bold text-red-600">{{ overdue_inspections }}</p>
-      <p class="text-xs text-slate-400 mt-2">Elevators without a passing inspection</p>
+    <div class="relative bg-white rounded-lg border border-slate-200 shadow-sm p-5 overflow-hidden">
+      <span class="absolute inset-x-0 top-0 h-0.5 bg-red-600" aria-hidden="true"></span>
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Overdue Inspections</p>
+      <p id="card-overdue" class="readout text-4xl font-bold text-red-600 leading-none mt-3">{{ overdue_inspections }}</p>
+      <p class="text-xs text-slate-500 mt-3">Elevators without a passing inspection</p>
     </div>
 
-    <!-- Card 4: Licenses Expiring — amber accent (§4.3) -->
-    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Licenses Expiring in 30 Days</p>
-      {# §4.3 — amber only when > 0; zero expiring licenses is a positive state, so it stays neutral #}
-      <p id="card-expiring" class="readout text-4xl font-bold {{ 'text-amber-600' if expiring_soon and expiring_soon|int > 0 else 'text-slate-800' }}">{{ expiring_soon }}</p>
-      <p class="text-xs text-slate-400 mt-2">Renewals due within the next 30 days</p>
+    <!-- Card 4: Licenses Expiring — amber accent when > 0, neutral when 0 (§4.3) -->
+    {# §4.3 — amber only when > 0; zero expiring licenses is a positive state, so it stays neutral #}
+    {% set expiring_active = expiring_soon and expiring_soon|int > 0 %}
+    <div class="relative bg-white rounded-lg border border-slate-200 shadow-sm p-5 overflow-hidden">
+      <span class="absolute inset-x-0 top-0 h-0.5 {{ 'bg-amber-600' if expiring_active else 'bg-slate-200' }}" aria-hidden="true"></span>
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Licenses Expiring in 30 Days</p>
+      <p id="card-expiring" class="readout text-4xl font-bold leading-none mt-3 {{ 'text-amber-600' if expiring_active else 'text-slate-800' }}">{{ expiring_soon }}</p>
+      <p class="text-xs text-slate-500 mt-3">Renewals due within the next 30 days</p>
     </div>
 
   </div>
 
-  <!-- Fleet health panel — loaded on page load from Go API /api/fleet/stats -->
+  <!-- Fleet health panel — loaded on page load from Go API /api/fleet/stats (§4.9 loading) -->
   <div hx-get="/fleet-health" hx-trigger="load" class="mb-7">
     <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-      <div class="animate-pulse h-5 bg-slate-100 rounded w-40 mb-3"></div>
-      <div class="animate-pulse h-16 bg-slate-50 rounded"></div>
+      <div class="animate-pulse h-3 w-28 bg-slate-100 rounded mb-5"></div>
+      <div class="flex flex-col sm:flex-row items-center gap-6">
+        <div class="animate-pulse w-32 h-32 shrink-0 rounded-full bg-slate-100"></div>
+        <div class="flex-1 w-full space-y-3">
+          <div class="animate-pulse h-3 bg-slate-100 rounded"></div>
+          <div class="animate-pulse h-3 bg-slate-100 rounded w-5/6"></div>
+          <div class="animate-pulse h-3 bg-slate-100 rounded w-4/6"></div>
+          <div class="animate-pulse h-3 bg-slate-100 rounded w-3/6"></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Recent critical alerts preview (spec §6.7) — loaded from /alerts-preview -->
+  <!-- Recent critical alerts preview (spec §6.7) — loaded from /alerts-preview (§4.9 loading) -->
   <div hx-get="/alerts-preview" hx-trigger="load">
     <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-      <div class="animate-pulse h-5 bg-slate-100 rounded w-48 mb-3"></div>
-      <div class="animate-pulse h-24 bg-slate-50 rounded"></div>
+      <div class="animate-pulse h-3 w-40 bg-slate-100 rounded mb-4"></div>
+      <div class="space-y-2.5">
+        <div class="animate-pulse h-3 bg-slate-100 rounded"></div>
+        <div class="animate-pulse h-3 bg-slate-100 rounded w-11/12"></div>
+        <div class="animate-pulse h-3 bg-slate-100 rounded w-10/12"></div>
+      </div>
     </div>
   </div>
 

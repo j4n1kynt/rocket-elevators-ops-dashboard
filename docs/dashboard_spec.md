@@ -213,6 +213,8 @@ Some fields may be blank due to missing cross-dataset matches or missing inspect
 
 This section defines the presentation and branding of the dashboard. It does not change any layout structure or data definitions from the sections above.
 
+**Design language — "The Instrument Panel."** The dashboard reads like a calibrated readout, not a website. Data leads; the chrome recedes. The canonical visual system lives in the project-root `DESIGN.md` (tokens, type roles, components) and the strategic intent lives in `PRODUCT.md`. This section stays the functional source of truth for *what* each element shows; `DESIGN.md` is the source of truth for *how* it looks. The two must not disagree — update both together. Core doctrine: monospaced numerals (IBM Plex Mono) for every data value; green/amber/red signal state only; blue is reserved for interaction (focus, selection) and never used for data; surfaces are flat with hairline borders.
+
 ### 4.1 Branding
 
 The sidebar displays the "Rocket Elevators" brand name at the top, above the navigation menu. The brand area should be visually distinct from the rest of the sidebar — larger text weight, slightly more padding, and a bottom border to separate it from the nav links. A simple rocket icon (text character or inline SVG) may appear immediately to the left of the brand name to reinforce identity. The overall treatment should feel like a professional enterprise product, not decorative.
@@ -286,6 +288,20 @@ The outcome values displayed must match the actual values present in the inspect
 - Table header labels are small, uppercase, and muted — consistent with card labels.
 - Table row text is standard size and dark, with hover highlight on rows for readability.
 - No decorative elements (icons, charts, illustrations) are added beyond what is described above, except the risk-distribution **donut** on the Fleet Health panel (Feature 3) — a functional, no-JavaScript data visual, not decoration.
+
+### 4.8 Spacing & Rhythm
+
+Spacing follows a small, consistent scale (8 / 12 / 20 / 28 px) instead of ad-hoc gaps, so vertical rhythm reads as deliberate. Cards use 20 px internal padding. Sections on a page are separated by the larger step (28 px). The page background is light slate (`#f1f5f9`); content sits on white surfaces with 1 px slate-200 borders. The metric numbers on the summary cards are the clear focal point of the Overview — labels are small, uppercase, and muted; supporting notes are quieter still.
+
+### 4.9 State Coverage
+
+Every data region must handle its non-ideal states, not just the happy path:
+
+- **Loading:** Regions fetched via HTMX (`fleet-health`, alerts preview, table) show a calm skeleton placeholder (tonal gray blocks), never a bare spinner in the middle of empty content.
+- **Empty:** When a query returns nothing, show a short, plain message that orients the user (e.g. "No elevators match the current filters."), never a blank area.
+- **Error / unreachable:** When the Go API is unreachable, the affected region shows its honest fallback text ("Fleet health data unavailable.", "Alerts unavailable.") in place of the panel, as defined in the feature sections above.
+
+These states use the same neutral palette as the rest of the chrome; they do not introduce new colors.
 
 ---
 

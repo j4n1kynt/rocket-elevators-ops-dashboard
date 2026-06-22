@@ -1,5 +1,12 @@
 {% if rows %}
 {% for row in rows %}
+{#
+  Each row is a clickable instrument line.
+  - data-selected is toggled by the hx-on:click HTMX attribute (no custom JS).
+  - Selected style: bg-blue-50 fill + 3px blue-600 left inset border — DESIGN.md "Selected Table Row".
+  - Hover: bg-slate-50, transitions smoothly.
+  - The [data-selected] attribute is styled via the global CSS in layout.html.
+#}
 <tr class="hover:bg-slate-50 transition-colors cursor-pointer"
     hx-get="/elevator/{{ row['elevator_id'] }}"
     hx-target="#elevatorPanel"
@@ -7,59 +14,100 @@
     hx-indicator="#panel-indicator"
     hx-on:click="document.querySelectorAll('#tableBody tr[data-selected]').forEach(r=>r.removeAttribute('data-selected'));this.setAttribute('data-selected','')">
 
-  <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ row['elevator_id'] }}</td>
+  {# Elevator ID — .readout: IBM Plex Mono, tabular figures, soft ink (DESIGN.md Mono-for-Data Rule) #}
+  <td class="px-5 py-3 whitespace-nowrap">
+    <span class="readout text-slate-500">{{ row['elevator_id'] }}</span>
+  </td>
 
-  <td class="px-5 py-3 text-slate-700 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap"
+  {# Location — sans body, truncated with title tooltip for overflow; max-w keeps layout stable #}
+  <td class="px-5 py-3 text-sm text-slate-700 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap"
       title="{{ row['location'] }}">{{ row['location'] }}</td>
 
-  <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ row['license_number'] }}</td>
+  {# License Number — .readout: mono for all identifier values (DESIGN.md Mono-for-Data Rule) #}
+  <td class="px-5 py-3 whitespace-nowrap">
+    <span class="readout text-slate-500">{{ row['license_number'] }}</span>
+  </td>
 
-  {# §4.4 — Status badge color reflects license state #}
-  <td class="px-5 py-3">
+  {# §4.4 — Status badge: DESIGN.md badge component (4px radius, px-2 py-0.5, text-xs medium, ring-1) #}
+  <td class="px-5 py-3 whitespace-nowrap">
     {% set s = row['status'] %}
     {% if s == 'ACTIVE' %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ s }}</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-inset ring-green-200">{{ s }}</span>
     {% elif s == 'BY REQUEST' %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ s }}</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200">{{ s }}</span>
     {% else %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ s }}</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-inset ring-red-200">{{ s }}</span>
     {% endif %}
   </td>
 
-  <td class="px-5 py-3 text-slate-700 whitespace-nowrap">{{ row['license_expiration_date'] or '—' }}</td>
-
-  {# §4.5 — Overdue inspection dates shown in red (blank counts as overdue) #}
-  <td class="px-5 py-3 whitespace-nowrap {{ 'text-red-600 font-medium' if row['_overdue'] else 'text-slate-700' }}">
-    {{ row['latest_inspection_date'] or '—' }}
-  </td>
-
-  {# §4.6 — outcome badge: Passed=green, Follow up=amber, Fail=red; other values plain text #}
-  <td class="px-5 py-3">
-    {% set o = row['latest_inspection_outcome'] or '' %}
-    {% if 'Passed' in o %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ o }}</span>
-    {% elif 'Follow up' in o %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ o }}</span>
-    {% elif 'Fail' in o %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ o }}</span>
-    {% elif o %}
-      {{ o }}
+  {#
+    License Expiration Date — mono readout; muted "—" when blank.
+    No overdue styling here — expiry coloring is handled separately if needed.
+  #}
+  <td class="px-5 py-3 whitespace-nowrap">
+    {% if row['license_expiration_date'] %}
+      <span class="readout text-slate-600">{{ row['license_expiration_date'] }}</span>
     {% else %}
       <span class="text-slate-400">—</span>
     {% endif %}
   </td>
 
-  <td class="px-5 py-3 text-slate-700 whitespace-nowrap">{{ row['elevator_type'] or '—' }}</td>
+  {#
+    §4.5 — Latest Inspection Date: overdue dates (row['_overdue'] is truthy) shown in red-600
+    medium weight. Non-overdue dates are slate-600 mono. Blank = overdue = red "—".
+  #}
+  <td class="px-5 py-3 whitespace-nowrap">
+    {% if row['_overdue'] %}
+      <span class="readout text-red-600 font-medium">{{ row['latest_inspection_date'] or '—' }}</span>
+    {% elif row['latest_inspection_date'] %}
+      <span class="readout text-slate-600">{{ row['latest_inspection_date'] }}</span>
+    {% else %}
+      <span class="text-slate-400">—</span>
+    {% endif %}
+  </td>
 
-  {# AND-104 Task 8 — Risk Level badge from Go API risk_level field #}
-  <td class="px-5 py-3">
+  {#
+    §4.6 — Inspection Outcome badge: same DESIGN.md badge component as status.
+    Passed = green, Follow up = amber, Fail = red.
+    Other non-empty values: plain slate-700 text (no badge — value preserved literally, §4.6).
+    Empty: muted "—".
+  #}
+  <td class="px-5 py-3 whitespace-nowrap">
+    {% set o = row['latest_inspection_outcome'] or '' %}
+    {% if 'Passed' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-inset ring-green-200">{{ o }}</span>
+    {% elif 'Follow up' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200">{{ o }}</span>
+    {% elif 'Fail' in o %}
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-inset ring-red-200">{{ o }}</span>
+    {% elif o %}
+      <span class="text-sm text-slate-700">{{ o }}</span>
+    {% else %}
+      <span class="text-slate-400">—</span>
+    {% endif %}
+  </td>
+
+  {# Elevator Type — plain body text; muted "—" when missing (no installed.json match) #}
+  <td class="px-5 py-3 text-sm text-slate-600 whitespace-nowrap">
+    {% if row['elevator_type'] %}
+      {{ row['elevator_type'] }}
+    {% else %}
+      <span class="text-slate-400">—</span>
+    {% endif %}
+  </td>
+
+  {#
+    AND-104 Task 8 — Risk Level badge: same DESIGN.md badge component.
+    HIGH = red, MEDIUM = amber, LOW = green, missing = muted "—".
+  #}
+  <td class="px-5 py-3 whitespace-nowrap">
     {% set r = row.get('risk_level') %}
     {% if r == 'HIGH' %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">HIGH</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-inset ring-red-200">HIGH</span>
     {% elif r == 'MEDIUM' %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">MEDIUM</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200">MEDIUM</span>
     {% elif r == 'LOW' %}
-      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">LOW</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-inset ring-green-200">LOW</span>
     {% else %}
       <span class="text-slate-400">—</span>
     {% endif %}
@@ -68,9 +116,14 @@
 </tr>
 {% endfor %}
 {% else %}
+{#
+  §4.9 Empty state — calm, centered, directive. No new colors.
+  colspan="9" matches the exact 9 columns of the table (AND-104 Feature 1).
+#}
 <tr>
-  <td colspan="9" class="px-5 py-8 text-center text-sm text-slate-400">
-    No elevators match the current filters.
+  <td colspan="9" class="px-5 py-16 text-center">
+    <p class="text-sm text-slate-500">No elevators match the current filters.</p>
+    <p class="mt-1 text-xs text-slate-400">Try adjusting your search or filter selection.</p>
   </td>
 </tr>
 {% endif %}
