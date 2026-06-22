@@ -6,17 +6,28 @@
       active link updates without reloading the shell (pass oob=True).
   `active_page` selects which link is highlighted.
 #}
-{% set base = "flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors" %}
-{% set on   = "bg-slate-700 text-white" %}
+{#
+  Active and inactive link styles. The active state uses the DESIGN.md
+  nav-link-active token (slate-700 fill, white text) plus a left accent bar
+  so the current page reads at a glance (spec §6.1). Inactive links stay quiet
+  in slate-300 and lift to slate-800 on hover. `aria-current="page"` marks the
+  active link for assistive tech. The leading icon dims when inactive and goes
+  full white when active, reinforcing the state without a new color.
+#}
+{% set base = "group flex items-center gap-3 pl-3 pr-3 py-2 rounded text-sm font-medium transition-colors duration-150" %}
+{% set on   = "bg-slate-700 text-white shadow-[inset_2px_0_0_0_#cbd5e1]" %}
 {% set off  = "text-slate-300 hover:bg-slate-800 hover:text-white" %}
-<nav id="nav-links" class="px-3 py-4 space-y-1"{% if oob %} hx-swap-oob="true"{% endif %}>
+<nav id="nav-links" class="px-3 py-5 space-y-1"{% if oob %} hx-swap-oob="true"{% endif %}>
+
+  <p class="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Navigate</p>
 
   <!-- Overview -->
   <a href="/"
      hx-get="/" hx-target="#main-content" hx-swap="innerHTML transition:true"
      hx-push-url="true" hx-indicator="#main-content"
+     {% if active_page == 'overview' %}aria-current="page"{% endif %}
      class="{{ base }} {{ on if active_page == 'overview' else off }}">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 {{ '' if active_page == 'overview' else 'text-slate-400 group-hover:text-white' }}" viewBox="0 0 24 24" fill="currentColor">
       <path d="M13 3V9H21V3M13 21H21V11H13M3 21H11V15H3M3 13H11V3H3V13Z"/>
     </svg>
     Overview
@@ -26,8 +37,9 @@
   <a href="/fleet"
      hx-get="/fleet" hx-target="#main-content" hx-swap="innerHTML transition:true"
      hx-push-url="true" hx-indicator="#main-content"
+     {% if active_page == 'fleet' %}aria-current="page"{% endif %}
      class="{{ base }} {{ on if active_page == 'fleet' else off }}">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 {{ '' if active_page == 'fleet' else 'text-slate-400 group-hover:text-white' }}" viewBox="0 0 24 24" fill="currentColor">
       <path d="M3 5H21V7H3V5M3 11H21V13H3V11M3 17H21V19H3V17Z"/>
     </svg>
     Elevator Fleet
@@ -37,8 +49,9 @@
   <a href="/alerts"
      hx-get="/alerts" hx-target="#main-content" hx-swap="innerHTML transition:true"
      hx-push-url="true" hx-indicator="#main-content"
+     {% if active_page == 'alerts' %}aria-current="page"{% endif %}
      class="{{ base }} {{ on if active_page == 'alerts' else off }}">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 {{ '' if active_page == 'alerts' else 'text-slate-400 group-hover:text-white' }}" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 2L1 21H23M12 6L19.53 19H4.47M11 10V14H13V10M11 16V18H13V16Z"/>
     </svg>
     Alerts

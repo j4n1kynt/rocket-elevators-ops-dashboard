@@ -1,58 +1,89 @@
-<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-  <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Fleet Health</p>
+{#
+  Fleet Health panel (AND-104 Feature 3). Loaded via HTMX on page load from the
+  Go API /api/fleet/stats. Pure-CSS conic-gradient donut (NO JavaScript) on the
+  left; risk legend + inspection pass rate on the right.
 
-  <div class="flex flex-col sm:flex-row items-center gap-6">
+  Design — "The Instrument Panel": the donut is the gauge, the legend is the
+  readout. Donut and legend share a baseline; counts are mono and right-aligned in
+  a tabular column so they scan like instrument values. Inspection Pass Rate is
+  lifted into its own key-figure block — a large mono readout, the second focal
+  point of the panel after the device total in the donut hole.
+#}
+<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+  <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-5">Fleet Health</p>
+
+  <div class="flex flex-col sm:flex-row items-center sm:items-stretch gap-6">
 
     <!--
       Risk distribution donut — CSS conic-gradient, no JavaScript (spec Feature 3).
       The gradient stops are computed server-side so segments always total 100%.
-      The center hole (inset white circle) carries the total device count.
+      The center hole (inset white circle) carries the total device count in mono.
     -->
-    <div class="relative w-32 h-32 shrink-0 rounded-full"
-         style="background: conic-gradient({{ donut_gradient }});"
-         role="img"
-         aria-label="Risk distribution: {{ low_pct }}% low, {{ medium_pct }}% medium, {{ high_pct }}% high, {{ unknown_pct }}% no prediction">
-      <div class="absolute inset-[14px] bg-white rounded-full flex flex-col items-center justify-center">
-        <p class="readout text-xl font-bold text-slate-800 leading-none">{{ "{:,}".format(total) }}</p>
-        <p class="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Devices</p>
+    <div class="flex flex-col items-center justify-center shrink-0">
+      <div class="relative w-32 h-32 rounded-full"
+           style="background: conic-gradient({{ donut_gradient }});"
+           role="img"
+           aria-label="Risk distribution: {{ low_pct }}% low, {{ medium_pct }}% medium, {{ high_pct }}% high, {{ unknown_pct }}% no prediction">
+        <div class="absolute inset-[14px] bg-white rounded-full flex flex-col items-center justify-center">
+          <p class="readout text-2xl font-bold text-slate-800 leading-none">{{ "{:,}".format(total) }}</p>
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-1">Devices</p>
+        </div>
       </div>
     </div>
 
-    <!-- Legend — one row per risk level + inspection pass rate -->
-    <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+    <!-- Right column: risk legend, then the pass-rate key figure -->
+    <div class="flex-1 w-full flex flex-col">
 
-      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
-        <span class="flex items-center gap-2 text-sm text-slate-600">
-          <span class="w-2.5 h-2.5 rounded-full bg-green-600 shrink-0"></span> Low Risk
-        </span>
-        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(low) }}</span> <span class="text-xs text-slate-400">{{ low_pct }}%</span></span>
-      </div>
+      <!-- Legend — one row per risk level; mono counts in a right-aligned tabular column -->
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Distribution</p>
+      <ul class="divide-y divide-slate-100">
 
-      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
-        <span class="flex items-center gap-2 text-sm text-slate-600">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0"></span> Medium Risk
-        </span>
-        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(medium) }}</span> <span class="text-xs text-slate-400">{{ medium_pct }}%</span></span>
-      </div>
+        <li class="flex items-center justify-between gap-3 py-2">
+          <span class="flex items-center gap-2.5 text-sm text-slate-700">
+            <span class="w-2.5 h-2.5 rounded-full bg-green-600 shrink-0" aria-hidden="true"></span> Low Risk
+          </span>
+          <span class="whitespace-nowrap tabular-nums">
+            <span class="readout text-sm font-semibold text-slate-800">{{ "{:,}".format(low) }}</span>
+            <span class="readout text-xs text-slate-500 ml-1">{{ low_pct }}%</span>
+          </span>
+        </li>
 
-      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
-        <span class="flex items-center gap-2 text-sm text-slate-600">
-          <span class="w-2.5 h-2.5 rounded-full bg-red-600 shrink-0"></span> High Risk
-        </span>
-        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(high) }}</span> <span class="text-xs text-slate-400">{{ high_pct }}%</span></span>
-      </div>
+        <li class="flex items-center justify-between gap-3 py-2">
+          <span class="flex items-center gap-2.5 text-sm text-slate-700">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0" aria-hidden="true"></span> Medium Risk
+          </span>
+          <span class="whitespace-nowrap tabular-nums">
+            <span class="readout text-sm font-semibold text-slate-800">{{ "{:,}".format(medium) }}</span>
+            <span class="readout text-xs text-slate-500 ml-1">{{ medium_pct }}%</span>
+          </span>
+        </li>
 
-      <div class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50">
-        <span class="flex items-center gap-2 text-sm text-slate-600">
-          <span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span> No Prediction
-        </span>
-        <span class="whitespace-nowrap"><span class="readout text-sm font-semibold text-slate-700">{{ "{:,}".format(unknown) }}</span> <span class="text-xs text-slate-400">{{ unknown_pct }}%</span></span>
-      </div>
+        <li class="flex items-center justify-between gap-3 py-2">
+          <span class="flex items-center gap-2.5 text-sm text-slate-700">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-600 shrink-0" aria-hidden="true"></span> High Risk
+          </span>
+          <span class="whitespace-nowrap tabular-nums">
+            <span class="readout text-sm font-semibold text-slate-800">{{ "{:,}".format(high) }}</span>
+            <span class="readout text-xs text-slate-500 ml-1">{{ high_pct }}%</span>
+          </span>
+        </li>
 
-      <!-- Inspection pass rate — spans the full legend width -->
-      <div class="sm:col-span-2 flex items-center justify-between pt-2.5 mt-1.5 border-t border-slate-200">
-        <span class="text-sm font-medium text-slate-700">Inspection Pass Rate</span>
-        <span class="readout text-lg font-bold text-slate-800">{{ pass_rate }}%</span>
+        <li class="flex items-center justify-between gap-3 py-2">
+          <span class="flex items-center gap-2.5 text-sm text-slate-700">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" aria-hidden="true"></span> No Prediction
+          </span>
+          <span class="whitespace-nowrap tabular-nums">
+            <span class="readout text-sm font-semibold text-slate-800">{{ "{:,}".format(unknown) }}</span>
+            <span class="readout text-xs text-slate-500 ml-1">{{ unknown_pct }}%</span>
+          </span>
+        </li>
+
+      </ul>
+
+      <!-- Inspection Pass Rate — the second key figure; large mono readout -->
+      <div class="flex items-center justify-between gap-3 mt-auto pt-3 border-t border-slate-200">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Inspection Pass Rate</span>
+        <span class="readout text-2xl font-bold text-slate-800 leading-none">{{ pass_rate }}%</span>
       </div>
 
     </div>

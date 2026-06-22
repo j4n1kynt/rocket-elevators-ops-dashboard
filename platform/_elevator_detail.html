@@ -1,69 +1,80 @@
-<div class="p-5">
+<div class="flex flex-col h-full">
 
-  <div class="flex justify-end mb-2">
+  <!-- Close row -->
+  <div class="flex items-center justify-between px-5 pt-5 pb-3">
+    <p class="text-xs font-semibold uppercase tracking-widest text-slate-400">Elevator</p>
     <button hx-delete="/elevator/{{ elevator_id }}"
             hx-target="#elevatorPanel"
             hx-swap="innerHTML"
-            class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
+            class="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer leading-none"
+            aria-label="Close detail panel">✕</button>
   </div>
 
-  <!-- Header: Elevator ID + Status badge (spec Panel layout §1) -->
-  <div class="mb-4">
-    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Elevator</p>
-    <p class="readout text-2xl font-bold text-slate-800">#{{ elevator_id }}</p>
+  <!-- Header: ID + Status badge -->
+  <div class="px-5 pb-5 border-b border-slate-200">
+    <p class="readout text-3xl font-bold text-slate-900 tracking-tight leading-none mb-3">#{{ elevator_id }}</p>
     {% set s = status %}
     {% if s == 'ACTIVE' %}
-      <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ s }}</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ s }}</span>
     {% elif s == 'BY REQUEST' %}
-      <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ s }}</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ s }}</span>
     {% else %}
-      <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ s }}</span>
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ s }}</span>
     {% endif %}
   </div>
 
   <!-- Location -->
-  <div class="mb-4 pb-4 border-b border-slate-100">
-    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Location</p>
-    <p class="text-sm text-slate-700">{{ location or '—' }}</p>
+  <div class="px-5 py-5 border-b border-slate-200">
+    <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Location</p>
+    <p class="text-sm text-slate-700 leading-snug">{{ location or '—' }}</p>
   </div>
 
-  <!-- Summary counts: incident + alteration (spec: single-value display) -->
-  <div class="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-slate-100">
-    <div class="bg-slate-50 rounded p-3">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Incidents</p>
-      <p class="readout text-xl font-bold text-slate-800">{{ incident_count }}</p>
-    </div>
-    <div class="bg-slate-50 rounded p-3">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Alterations</p>
-      <p class="readout text-xl font-bold text-slate-800">{{ alteration_count }}</p>
+  <!-- Summary counts: incident + alteration -->
+  <div class="px-5 py-5 border-b border-slate-200">
+    <div class="grid grid-cols-2 gap-3">
+      <div class="border border-slate-200 rounded-lg p-3">
+        <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Incidents</p>
+        <p class="readout text-xl font-bold text-slate-900">{{ incident_count }}</p>
+      </div>
+      <div class="border border-slate-200 rounded-lg p-3">
+        <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Alterations</p>
+        <p class="readout text-xl font-bold text-slate-900">{{ alteration_count }}</p>
+      </div>
     </div>
   </div>
 
-  <!-- Risk Assessment (AND-104 Task 8 — from Go API /api/elevators/{id}/risk) -->
-  <div class="mb-4 pb-4 border-b border-slate-100">
-    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Risk Assessment</p>
+  <!-- Risk Assessment (AND-104 Feature 5) -->
+  <div class="px-5 py-5 border-b border-slate-200">
+    <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Risk Assessment</p>
     {% if risk_data %}
       {% set r = risk_data.get('risk_level', '') %}
-      <div class="flex items-center gap-2 mb-1">
-        {% if r == 'HIGH' %}
-          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">HIGH</span>
-        {% elif r == 'MEDIUM' %}
-          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">MEDIUM</span>
-        {% elif r == 'LOW' %}
-          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">LOW</span>
-        {% endif %}
-        <span class="text-sm text-slate-700">Score: {{ "%.2f"|format(risk_data.get('risk_score', 0)) }}</span>
+      <div class="flex items-start gap-3">
+        <!-- Badge column -->
+        <div class="pt-0.5">
+          {% if r == 'HIGH' %}
+            <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">HIGH</span>
+          {% elif r == 'MEDIUM' %}
+            <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">MEDIUM</span>
+          {% elif r == 'LOW' %}
+            <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">LOW</span>
+          {% else %}
+            <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500 ring-1 ring-slate-200">—</span>
+          {% endif %}
+        </div>
+        <!-- Readout column -->
+        <div class="flex flex-col gap-0.5">
+          <p class="readout text-xs text-slate-700">Score: {{ "%.2f"|format(risk_data.get('risk_score', 0)) }}</p>
+          <p class="readout text-xs text-slate-500">Confidence: {{ "%.0f"|format(risk_data.get('confidence', 0) * 100) }}%</p>
+          {% if risk_data.get('predicted_failure_date') %}
+          <p class="readout text-xs text-slate-500">Predicted failure: {{ risk_data['predicted_failure_date'] }}</p>
+          {% endif %}
+        </div>
       </div>
-      <p class="text-xs text-slate-500">Confidence: {{ "%.0f"|format(risk_data.get('confidence', 0) * 100) }}%</p>
-      {% if risk_data.get('predicted_failure_date') %}
-      <p class="text-xs text-slate-500 mt-0.5">Predicted failure: {{ risk_data['predicted_failure_date'] }}</p>
-      {% endif %}
     {% else %}
       {% if 'No prediction' in (risk_message or '') %}
-        {# Matches the "No Prediction" category on the Overview fleet-health panel #}
         <div class="flex items-center gap-2">
           <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500 ring-1 ring-slate-200">No Prediction</span>
-          <span class="text-xs text-slate-500">No risk model output for this device yet.</span>
+          <p class="text-xs text-slate-500">No risk model output for this device yet.</p>
         </div>
       {% else %}
         <p class="text-xs text-slate-500">{{ risk_message or 'Risk data unavailable.' }}</p>
@@ -71,37 +82,39 @@
     {% endif %}
   </div>
 
-  <!-- Inspection history: Date + Outcome, most recent first (spec Panel layout §1) -->
-  <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Inspection History</p>
+  <!-- Inspection History -->
+  <div class="px-5 py-5 flex-1 min-h-0">
+    <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Inspection History</p>
     {% if inspections %}
-    <table class="w-full text-xs">
-      <thead>
-        <tr class="border-b border-slate-100">
-          <th class="pb-1.5 text-left font-semibold text-slate-400">Date</th>
-          <th class="pb-1.5 text-left font-semibold text-slate-400">Outcome</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-50">
-        {% for row in inspections %}
-        <tr>
-          {# §4.5 — same overdue rule as the table: blank or > 1 year → red text #}
-          <td class="py-1.5 whitespace-nowrap {{ 'text-red-600 font-medium' if is_overdue(row['Latest_INSPECTION_Date']) else 'text-slate-600' }}">{{ row["Latest_INSPECTION_Date"] or '—' }}</td>
-          {# §4.6 — same outcome badge as detail table #}
-          {% set o = row["InspectionOutcome"] %}
-          {% if 'Passed' in o %}
-            <td class="py-1.5"><span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ o }}</span></td>
-          {% elif 'Follow up' in o %}
-            <td class="py-1.5"><span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ o }}</span></td>
-          {% elif 'Fail' in o %}
-            <td class="py-1.5"><span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ o }}</span></td>
-          {% else %}
-            <td class="py-1.5 text-slate-700">{{ o or '—' }}</td>
-          {% endif %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="overflow-y-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="border-b border-slate-200">
+            <th class="pb-2 text-left text-xs font-semibold uppercase tracking-widest text-slate-400 w-1/2">Date</th>
+            <th class="pb-2 text-left text-xs font-semibold uppercase tracking-widest text-slate-400">Outcome</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for row in inspections %}
+          <tr>
+            {# §4.5 — blank or > 1 year → red text #}
+            <td class="py-2 readout text-xs whitespace-nowrap {{ 'text-red-600 font-medium' if is_overdue(row['Latest_INSPECTION_Date']) else 'text-slate-700' }}">{{ row["Latest_INSPECTION_Date"] or '—' }}</td>
+            {# §4.6 — outcome badge matching table scheme #}
+            {% set o = row["InspectionOutcome"] %}
+            {% if 'Passed' in o %}
+              <td class="py-2"><span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 ring-1 ring-green-200">{{ o }}</span></td>
+            {% elif 'Follow up' in o %}
+              <td class="py-2"><span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 ring-1 ring-amber-200">{{ o }}</span></td>
+            {% elif 'Fail' in o %}
+              <td class="py-2"><span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-200">{{ o }}</span></td>
+            {% else %}
+              <td class="py-2 text-xs text-slate-500">{{ o or '—' }}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% else %}
     <div class="flex flex-col items-center justify-center text-center py-6">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-slate-300 mb-2" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
