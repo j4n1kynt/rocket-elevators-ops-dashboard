@@ -139,6 +139,37 @@ A new file `platform/api/agents.go` contains the four agent functions. Each matc
 
 ---
 
+### 5. Per-agent system prompts
+
+The monolithic Sprint 2 system prompt (`prompts/system_prompt.md`, embedded as `systemPromptBase`) was replaced by four focused prompts — one per agent. Each prompt is a separate file in `platform/api/prompts/`, embedded at build time with `//go:embed`.
+
+| File | Agent | Scope |
+|---|---|---|
+| `general_prompt.md` | `generalAgent` | Advisory and regulatory. No live data access. Domain knowledge: Ontario TSSA regulations, device types, risk classification, maintenance terminology. |
+| `data_prompt.md` | `dataAgent` | Live fleet data only. Attribution rules, risk data rules (`elevator_found`, `prediction_found`, `risk_explanation` handling). Hard limit: no scheduling. |
+| `knowledge_prompt.md` | `knowledgeAgent` | Maintenance manuals and incident narratives. Source citation rules (`source_name`). Hard limit: no live data lookups. |
+| `scheduling_prompt.md` | `schedulingAgent` | Two-phase confirmation flow. Action tag handling (`[ACTION CANCELLED]`, `[ACTION VALIDATION ERROR]`, `[ACTION NEEDS MORE INFO]`). Hard limit: no data lookups, confirmation required before any write. |
+
+**What changed in `buildReply`:** the signature gained a `systemPrompt string` parameter instead of always reading `systemPromptBase`. Each agent passes its own prompt variable. The rest of `buildReply` (data context injection, message assembly, LLM call) is unchanged.
+
+`systemPromptBase` is retained in `chat.go` but is no longer used by any agent.
+
+---
+
+### 6. Frontend contract verification
+
+After the `PostChat` refactor, the JSON shapes were verified end-to-end to confirm the frontend still works without changes.
+
+**Request shape** — `server.py` builds `api_payload` with three keys: `message`, `history`, and `pending_action` (only when non-null). These map exactly to the `ChatRequest` struct fields in `models.go`.
+
+**Response shape** — `server.py` reads `data.get("reply")`, `data.get("history")`, and `data.get("pending_action")` from the Go API response. These map exactly to the `json:"reply"`, `json:"history"`, and `json:"pending_action,omitempty"` tags on `ChatResponse`.
+
+**Template** — `_chat_reply.html` receives `reply_html` (rendered from `reply`), `history` (re-serialised to JSON for the hidden form field), and `pending_action` (also re-serialised). It writes these back into two OOB hidden fields (`chatHistory` and `chatPendingAction`) that HTMX echoes on the next request.
+
+Nothing changed — `PostChat` still calls `writeJSON(w, 200, ChatResponse{Reply, History, PendingAction})`, and that has been the shape since before the refactor. The verification confirmed there are no regressions.
+
+---
+
 ## What is still pending in S3-2
 
 S3-2 is complete. The following cards are now unblocked:

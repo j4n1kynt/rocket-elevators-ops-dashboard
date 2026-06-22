@@ -8,8 +8,8 @@ import (
 
 // buildReply assembles the message list and calls the LLM. Returns the reply
 // text or a plain-language error string — never a Go error (§4.3).
-func buildReply(ctx context.Context, dataContext string, history []ChatMessage, msg string) string {
-	systemContent := systemPromptBase
+func buildReply(ctx context.Context, systemPrompt string, dataContext string, history []ChatMessage, msg string) string {
+	systemContent := systemPrompt
 	if dataContext != "" {
 		systemContent += "\n\n## Live Data Context\n" + dataContext
 	}
@@ -54,7 +54,7 @@ func generalAgent(ctx context.Context, req AgentRequest) AgentResponse {
 		}
 	}
 
-	reply := buildReply(ctx, dataContext, req.History, req.Message)
+	reply := buildReply(ctx, generalPrompt, dataContext, req.History, req.Message)
 	return AgentResponse{
 		AgentName:      "general",
 		Reply:          reply,
@@ -80,7 +80,7 @@ func dataAgent(ctx context.Context, req AgentRequest) AgentResponse {
 		dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
 	}
 
-	reply := buildReply(ctx, dataContext, req.History, req.Message)
+	reply := buildReply(ctx, dataPrompt, dataContext, req.History, req.Message)
 	return AgentResponse{
 		AgentName:      "data",
 		Reply:          reply,
@@ -106,7 +106,7 @@ func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
 		dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
 	}
 
-	reply := buildReply(ctx, dataContext, req.History, req.Message)
+	reply := buildReply(ctx, knowledgePrompt, dataContext, req.History, req.Message)
 	return AgentResponse{
 		AgentName:      "knowledge",
 		Reply:          reply,
@@ -247,7 +247,7 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 		}
 	}
 
-	reply := buildReply(ctx, dataContext, req.History, req.Message)
+	reply := buildReply(ctx, schedulingPrompt, dataContext, req.History, req.Message)
 	return AgentResponse{
 		AgentName:      "scheduling",
 		Reply:          reply,

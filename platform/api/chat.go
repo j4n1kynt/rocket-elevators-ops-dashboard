@@ -20,12 +20,23 @@ import (
 	"time"
 )
 
-// systemPromptBase is the OpsBot system prompt (PROMPT-1 / EVAL-1 deliverable),
-// embedded at build time. The Dockerfile must COPY platform/api/prompts so this
-// file is present during `go build`.
+// systemPromptBase is the original monolithic OpsBot prompt (PROMPT-1 / EVAL-1).
+// Retained for reference; agents now use the focused prompts below.
 //
 //go:embed prompts/system_prompt.md
 var systemPromptBase string
+
+//go:embed prompts/general_prompt.md
+var generalPrompt string
+
+//go:embed prompts/data_prompt.md
+var dataPrompt string
+
+//go:embed prompts/knowledge_prompt.md
+var knowledgePrompt string
+
+//go:embed prompts/scheduling_prompt.md
+var schedulingPrompt string
 
 func getOllamaBaseURL() string {
 	if v := os.Getenv("OLLAMA_BASE_URL"); v != "" {
