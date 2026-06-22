@@ -50,7 +50,7 @@ func generalAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			log.Printf("[general] rag fallback returned error payload — staying advisory")
 		} else if hasConfidentResults(result) {
 			log.Printf("[general] rag fallback matched maintenance docs")
-			dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+			dataContext = "[DATA SOURCE: maintenance documentation]\n" + result
 		}
 	}
 
@@ -103,7 +103,7 @@ func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	} else if isToolError(result) {
 		log.Printf("[knowledge] mcp tool %s returned error payload — falling back to advisory", toolName)
 	} else {
-		dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+		dataContext = "[DATA SOURCE: maintenance documentation]\n" + result
 	}
 
 	reply := buildReply(ctx, knowledgePrompt, dataContext, req.History, req.Message)
@@ -215,7 +215,7 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 					log.Printf("[scheduling] abandoned rag fallback returned error payload — staying advisory")
 				} else if hasConfidentResults(result) {
 					log.Printf("[scheduling] abandoned rag fallback matched maintenance docs")
-					dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+					dataContext = "[DATA SOURCE: maintenance documentation]\n" + result
 				}
 			}
 		}
