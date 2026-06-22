@@ -5,9 +5,25 @@
 
 ---
 
+## 0. Execution Model
+
+**All agents use the deterministic inject-and-answer pattern from Sprint 2. No agent uses model-native tool-calling.**
+
+The pipeline per request:
+1. Router classifies intent via `intent.go` (keyword-based, no LLM call) → selects agent
+2. Agent's Go handler calls its allowed MCP tool(s) directly (not via the model)
+3. Tool results are injected into the system prompt as a `## Live Data Context` block
+4. One LLM call is made — the model receives context + user message and returns a formatted answer
+
+The model never selects tools or extracts arguments. "Tool access" in this document means the Go handler for that agent is permitted to call those MCP tools — not that the model calls them natively.
+
+**Consequence for model selection:** Since models never invoke tools, the only criterion is response quality when given injected context. All agents receive plain text context and return plain text answers. The no-tool tests (T1) are the valid benchmark; T2/T3 (native tool-call latency tests) do not represent production behavior and are retained for documentation only.
+
+---
+
 ## 1. Agents
 
-The chatbot dispatches each incoming message to one of four specialized agents. Each agent has a focused system prompt and access only to the MCP tools it needs.
+The chatbot dispatches each incoming message to one of four specialized agents. Each agent has a focused system prompt and access only to the MCP tools its Go handler may call.
 
 ### 1.1 General Agent
 
@@ -35,11 +51,11 @@ The chatbot dispatches each incoming message to one of four specialized agents. 
 | **Responsibility** | Fleet statistics, elevator lookups, inspection history, incident reports, and risk predictions |
 | **Allowed tools** | `get_fleet_stats`, `get_inspection_history`, `get_elevator_risk`, `get_elevator_incidents`, `get_elevators_needing_followup`, `get_tssa_shutdown_elevators`, `get_incident_count_last_year` |
 | **Forbidden tools** | `search_maintenance_docs`, `search_incident_narratives`, `schedule_inspection` |
-| **Model** | `gemma4:31b` (Ollama cloud) |
-| **Why this model** | Tested: tool call in 0.5s — 4× faster than `minimax-m2.5` (2.2s). Correct argument extraction (`elevator_id=4821`), correct TSSA definition, free tier. Best tool-call latency of all tested models. |
+| **Model** | `minimax-m2.5` (Ollama cloud) |
+| **Why this model** | Agents use the inject-and-answer pattern — the model never calls tools natively. The criterion is no-tool response quality: `minimax-m2.5` is the fastest accurate free-tier model at 2.7s. |
 
 **Example queries:**
-- "Show the inspection history for elevator E12345."
+- "Show the inspection history for elevator 12345."
 - "What elevators are currently flagged for TSSA shutdown?"
 - "What is the risk level of elevator 9876?"
 - "How many incidents happened in the last year?"
@@ -73,13 +89,13 @@ The chatbot dispatches each incoming message to one of four specialized agents. 
 | **Responsibility** | Inspection scheduling requests — Phase 1 preview and Phase 2 confirmed write |
 | **Allowed tools** | `schedule_inspection` (Phase 1: confirmed=false; Phase 2: confirmed=true) |
 | **Forbidden tools** | All data tools, all knowledge tools |
-| **Model** | `gemma4:31b` (Ollama cloud) |
-| **Why this model** | Tested: 1.9s scheduling call, `confirmed=False`, all parameters correctly extracted. Fastest scheduling model tested. Free tier. The two-phase flow needs reliable parameter extraction — `gemma4:31b` is both the most accurate and fastest for this. |
+| **Model** | `minimax-m2.5` (Ollama cloud) |
+| **Why this model** | Agents use the inject-and-answer pattern. The Go handler calls `schedule_inspection`, injects the result, and the model formats the confirmation prompt or outcome. No-tool quality is the criterion; `minimax-m2.5` leads free-tier candidates. |
 
 **Example queries:**
-- "Schedule an inspection for elevator E12345 on 2026-07-15."
-- "Book a periodic inspection for E9876 next Monday."
-- "I need a followup inspection for elevator 4421 — it failed last week."
+- "Schedule an inspection for elevator 12345 on 2026-07-15."
+- "Book a periodic inspection for elevator 98765 next Monday."
+- "I need a followup inspection for elevator 44210 — it failed last week."
 - "Cancel that" (cancellation during Phase 1)
 - "Yes, confirm." (confirmation during Phase 2)
 
@@ -91,33 +107,38 @@ The router lives in `platform/api/router.go`. It classifies each incoming messag
 
 ### 2.1 Classification method
 
-The router extends the existing keyword-based classifier in `intent.go`. No additional LLM call is made for routing. This keeps routing latency at zero and makes routing behavior predictable and testable.
+The router wraps the existing `ClassifyIntent` + `routeIntent` functions in `intent.go` — it does **not** reimplement them. `router.go` calls `ClassifyIntent`, receives a `Classification` (intent + confidence + extracted entities), and maps the result to an agent. No additional LLM call is made.
 
-**Mapping from existing intent to agent:**
+`intent.go` already handles:
+- Keyword scoring and intent selection (`advisory`, `data_query`, `rag`, `action`)
+- Confidence fallback: any operational intent below `ConfidenceFloor` (0.6) downgrades to `advisory`
+- Entity extraction: numeric elevator IDs only (5–8 digits, e.g. `4821`). The `E`-prefix format (`E12345`) is **not** recognized — ID examples throughout this doc use numeric-only format
 
-| `intent.go` output | Agent |
+`router.go` maps `routeIntent` targets to agents:
+
+| `routeIntent` target | Agent |
 |---|---|
-| `action` | Scheduling agent |
-| `data_query` | Data agent |
-| `rag` | Knowledge agent |
+| `action_executor` | Scheduling agent |
+| `mcp_data_tool` | Data agent |
+| `rag_search` | Knowledge agent |
 | `advisory` | General agent |
 
 ### 2.2 Scheduling pre-emption
 
-If the request carries a non-empty `pending_action` field, the router sends the message directly to the scheduling agent regardless of intent classification. This ensures Phase 2 confirmation messages are never misclassified.
+If the request carries a non-empty `pending_action` field, the router sends the message directly to the scheduling agent **before** calling `ClassifyIntent`. The scheduling agent then runs `verifyPendingAction` (HMAC signature check) and `ExpiresAt` expiry check before any Phase 2 write — these Sprint-2 security checks are preserved unchanged. If the user sends an unrelated message while a `pending_action` is set, the scheduling agent treats it as a non-confirmation and abandons the pending state without writing.
 
 ### 2.3 Ambiguity fallback
 
-If the classifier returns low confidence or the message does not match any keyword group, the router falls back to the general agent. The router never guesses or splits a message across agents.
+`intent.go` already handles this via `ConfidenceFloor`: any intent below 0.6 returns `advisory`, which routes to the general agent. `router.go` inherits this behavior by calling the existing classifier — no new fallback logic needed.
 
 ### 2.4 Classification signals
 
 | Signal | Routes to |
 |---|---|
-| Elevator ID pattern (e.g. `E12345`, numeric ID), "inspection history", "risk", "incident", "fleet", "shutdown", "stats" | Data agent |
+| Numeric elevator ID (5–8 digits), "inspection history", "risk", "incident", "fleet", "shutdown", "stats" | Data agent |
 | "schedule", "book", "arrange", "inspection request", "set up an inspection" | Scheduling agent |
-| "how", "procedure", "manual", "maintenance", "regulation", "TSSA requirement", "what causes", "past incidents" (procedural phrasing) | Knowledge agent |
-| "what does X stand for", "what is", "define", greetings, everything else | General agent |
+| "how", "procedure", "manual", "maintenance", "regulation", "TSSA requirement", "what causes", "past incidents" | Knowledge agent |
+| Everything else (below confidence floor or `advisory` intent) | General agent |
 
 ---
 
@@ -311,6 +332,10 @@ type AgentResponse struct {
 
 If the agent encounters an unrecoverable error (MCP unreachable, LLM failure, invalid tool output), it returns an `AgentResponse` with a populated `Reply` containing a plain-language explanation and a nil `PendingAction`. It does not return a Go error to the router — the caller always gets a response.
 
+### 4.4 Provider API note (implementation cost for S3-2)
+
+The current `callLLM` in `chat.go` targets the OpenAI-compatible `/chat/completions` shape (OpenRouter). Ollama cloud uses the native Ollama format at `https://ollama.com/api/chat` — a different request/response envelope and tool-call structure. `callLLM` and its request/response structs must be rewritten in S3-2. The env var `OPENROUTER_API_KEY` is replaced by `OLLAMA_API_KEY`.
+
 ---
 
 ## 5. Model Selection
@@ -321,46 +346,54 @@ All agents use Ollama cloud models via the hosted API at `https://ollama.com/api
 
 ### 5.2 Model assignments
 
+All agents use the same model. Because the production pipeline is inject-and-answer (no native tool-calling), the only criterion is no-tool response quality. A single model eliminates split-config complexity.
+
 | Agent | Model | Rationale |
 |---|---|---|
 | Router | No model — keyword classifier | Zero latency, deterministic, testable |
-| General | `minimax-m2.5` | Tested: 2.7s no-tool, correct factual answers, free tier |
-| Knowledge | `minimax-m2.5` | Tested: 2.7s no-tool; quality comes from RAG chunks, speed is the priority |
-| Data | `gemma4:31b` | Tested: 0.5s tool call — 4× faster than next best; correct args; free tier |
-| Scheduling | `gemma4:31b` | Tested: 1.9s, confirmed=false respected, all params extracted correctly |
+| General | `minimax-m2.5` | Fastest accurate free-tier model on T1 (2.7s, correct TSSA definition) |
+| Knowledge | `minimax-m2.5` | Same — RAG quality comes from retrieved chunks, model formats the answer |
+| Data | `minimax-m2.5` | Same — Go handler calls data tools, model formats the injected result |
+| Scheduling | `minimax-m2.5` | Same — Go handler calls schedule_inspection, model formats confirmation prompt |
 
 ### 5.3 Test results (validated against Ollama cloud API)
 
-All tests run against `https://ollama.com/api/chat`. Three test scenarios per model:
-- **T1**: No-tool question ("What does TSSA stand for and what is its role?") — tests factual accuracy and no-tool latency
-- **T2**: Data tool call (`get_elevator_risk`, elevator 4821) — tests tool calling accuracy and latency
-- **T3**: Scheduling Phase 1 (`schedule_inspection`, confirmed=false) — tests parameter extraction and Phase 1 compliance
+Tests run against `https://ollama.com/api/chat` (n=1 per cell, single-threaded, shared cloud infra — see methodology note below).
 
-| Model | T1 accuracy | T1 speed | T2 tool call | T2 speed | T3 Phase 1 | T3 speed | Free tier |
+**Test scenarios:**
+- **T1 (production-representative):** No-tool question — "What does TSSA stand for and what is its role?" Tests factual accuracy and no-tool latency. This is the valid benchmark because agents use inject-and-answer.
+- **T2 (informational only):** Native data tool call (`get_elevator_risk`, elevator 4821). Not representative of production behavior — included for reference.
+- **T3 (informational only):** Native scheduling tool call (`schedule_inspection`, confirmed=false). Not representative of production behavior — included for reference.
+
+| Model | T1 accuracy | T1 speed | T2 (native) | T2 speed | T3 (native) | T3 speed | Free tier |
 |---|---|---|---|---|---|---|---|
-| `minimax-m2.5` | ✅ correct | 2.7s | ✅ | 2.2s | ✅ confirmed=false | 4.1s | ✅ |
-| `gemma4:31b` | ✅ correct | 4.8s | ✅ | **0.5s** | ✅ confirmed=false | **1.9s** | ✅ |
-| `ministral-3:8b` | ❌ hallucinates then self-corrects | 6.1s | ✅ | 0.7s | ✅ confirmed=false | 1.0s | ✅ |
+| `minimax-m2.5` ✅ | ✅ correct | **2.7s** | ✅ | 2.2s | ✅ confirmed=false | 4.1s | ✅ |
+| `gemma4:31b` | ✅ correct | 4.8s | ✅ | 0.5s | ✅ confirmed=false | 1.9s | ✅ |
+| `ministral-3:8b` | ❌ hallucinates, self-corrects | 6.1s | ✅ | 0.7s | ✅ confirmed=false | 1.0s | ✅ |
 | `gpt-oss:20b` | ❌ wrong domain (commercial vehicles) | 8.5s | ✅ | 1.9s | ✅ confirmed=false | 2.5s | ✅ |
-| `glm-4.7` | ✅ correct | 20.8s ❌ | ✅ | 3.5s | ✅ confirmed=false | 5.9s | ✅ |
-| `minimax-m2.1` | ❌ wrong acronym expansion | 8.0s | untested | — | untested | — | ✅ |
-| `minimax-m3` | ✅ correct | 14.8s ❌ | untested | — | untested | — | ✅ |
+| `glm-4.7` | ✅ correct | 20.8s | ✅ | 3.5s | ✅ confirmed=false | 5.9s | ✅ |
+| `minimax-m2.1` | ❌ wrong acronym | 8.0s | untested | — | untested | — | ✅ |
+| `minimax-m3` | ✅ correct | 14.8s | untested | — | untested | — | ✅ |
 | `deepseek-v4-flash` | untested | — | untested | — | untested | — | ❌ subscription |
 | `deepseek-v3.2` | untested | — | untested | — | untested | — | ❌ subscription |
 | `gemini-3-flash-preview` | untested | — | untested | — | untested | — | ❌ subscription |
 | `glm-5.1` | untested | — | untested | — | untested | — | ❌ subscription |
 
+**Methodology note:** All latency figures are single-run on shared Ollama cloud infrastructure. Sub-second differences and outliers (e.g. `glm-4.7` at 20.8s) may reflect cold starts or scheduling variance rather than inherent model latency. Results are sufficient to filter factually incorrect models and identify clear outliers, but are not a rigorous benchmark. The warm-up request and ~300s+ timeouts from Sprint 2 are retained until cold-start behavior under `minimax-m2.5` is validated in production.
+
+**Free-tier caveat:** `minimax-m2.5` is available on the Ollama free tier at time of testing. Rate limits and usage quotas were not measured. If the free tier proves insufficient at production load, the next candidate is `gemma4:31b` (also free tier, T1-accurate at 4.8s).
+
 ### 5.4 Tradeoffs considered
 
 | Option | Tradeoff | Decision |
 |---|---|---|
-| Single model (`minimax-m2.5`) for all agents | Simplest config; 2.2s tool calls | Revised after testing — `gemma4:31b` is 4× faster on tool paths |
-| Single model (`gemma4:31b`) for all agents | Fastest tool calls; 4.8s no-tool | Rejected — `minimax-m2.5` is 2× faster for no-tool agents |
-| **Two-model split** (minimax no-tool, gemma tool) | Slightly more config; best latency per path | **Chosen** — evidence justifies the split |
-| `ministral-3:8b` for tool agents | Fast tool calls (0.7s); factual errors on no-tool | Rejected — factual errors disqualify it for any agent role |
-| `gpt-oss:20b` | Fast; wrong domain knowledge | Rejected — confused TSSA with commercial vehicle regulator |
-| LLM-based router | More accurate classification; adds 2–4s per message | Rejected — keyword classifier is free and deterministic |
-| OpenRouter (previous provider) | Wide selection; free tier has rate limits, 300s+ cold starts | Replaced — Ollama cloud is consistent with no cold starts observed |
+| **Single model `minimax-m2.5`** | Simplest config; best no-tool latency (2.7s); correct domain knowledge | **Chosen** — inject-and-answer makes no-tool quality the only criterion |
+| Two-model split (`minimax-m2.5` + `gemma4:31b`) | Faster native tool calls; not applicable to production pipeline | Rejected — split was justified by T2/T3 which do not represent production behavior |
+| Single model `gemma4:31b` | Correct; 4.8s on T1 | Rejected — slower than `minimax-m2.5` on the valid benchmark |
+| `ministral-3:8b` | Fast; factual errors on domain knowledge | Rejected — factual errors disqualify for any agent role |
+| `gpt-oss:20b` | Fast; wrong domain (confused TSSA with commercial vehicle regulator) | Rejected — domain confusion is a hard disqualifier |
+| LLM-based router | More accurate classification; adds 2–4s per message | Rejected — keyword classifier is deterministic and free |
+| OpenRouter (previous provider) | Wide selection; free tier has rate limits and 300s+ cold starts | Replaced — Ollama cloud is the agreed provider for Sprint 3 |
 
 ---
 
