@@ -118,3 +118,17 @@ type ChatResponse struct {
 	History       []ChatMessage  `json:"history"`
 	PendingAction *PendingAction `json:"pending_action,omitempty"`
 }
+
+type AgentRequest struct {
+	Message       string
+	History       []ChatMessage
+	PendingAction *PendingAction
+	AllowedTools  []string
+}
+
+type AgentResponse struct {
+	Reply          string
+	AgentName      string
+	PendingAction  *PendingAction
+	UpdatedHistory []ChatMessage
+}
