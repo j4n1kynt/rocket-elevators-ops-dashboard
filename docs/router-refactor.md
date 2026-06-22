@@ -156,7 +156,24 @@ The monolithic Sprint 2 system prompt (`prompts/system_prompt.md`, embedded as `
 
 ---
 
-### 6. Frontend contract verification
+### 6. DATA SOURCE tag corrections
+
+Three agent code paths were emitting `[DATA SOURCE: PostgreSQL — live fleet data]` for results that come from ChromaDB (maintenance docs and incident narratives), not PostgreSQL. The tag is injected into the system prompt as part of the Live Data Context block and is read by the LLM to attribute its answer — a wrong tag causes the model to cite the wrong source.
+
+**Fixed:**
+- `generalAgent` RAG fallback (calls `search_maintenance_docs`) → `[DATA SOURCE: maintenance documentation]`
+- `knowledgeAgent` (calls `search_maintenance_docs` or `search_incident_narratives`) → `[DATA SOURCE: maintenance documentation]`
+- `schedulingAgent` abandoned advisory RAG fallback (calls `search_maintenance_docs`) → `[DATA SOURCE: maintenance documentation]`
+
+**Untouched (correct):**
+- `dataAgent` — calls PostgreSQL fleet tools → `[DATA SOURCE: PostgreSQL — live fleet data]`
+- `schedulingAgent` Phase 1, Phase 2, and abandoned action/data paths — all call `schedule_inspection` or fleet data tools → `[DATA SOURCE: PostgreSQL — live fleet data]`
+
+The reviewer flagged the `generalAgent` and `knowledgeAgent` paths. The `schedulingAgent` abandoned RAG fallback had the same bug and was included in the same commit.
+
+---
+
+### 7. Frontend contract verification
 
 After the `PostChat` refactor, the JSON shapes were verified end-to-end to confirm the frontend still works without changes.
 
