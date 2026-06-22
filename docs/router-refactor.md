@@ -102,9 +102,52 @@ Two cold-start mitigations from Sprint 2 are preserved:
 
 ---
 
+### 4. Agent handlers in `agents.go`
+
+A new file `platform/api/agents.go` contains the four agent functions. Each matches the `AgentFunc` signature (`func(ctx context.Context, req AgentRequest) AgentResponse`) and reproduces the behavior that previously lived inline in `PostChat`.
+
+**`generalAgent`** — handles advisory intent and owns the FEATURE-3 RAG fallback:
+- Calls `shouldTryRagFallback` on the message. This gate passes for any real question (contains `?` or has 4+ words) and blocks trivial chatter (greetings, "thanks") to avoid paying embedding latency on non-questions.
+- If the gate passes, calls `search_maintenance_docs` with a 25s timeout. The similarity threshold on the MCP server (0.5 floor) decides relevance — only confident matches are injected as context. If nothing clears the threshold, `hasConfidentResults` returns false and the agent stays purely advisory.
+- This fallback exists because the keyword classifier in `intent.go` only routes to RAG when a procedural anchor word is present. Natural-language questions like "what do I do when hydraulic pressure drops?" fall through to advisory and would never reach the manuals without it.
+
+**`dataAgent`** — re-classifies the message to get entities, calls `buildMCPArgs` to select the right data tool, runs it with a 25s timeout (matching the original combined data/RAG branch in `PostChat`), and injects the result. Falls back to advisory on MCP error or error payload.
+
+**`knowledgeAgent`** — same pattern as `dataAgent` with a 25s timeout. Handles `search_maintenance_docs` and `search_incident_narratives`.
+
+**`schedulingAgent`** — handles three paths:
+
+- **Phase 2 — confirmation flow (`req.PendingAction != nil`, user replied yes/no):**
+  - `detectConfirmation` classifies the reply as confirm, cancel, or ambiguous. An ambiguous reply (both confirm and cancel words present) defaults to cancel — never write on ambiguity.
+  - On confirm: `verifyPendingAction` checks the HMAC signature — rejects anything not produced by a genuine Phase 1 on this server. Then checks `ExpiresAt` — rejects expired confirmations so a stale request cannot be replayed. If both pass, calls `schedule_inspection` with `confirmed=true` to write the inspection.
+  - On cancel: sets `[ACTION CANCELLED]` context so the LLM confirms no write occurred.
+
+- **Phase 1 — new scheduling request (`req.PendingAction == nil`):**
+  - Re-classifies to extract entities (elevator ID, date, inspection type).
+  - If either the elevator ID or the date is missing, sets `[ACTION NEEDS MORE INFO]` context instead of calling the tool.
+  - If both are present, calls `schedule_inspection` with `confirmed=false`, which returns a preview without writing. Builds a `PendingAction` from the result, sets its `ExpiresAt` TTL, and signs it with HMAC. The signed `PendingAction` is returned on the response so the client holds it until the user confirms.
+
+- **Abandoned confirmation (`req.PendingAction != nil`, user replied with neither yes nor no):**
+  - Clears the pending state (no database write).
+  - Re-classifies the message and inlines the full classify→MCP dispatch from the original `PostChat` — all four intent branches with their original timeouts and RAG fallback. Exactly reproduces the original "falls through to classifier" behavior.
+
+**Two shared helpers** in `agents.go` eliminate repetition:
+- `buildReply` — assembles the system prompt + data context + history into a message list and calls `callLLM`. Returns a plain-language error string on LLM failure (§4.3 — no Go error returned).
+- `appendHistory` — appends the current turn to the history slice and returns the updated slice.
+
+**`PostChat` is now a thin HTTP adapter** (~30 lines). It decodes the request, validates the message, caps history at 20 messages, wraps the request in a 330s context, calls `Route`, and writes the `ChatResponse`. All routing, MCP dispatch, and LLM calls have moved into agents. LLM errors are returned as plain-language text in the reply rather than HTTP 503 responses.
+
+---
+
 ## What is still pending in S3-2
 
-- **Task 4:** Add stub agent functions (`generalAgent`, `dataAgent`, `knowledgeAgent`, `schedulingAgent`) that reproduce the existing monolithic behavior through named handlers. These stubs are the minimum needed to make the router compile and wire correctly — full agent implementations are S3-3 through S3-6.
+S3-2 is complete. The following cards are now unblocked:
+
+- **S3-3** (data agent) — replace the `dataAgent` stub with the full implementation using the Data Agent system prompt from `docs/multi-agent-design.md` §3.2
+- **S3-4** (knowledge agent) — replace the `knowledgeAgent` stub with the full implementation using §3.3
+- **S3-5** (scheduling agent) — replace the `schedulingAgent` stub with the full implementation using §3.4
+- **S3-6** (general agent) — replace the `generalAgent` stub with the full implementation using §3.1
+- **S3-7** (logging) — independent, can start now
 
 ---
 
