@@ -782,6 +782,23 @@ The chat widget reuses the dashboard's existing palette (§4.2). No new colours 
 
 ---
 
+## 5.8 Multi-Agent Routing (Sprint 3 — S3-1)
+
+Starting Sprint 3, the chatbot uses multi-agent routing internally. The user experience is unchanged — questions are asked the same way. The routing is transparent to the user.
+
+Four specialized agents handle different question types. The router classifies each message using keyword-based intent detection (no additional LLM call) and dispatches to the appropriate agent:
+
+| Agent | Question type |
+|---|---|
+| General | Terminology, definitions, greetings, anything that does not need tools |
+| Data | Fleet stats, elevator lookups, inspection history, risk, incidents |
+| Knowledge | Procedural and technical questions from maintenance docs and incident narratives |
+| Scheduling | Inspection scheduling requests (maintains the two-phase confirmation flow) |
+
+Full design is in `docs/multi-agent-design.md`.
+
+---
+
 ## 6. Multi-Page Navigation (SPA via HTMX)
 
 This section supersedes the original single-page model. The dashboard splits into
