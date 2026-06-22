@@ -23,7 +23,7 @@ func TestCallLLMSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	reply, err := callLLM(context.Background(), srv.URL, "sk-test", "minimax-m2.5", []llmMsg{{Role: "user", Content: "hi"}})
+	reply, err := callLLM(context.Background(), srv.URL, "sk-test", "minimax-m2.5:cloud", []llmMsg{{Role: "user", Content: "hi"}})
 	if err != nil {
 		t.Fatalf("callLLM: %v", err)
 	}
@@ -36,8 +36,8 @@ func TestCallLLMSuccess(t *testing.T) {
 	if gotPath != "/chat" {
 		t.Errorf("path: got %q, want %q", gotPath, "/chat")
 	}
-	if gotReq.Model != "minimax-m2.5" {
-		t.Errorf("model: got %q, want %q", gotReq.Model, "minimax-m2.5")
+	if gotReq.Model != "minimax-m2.5:cloud" {
+		t.Errorf("model: got %q, want %q", gotReq.Model, "minimax-m2.5:cloud")
 	}
 }
 

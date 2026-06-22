@@ -49,7 +49,7 @@ func getOllamaModel() string {
 	if v := os.Getenv("OLLAMA_MODEL"); v != "" {
 		return v
 	}
-	return "minimax-m2.5"
+	return "minimax-m2.5:cloud"
 }
 
 func getOllamaKey() string {

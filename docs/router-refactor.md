@@ -77,7 +77,7 @@ The LLM client was fully migrated from OpenRouter (OpenAI-compatible) to Ollama 
 - `OPENROUTER_BASE_URL` → `OLLAMA_BASE_URL`
 - `OPENROUTER_API_KEY` → `OLLAMA_API_KEY`
 - `OPENROUTER_MODEL` → `OLLAMA_MODEL`
-- Default model changed from `google/gemma-4-31b-it:free` to `minimax-m2.5` (selected in S3-1 model testing — fastest accurate free-tier model at 2.7s on the T1 no-tool benchmark)
+- Default model changed from `google/gemma-4-31b-it:free` to `minimax-m2.5:cloud` (selected in S3-1 model testing — fastest accurate free-tier model at 2.7s on the T1 no-tool benchmark)
 
 **Error messages in `PostChat`:** all three provider-specific error strings updated to reference Ollama instead of OpenRouter.
 
