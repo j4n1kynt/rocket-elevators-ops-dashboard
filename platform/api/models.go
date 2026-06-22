@@ -1,5 +1,7 @@
 package main
 
+import "context"
+
 type Elevator struct {
 	ElevatorID              string  `json:"elevator_id"`
 	Location                string  `json:"location"`
@@ -118,6 +120,9 @@ type ChatResponse struct {
 	History       []ChatMessage  `json:"history"`
 	PendingAction *PendingAction `json:"pending_action,omitempty"`
 }
+
+// AgentFunc is the common callable contract for all agents.
+type AgentFunc func(ctx context.Context, req AgentRequest) AgentResponse
 
 type AgentRequest struct {
 	Message       string
