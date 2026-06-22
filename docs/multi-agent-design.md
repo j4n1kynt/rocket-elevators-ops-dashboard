@@ -17,7 +17,7 @@ The chatbot dispatches each incoming message to one of four specialized agents. 
 | **Allowed tools** | None |
 | **Forbidden tools** | All MCP tools (`get_fleet_stats`, `get_inspection_history`, `get_elevator_risk`, `get_elevator_incidents`, `get_elevators_needing_followup`, `get_tssa_shutdown_elevators`, `get_incident_count_last_year`, `search_maintenance_docs`, `search_incident_narratives`, `schedule_inspection`) |
 | **Model** | `minimax-m2.5` (Ollama cloud) |
-| **Why this model** | Tested: 2.7s no-tool response, correct factual answers, free tier. Consistent with the other agents (single model reduces config and failure surface). |
+| **Why this model** | Tested: 2.7s no-tool response, correct TSSA definition, free tier. Fastest accurate no-tool model across all candidates. `gemma4:31b` is slower on no-tool (4.8s); `ministral-3:8b` and `gpt-oss:20b` produced factual errors. |
 
 **Example queries:**
 - "What does TSSA stand for?"
@@ -35,8 +35,8 @@ The chatbot dispatches each incoming message to one of four specialized agents. 
 | **Responsibility** | Fleet statistics, elevator lookups, inspection history, incident reports, and risk predictions |
 | **Allowed tools** | `get_fleet_stats`, `get_inspection_history`, `get_elevator_risk`, `get_elevator_incidents`, `get_elevators_needing_followup`, `get_tssa_shutdown_elevators`, `get_incident_count_last_year` |
 | **Forbidden tools** | `search_maintenance_docs`, `search_incident_narratives`, `schedule_inspection` |
-| **Model** | `minimax-m2.5` (Ollama cloud) |
-| **Why this model** | Tested: correct `get_elevator_risk` tool call in 2.2s with exact argument extraction. Free tier. Faster than `glm-4.7` (3.5s) across all tested scenarios. |
+| **Model** | `gemma4:31b` (Ollama cloud) |
+| **Why this model** | Tested: tool call in 0.5s — 4× faster than `minimax-m2.5` (2.2s). Correct argument extraction (`elevator_id=4821`), correct TSSA definition, free tier. Best tool-call latency of all tested models. |
 
 **Example queries:**
 - "Show the inspection history for elevator E12345."
@@ -55,7 +55,7 @@ The chatbot dispatches each incoming message to one of four specialized agents. 
 | **Allowed tools** | `search_maintenance_docs`, `search_incident_narratives` |
 | **Forbidden tools** | All data tools (`get_fleet_stats`, `get_inspection_history`, `get_elevator_risk`, `get_elevator_incidents`, `get_elevators_needing_followup`, `get_tssa_shutdown_elevators`, `get_incident_count_last_year`), `schedule_inspection` |
 | **Model** | `minimax-m2.5` (Ollama cloud) |
-| **Why this model** | Tested: 2.7s no-tool response. The quality of the answer comes from retrieved RAG chunks, not model depth — speed is the main requirement, and `minimax-m2.5` leads the free-tier field. |
+| **Why this model** | Tested: 2.7s no-tool response, correct answers, free tier. The quality of the answer comes from retrieved RAG chunks — speed is the main requirement, and `minimax-m2.5` leads all tested models on no-tool latency. |
 
 **Example queries:**
 - "What is the procedure for hydraulic pressure loss?"
@@ -73,8 +73,8 @@ The chatbot dispatches each incoming message to one of four specialized agents. 
 | **Responsibility** | Inspection scheduling requests — Phase 1 preview and Phase 2 confirmed write |
 | **Allowed tools** | `schedule_inspection` (Phase 1: confirmed=false; Phase 2: confirmed=true) |
 | **Forbidden tools** | All data tools, all knowledge tools |
-| **Model** | `minimax-m2.5` (Ollama cloud) |
-| **Why this model** | Tested: correctly extracted all scheduling parameters and respected `confirmed=false` for Phase 1 when instructed. 4.1s for a scheduling call. Free tier. `glm-4.7` also passed but was slower (5.9s). |
+| **Model** | `gemma4:31b` (Ollama cloud) |
+| **Why this model** | Tested: 1.9s scheduling call, `confirmed=False`, all parameters correctly extracted. Fastest scheduling model tested. Free tier. The two-phase flow needs reliable parameter extraction — `gemma4:31b` is both the most accurate and fastest for this. |
 
 **Example queries:**
 - "Schedule an inspection for elevator E12345 on 2026-07-15."
@@ -324,34 +324,43 @@ All agents use Ollama cloud models via the hosted API at `https://ollama.com/api
 | Agent | Model | Rationale |
 |---|---|---|
 | Router | No model — keyword classifier | Zero latency, deterministic, testable |
-| General | `minimax-m2.5` | Tested: 2.7s, correct answers, free tier |
-| Knowledge | `minimax-m2.5` | Tested: 2.7s, free tier; quality comes from RAG chunks not model depth |
-| Data | `minimax-m2.5` | Tested: 2.2s tool call, exact arg extraction, free tier |
-| Scheduling | `minimax-m2.5` | Tested: 4.1s, respected confirmed=false for Phase 1, free tier |
+| General | `minimax-m2.5` | Tested: 2.7s no-tool, correct factual answers, free tier |
+| Knowledge | `minimax-m2.5` | Tested: 2.7s no-tool; quality comes from RAG chunks, speed is the priority |
+| Data | `gemma4:31b` | Tested: 0.5s tool call — 4× faster than next best; correct args; free tier |
+| Scheduling | `gemma4:31b` | Tested: 1.9s, confirmed=false respected, all params extracted correctly |
 
 ### 5.3 Test results (validated against Ollama cloud API)
 
-Tests run against `https://ollama.com/api/chat` with a realistic tool-calling payload per agent type.
+All tests run against `https://ollama.com/api/chat`. Three test scenarios per model:
+- **T1**: No-tool question ("What does TSSA stand for and what is its role?") — tests factual accuracy and no-tool latency
+- **T2**: Data tool call (`get_elevator_risk`, elevator 4821) — tests tool calling accuracy and latency
+- **T3**: Scheduling Phase 1 (`schedule_inspection`, confirmed=false) — tests parameter extraction and Phase 1 compliance
 
-| Model | Tools work | Phase 1 (confirmed=false) | Speed tool | Speed no-tool | Free |
-|---|---|---|---|---|---|
-| `minimax-m2.5` | ✅ | ✅ | 2.2–4.1s | 2.7s | ✅ |
-| `glm-4.7` | ✅ | ✅ | 3.5–12.9s | 20.8s ❌ | ✅ |
-| `deepseek-v4-flash` | untested | untested | — | — | ❌ subscription |
-| `deepseek-v3.2` | untested | untested | — | — | ❌ subscription |
-| `gemini-3-flash-preview` | untested | untested | — | — | ❌ subscription |
-| `minimax-m2.1` | untested | untested | — | 7.97s | ✅ (factual error) |
-| `minimax-m3` | untested | untested | — | 14.8s | ✅ (slow) |
+| Model | T1 accuracy | T1 speed | T2 tool call | T2 speed | T3 Phase 1 | T3 speed | Free tier |
+|---|---|---|---|---|---|---|---|
+| `minimax-m2.5` | ✅ correct | 2.7s | ✅ | 2.2s | ✅ confirmed=false | 4.1s | ✅ |
+| `gemma4:31b` | ✅ correct | 4.8s | ✅ | **0.5s** | ✅ confirmed=false | **1.9s** | ✅ |
+| `ministral-3:8b` | ❌ hallucinates then self-corrects | 6.1s | ✅ | 0.7s | ✅ confirmed=false | 1.0s | ✅ |
+| `gpt-oss:20b` | ❌ wrong domain (commercial vehicles) | 8.5s | ✅ | 1.9s | ✅ confirmed=false | 2.5s | ✅ |
+| `glm-4.7` | ✅ correct | 20.8s ❌ | ✅ | 3.5s | ✅ confirmed=false | 5.9s | ✅ |
+| `minimax-m2.1` | ❌ wrong acronym expansion | 8.0s | untested | — | untested | — | ✅ |
+| `minimax-m3` | ✅ correct | 14.8s ❌ | untested | — | untested | — | ✅ |
+| `deepseek-v4-flash` | untested | — | untested | — | untested | — | ❌ subscription |
+| `deepseek-v3.2` | untested | — | untested | — | untested | — | ❌ subscription |
+| `gemini-3-flash-preview` | untested | — | untested | — | untested | — | ❌ subscription |
+| `glm-5.1` | untested | — | untested | — | untested | — | ❌ subscription |
 
 ### 5.4 Tradeoffs considered
 
 | Option | Tradeoff | Decision |
 |---|---|---|
-| Two-model split (fast for no-tool, capable for tools) | Initial plan; assumed fast models lack tool support | Rejected after testing — `minimax-m2.5` is fast on both paths |
-| `glm-4.7` for tool agents | Verified tool calling; slower | Rejected — 20.8s without tools makes it unsuitable for general/knowledge agents |
-| LLM-based router | More accurate classification; adds ~2–4s per message | Rejected for MVP — keyword classifier is deterministic and free |
-| OpenRouter (previous) | Wide selection; free tier has rate limits and 300s+ cold starts | Replaced — Ollama cloud is consistent and no cold starts observed |
-| Single model for all agents | Simpler config; one API key; uniform latency | **Chosen** — `minimax-m2.5` performs well across all agent types in testing |
+| Single model (`minimax-m2.5`) for all agents | Simplest config; 2.2s tool calls | Revised after testing — `gemma4:31b` is 4× faster on tool paths |
+| Single model (`gemma4:31b`) for all agents | Fastest tool calls; 4.8s no-tool | Rejected — `minimax-m2.5` is 2× faster for no-tool agents |
+| **Two-model split** (minimax no-tool, gemma tool) | Slightly more config; best latency per path | **Chosen** — evidence justifies the split |
+| `ministral-3:8b` for tool agents | Fast tool calls (0.7s); factual errors on no-tool | Rejected — factual errors disqualify it for any agent role |
+| `gpt-oss:20b` | Fast; wrong domain knowledge | Rejected — confused TSSA with commercial vehicle regulator |
+| LLM-based router | More accurate classification; adds 2–4s per message | Rejected — keyword classifier is free and deterministic |
+| OpenRouter (previous provider) | Wide selection; free tier has rate limits, 300s+ cold starts | Replaced — Ollama cloud is consistent with no cold starts observed |
 
 ---
 
