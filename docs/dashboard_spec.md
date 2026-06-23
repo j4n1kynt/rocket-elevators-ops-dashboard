@@ -765,7 +765,7 @@ The Go API loads its system prompt from `platform/api/prompts/system_prompt.md` 
 
 **Model (Sprint 1–2):** `mistral:7b` (`mistral:latest`), selected in EVAL-1 §4. Cold start exceeds 300s, so the Go API fires a warm-up request to Ollama on startup and all timeouts on the chat path are set to ~300s+.
 
-**Model (Sprint 3):** `minimax-m2.5` (Ollama cloud, `https://ollama.com/api/`), replacing the local Ollama setup. Auth via `OLLAMA_API_KEY` (replaces `OPENROUTER_API_KEY`). The warm-up request and ~300s+ timeouts are retained until cold-start behavior under the new provider is validated. See `docs/multi-agent-design.md` §5 for model selection evidence. Note: the native Ollama `/api/chat` request/response shape differs from the OpenAI-compatible `/chat/completions` format — `callLLM` and its request/response structs require rewriting (tracked in S3-2).
+**Model (Sprint 3):** `minimax-m2.5:cloud` (Ollama cloud, `https://ollama.com/api/`), replacing the local Ollama setup. Auth via `OLLAMA_API_KEY` (replaces `OPENROUTER_API_KEY`). The warm-up request and ~300s+ timeouts are retained until cold-start behavior under the new provider is validated. See `docs/multi-agent-design.md` §5 for model selection evidence. Note: the native Ollama `/api/chat` request/response shape differs from the OpenAI-compatible `/chat/completions` format — `callLLM` and its request/response structs require rewriting (tracked in S3-2).
 
 ### 5.9 No Live Data Access
 

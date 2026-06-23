@@ -12,18 +12,18 @@ import (
 
 func TestCallLLMSuccess(t *testing.T) {
 	var gotAuth, gotPath string
-	var gotReq openAIChatReq
+	var gotReq ollamaChatReq
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		gotPath = r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&gotReq)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"  hello  "}}]}`)
+		io.WriteString(w, `{"message":{"role":"assistant","content":"  hello  "},"done":true}`)
 	}))
 	defer srv.Close()
 
-	reply, err := callLLM(context.Background(), srv.URL, "sk-test", "qwen/test", []llmMsg{{Role: "user", Content: "hi"}})
+	reply, err := callLLM(context.Background(), srv.URL, "sk-test", "minimax-m2.5:cloud", []llmMsg{{Role: "user", Content: "hi"}})
 	if err != nil {
 		t.Fatalf("callLLM: %v", err)
 	}
@@ -33,17 +33,17 @@ func TestCallLLMSuccess(t *testing.T) {
 	if gotAuth != "Bearer sk-test" {
 		t.Errorf("auth header: got %q, want %q", gotAuth, "Bearer sk-test")
 	}
-	if gotPath != "/chat/completions" {
-		t.Errorf("path: got %q, want %q", gotPath, "/chat/completions")
+	if gotPath != "/chat" {
+		t.Errorf("path: got %q, want %q", gotPath, "/chat")
 	}
-	if gotReq.Model != "qwen/test" {
-		t.Errorf("model: got %q, want %q", gotReq.Model, "qwen/test")
+	if gotReq.Model != "minimax-m2.5:cloud" {
+		t.Errorf("model: got %q, want %q", gotReq.Model, "minimax-m2.5:cloud")
 	}
 }
 
 func TestCallLLMMissingKey(t *testing.T) {
 	_, err := callLLM(context.Background(), "http://unused", "", "m", nil)
-	if err == nil || !strings.Contains(err.Error(), "API_KEY is not set") {
+	if err == nil || !strings.Contains(err.Error(), "OLLAMA_API_KEY is not set") {
 		t.Errorf("expected missing-key error, got %v", err)
 	}
 }
@@ -61,23 +61,23 @@ func TestCallLLMNon200(t *testing.T) {
 	}
 }
 
-func TestCallLLMNoChoices(t *testing.T) {
+func TestCallLLMEmptyMessage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"choices":[]}`)
+		io.WriteString(w, `{"message":{"role":"assistant","content":""},"done":true}`)
 	}))
 	defer srv.Close()
 
 	_, err := callLLM(context.Background(), srv.URL, "k", "m", []llmMsg{{Role: "user", Content: "x"}})
-	if err == nil || !strings.Contains(err.Error(), "no choices") {
-		t.Errorf("expected no-choices error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "empty content") {
+		t.Errorf("expected empty-content error, got %v", err)
 	}
 }
 
-func TestCallLLMEmptyContent(t *testing.T) {
+func TestCallLLMWhitespaceContent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"  "}}]}`)
+		io.WriteString(w, `{"message":{"role":"assistant","content":"  "},"done":true}`)
 	}))
 	defer srv.Close()
 
