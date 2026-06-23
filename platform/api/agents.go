@@ -167,57 +167,13 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			dataContext = "[ACTION CANCELLED]\nThe user cancelled the inspection scheduling. Confirm that no action was taken and no database write occurred."
 
 		default:
-			// Not confirm/cancel — abandon pending, treat as new intent (spec §7.2).
-			log.Printf("[scheduling] confirmation=abandoned elevator=%d", pa.ElevatorID)
-			c := ClassifyIntent(req.Message, time.Now())
-			route := routeIntent(c)
-			log.Printf("[scheduling] abandoned re-classify: intent=%s confidence=%.2f route=%s reason=%q",
-				c.Intent, c.Confidence, route.Target, c.Reason)
-
-			if c.Intent == IntentAction && (len(c.Entities.ElevatorIDs) == 0 || len(c.Entities.Dates) == 0) {
-				dataContext = "[ACTION NEEDS MORE INFO]\nThe user wants to schedule an inspection but did not provide both an elevator ID and a date. Ask them for whichever is missing before proceeding. Do not invent values."
-			} else if c.Intent == IntentAction {
-				toolName, mcpArgs := buildMCPArgs(c, req.Message)
-				mcpCtx, mcpCancel := context.WithTimeout(ctx, 10*time.Second)
-				defer mcpCancel()
-				if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
-					log.Printf("[scheduling] abandoned mcp tool %s failed: %v", toolName, err)
-					errMsg := cleanValidationError(err.Error())
-					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
-				} else if errMsg := extractScheduleError(result); errMsg != "" {
-					log.Printf("[scheduling] abandoned mcp tool %s validation error: %s", toolName, errMsg)
-					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
-				} else {
-					pendingAction = buildPendingAction(result, c.Entities, capReason(req.Message))
-					if pendingAction != nil {
-						pendingAction.ExpiresAt = time.Now().Add(pendingActionTTL).Unix()
-						pendingAction.Signature = signPendingAction(pendingAction)
-					}
-					dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
-				}
-			} else if c.Intent == IntentDataQuery || c.Intent == IntentRAG {
-				toolName, mcpArgs := buildMCPArgs(c, req.Message)
-				mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
-				defer mcpCancel()
-				if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
-					log.Printf("[scheduling] abandoned mcp tool %s failed: %v — falling back to advisory", toolName, err)
-				} else if isToolError(result) {
-					log.Printf("[scheduling] abandoned mcp tool %s returned error payload — falling back to advisory", toolName)
-				} else {
-					dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
-				}
-			} else if c.Intent == IntentAdvisory && shouldTryRagFallback(req.Message) {
-				mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
-				defer mcpCancel()
-				if result, err := CallMCPTool(mcpCtx, "search_maintenance_docs", map[string]any{"query": req.Message, "n_results": 5}); err != nil {
-					log.Printf("[scheduling] abandoned rag fallback failed: %v — staying advisory", err)
-				} else if isToolError(result) {
-					log.Printf("[scheduling] abandoned rag fallback returned error payload — staying advisory")
-				} else if hasConfidentResults(result) {
-					log.Printf("[scheduling] abandoned rag fallback matched maintenance docs")
-					dataContext = "[DATA SOURCE: maintenance documentation]\n" + result
-				}
-			}
+			// Confirmation abandoned — clear pending state and re-dispatch through
+			// Route so the correct agent and prompt handle the message (spec §7.2).
+			log.Printf("[scheduling] confirmation=abandoned elevator=%d — re-dispatching", pa.ElevatorID)
+			return Route(ctx, AgentRequest{
+				Message: req.Message,
+				History: req.History,
+			})
 		}
 	} else {
 		// Phase 1 scheduling

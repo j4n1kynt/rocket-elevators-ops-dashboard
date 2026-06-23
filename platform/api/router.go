@@ -6,12 +6,18 @@ import (
 	"time"
 )
 
-// agents maps each routeIntent target to its handler.
-var agents = map[string]AgentFunc{
-	"advisory":        generalAgent,
-	"mcp_data_tool":   dataAgent,
-	"rag_search":      knowledgeAgent,
-	"action_executor": schedulingAgent,
+// agents maps each routeIntent target to its handler. Populated in init()
+// rather than inline to avoid an initialization cycle: schedulingAgent calls
+// Route, which reads agents, which references schedulingAgent.
+var agents map[string]AgentFunc
+
+func init() {
+	agents = map[string]AgentFunc{
+		"advisory":        generalAgent,
+		"mcp_data_tool":   dataAgent,
+		"rag_search":      knowledgeAgent,
+		"action_executor": schedulingAgent,
+	}
 }
 
 // Route is the single entry point for the multi-agent pipeline. It classifies
