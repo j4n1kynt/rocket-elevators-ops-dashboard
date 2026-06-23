@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+// toolAllowed reports whether name appears in the allowed list.
+// Returns true when allowed is empty so agents without an explicit list remain
+// unrestricted. schedulingAgent always receives a non-empty list from the router,
+// so the empty-list short-circuit does not weaken that path.
+func toolAllowed(allowed []string, name string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, a := range allowed {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
 // buildReply assembles the message list and calls the LLM. Returns the reply
 // text or a plain-language error string — never a Go error (§4.3).
 func buildReply(ctx context.Context, systemPrompt string, dataContext string, history []ChatMessage, msg string) string {
@@ -231,9 +247,9 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			toolName, mcpArgs := buildMCPArgs(c, req.Message)
 			mcpCtx, mcpCancel := context.WithTimeout(ctx, 10*time.Second)
 			defer mcpCancel()
-			if toolName != "schedule_inspection" {
+			if !toolAllowed(req.AllowedTools, toolName) {
 				log.Printf("[scheduling] blocked forbidden tool %q — only schedule_inspection is allowed", toolName)
-				dataContext = "[ACTION VALIDATION ERROR]\nInternal routing error: the scheduling agent may only call schedule_inspection. No action was taken. Please try again or contact support."
+				dataContext = "[ACTION VALIDATION ERROR]\nThat request cannot be handled through the scheduling workflow. No action was taken — please try again."
 			} else if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
 				log.Printf("[scheduling] mcp tool %s failed: %v", toolName, err)
 				errMsg := cleanValidationError(err.Error())

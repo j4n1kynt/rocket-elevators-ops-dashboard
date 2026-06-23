@@ -53,10 +53,11 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 		log.Printf("[router] intent=%s confidence=%.2f → %s", c.Intent, c.Confidence, route.Target)
 	}
 
-	// allowedTools gates which MCP tools each agent's Go handler may call
-	// (design §2). Scheduling is the only agent with a write tool, so it is
-	// the only one explicitly listed here. Other agents enforce their own
-	// scoping internally (knowledgeAgent, dataAgent, generalAgent).
+	// AllowedTools gates which MCP tools the scheduling agent may call (design §2).
+	// It is now load-bearing: schedulingAgent reads it via toolAllowed() instead of
+	// a hardcoded string. The other three agents (data, knowledge, general) scope
+	// themselves internally and do not yet call toolAllowed — that cross-agent
+	// gating is tracked as tech debt in AND-109.
 	if route.Target == "action_executor" {
 		req.AllowedTools = []string{"schedule_inspection"}
 	}
