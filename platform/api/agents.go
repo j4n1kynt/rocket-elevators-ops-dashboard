@@ -58,23 +58,7 @@ func appendHistory(history []ChatMessage, msg, reply string) []ChatMessage {
 // ── General agent ─────────────────────────────────────────────────────────────
 
 func generalAgent(ctx context.Context, req AgentRequest) AgentResponse {
-	var dataContext string
-
-	if shouldTryRagFallback(req.Message) {
-		mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
-		defer mcpCancel()
-		result, err := CallMCPTool(mcpCtx, "search_maintenance_docs", map[string]any{"query": req.Message, "n_results": 5})
-		if err != nil {
-			log.Printf("[general] rag fallback failed: %v — staying advisory", err)
-		} else if isToolError(result) {
-			log.Printf("[general] rag fallback returned error payload — staying advisory")
-		} else if hasConfidentResults(result) {
-			log.Printf("[general] rag fallback matched maintenance docs")
-			dataContext = "[DATA SOURCE: maintenance documentation]\n" + result
-		}
-	}
-
-	reply := buildReply(ctx, generalPrompt, dataContext, req.History, req.Message)
+	reply := buildReply(ctx, generalPrompt, "", req.History, req.Message)
 	return AgentResponse{
 		AgentName:      "general",
 		Reply:          reply,

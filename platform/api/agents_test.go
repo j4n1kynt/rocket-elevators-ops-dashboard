@@ -460,3 +460,100 @@ func TestSchedulingAgentNeverCallsForbiddenTools(t *testing.T) {
 		}
 	}
 }
+
+// ── General agent ─────────────────────────────────────────────────────────────
+
+// TestGeneralAgentNeverCallsMCPTools verifies that the general agent makes zero
+// MCP tool calls — it is purely advisory and must not hit the MCP server.
+func TestGeneralAgentNeverCallsMCPTools(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "TSSA stands for Technical Standards and Safety Authority.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	generalAgent(context.Background(), AgentRequest{
+		Message: "what does TSSA stand for?",
+	})
+
+	if calls := mcp.Calls(); len(calls) != 0 {
+		t.Errorf("general agent must make zero MCP calls, got %d: %v", len(calls), calls)
+	}
+}
+
+// TestGeneralAgentTerminologyQuestion verifies a terminology question returns a
+// non-empty reply with no MCP tool calls.
+func TestGeneralAgentTerminologyQuestion(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "A periodic inspection is the standard annual inspection required by TSSA.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	resp := generalAgent(context.Background(), AgentRequest{
+		Message: "what is a periodic inspection?",
+	})
+
+	if resp.AgentName != "general" {
+		t.Errorf("agent name: got %q, want %q", resp.AgentName, "general")
+	}
+	if resp.Reply == "" {
+		t.Error("reply must not be empty")
+	}
+	if calls := mcp.Calls(); len(calls) != 0 {
+		t.Errorf("general agent must make zero MCP calls, got %d: %v", len(calls), calls)
+	}
+}
+
+// TestGeneralAgentGeneralChat verifies conversational messages are answered
+// without any MCP tool calls.
+func TestGeneralAgentGeneralChat(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "Hello! I can help you with elevator fleet operations questions.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	resp := generalAgent(context.Background(), AgentRequest{
+		Message: "hello",
+	})
+
+	if resp.Reply == "" {
+		t.Error("reply must not be empty")
+	}
+	if calls := mcp.Calls(); len(calls) != 0 {
+		t.Errorf("general agent must make zero MCP calls, got %d: %v", len(calls), calls)
+	}
+}
+
+// TestGeneralAgentNoFallbackOnSubstantiveMessage verifies that even a message
+// long enough to have triggered the old shouldTryRagFallback gate (>= 4 words,
+// procedural content) still results in zero MCP calls after S3-6.
+func TestGeneralAgentNoFallbackOnSubstantiveMessage(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "Hydraulic pressure loss can indicate a seal failure.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	// This message would have triggered shouldTryRagFallback (>= 4 words, no ?).
+	generalAgent(context.Background(), AgentRequest{
+		Message: "the hydraulic car will not level",
+	})
+
+	if calls := mcp.Calls(); len(calls) != 0 {
+		t.Errorf("general agent must not fall back to MCP after S3-6, got %d calls: %v", len(calls), calls)
+	}
+}

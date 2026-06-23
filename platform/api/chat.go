@@ -164,22 +164,6 @@ func hasConfidentResults(jsonText string) bool {
 	return probe.TotalReturned > 0
 }
 
-// shouldTryRagFallback reports whether an advisory-classified message is
-// substantive enough to justify a semantic maintenance-doc search. The keyword
-// classifier (intent.go) misses natural-language procedural questions like
-// "what do I do when hydraulic pressure drops?", which spec FEATURE-3 requires
-// us to answer. Rather than enumerate domain keywords — the exact brittleness we
-// are fixing — this gate is content-agnostic: a real question is either phrased
-// as one or long enough to carry intent. It only filters trivial chatter
-// (greetings, "thanks") so we do not pay embedding latency on non-questions.
-func shouldTryRagFallback(msg string) bool {
-	trimmed := strings.TrimSpace(msg)
-	if strings.Contains(trimmed, "?") {
-		return true
-	}
-	return len(strings.Fields(trimmed)) >= 4
-}
-
 // extractScheduleError returns the error message from a schedule_inspection
 // payload where success=false and the "error" field is a non-empty string.
 // Returns "" when the payload is not an error (e.g. pending_confirmation or success).

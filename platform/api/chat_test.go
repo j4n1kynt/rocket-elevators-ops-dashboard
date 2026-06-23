@@ -161,34 +161,6 @@ func TestDetectConfirmation(t *testing.T) {
 	}
 }
 
-func TestShouldTryRagFallback(t *testing.T) {
-	cases := []struct {
-		msg  string
-		want bool
-	}{
-		// Natural-language procedural questions — the spec FEATURE-3 examples that
-		// the keyword classifier misses. Must reach the maintenance search.
-		{"what do I do when hydraulic pressure drops?", true},
-		{"why does the car drift down?", true},
-		// Substantive statements without a question mark (>= 4 words).
-		{"the hydraulic car will not level", true},
-		{"governor tripped during the up run", true},
-		// Trivial chatter — filtered out to avoid embedding latency.
-		{"hi", false},
-		{"thanks", false},
-		{"hello there", false},
-		{"good morning team", false},
-		// A short message that is still a question stays eligible; retrieval will
-		// simply return nothing if there is no relevant doc.
-		{"why?", true},
-	}
-	for _, c := range cases {
-		if got := shouldTryRagFallback(c.msg); got != c.want {
-			t.Errorf("shouldTryRagFallback(%q) = %t, want %t", c.msg, got, c.want)
-		}
-	}
-}
-
 func TestHasConfidentResults(t *testing.T) {
 	cases := []struct {
 		name string
