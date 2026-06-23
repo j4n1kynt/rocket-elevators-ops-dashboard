@@ -464,9 +464,17 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		PendingAction: chatReq.PendingAction,
 	})
 
+	// Log the conversation (best-effort). EnsureConversation does one bounded
+	// query so it can return the id in the response; LogTurn never blocks. The
+	// agent name comes from the AgentResponse so the logged value matches the
+	// multi-agent router vocabulary (general/data/knowledge/scheduling).
+	convID := EnsureConversation(r.Context(), chatReq.ConversationID)
+	LogTurn(convID, msg, agentResp.Reply, agentResp.AgentName)
+
 	writeJSON(w, 200, ChatResponse{
-		Reply:         agentResp.Reply,
-		History:       agentResp.UpdatedHistory,
-		PendingAction: agentResp.PendingAction,
+		Reply:          agentResp.Reply,
+		History:        agentResp.UpdatedHistory,
+		PendingAction:  agentResp.PendingAction,
+		ConversationID: convID,
 	})
 }

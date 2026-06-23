@@ -165,21 +165,21 @@
       <div id="chatChips" class="flex flex-wrap gap-2 mt-1">
         <button type="button"
                 hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
-                hx-vals='{"message": "What do the risk levels mean?"}' hx-include="#chatHistory"
+                hx-vals='{"message": "What do the risk levels mean?"}' hx-include="#chatHistory, #chatConversationId"
                 hx-indicator="#chatIndicator"
                 class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
           Risk levels
         </button>
         <button type="button"
                 hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
-                hx-vals='{"message": "What is a Customer Shutdown?"}' hx-include="#chatHistory"
+                hx-vals='{"message": "What is a Customer Shutdown?"}' hx-include="#chatHistory, #chatConversationId"
                 hx-indicator="#chatIndicator"
                 class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
           Customer Shutdown
         </button>
         <button type="button"
                 hx-post="/chat" hx-target="#chatMessages" hx-swap="beforeend scroll:bottom"
-                hx-vals='{"message": "When is an inspection overdue?"}' hx-include="#chatHistory"
+                hx-vals='{"message": "When is an inspection overdue?"}' hx-include="#chatHistory, #chatConversationId"
                 hx-indicator="#chatIndicator"
                 class="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-800 cursor-pointer">
           Overdue inspections
@@ -199,6 +199,7 @@
           class="px-4 py-3 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white relative">
       <input id="chatHistory" type="hidden" name="history" value="[]" />
       <input id="chatPendingAction" type="hidden" name="pending_action" value="null" />
+      <input id="chatConversationId" type="hidden" name="conversation_id" value="0" />
       <input
         id="chatInput"
         type="text"
