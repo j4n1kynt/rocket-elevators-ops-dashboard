@@ -19,6 +19,8 @@ func main() {
 	}
 	log.Printf("database connection established")
 
+	go WarmUpLLM()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

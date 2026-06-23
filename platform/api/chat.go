@@ -20,70 +20,77 @@ import (
 	"time"
 )
 
-// systemPromptBase is the OpsBot system prompt (PROMPT-1 / EVAL-1 deliverable),
-// embedded at build time. The Dockerfile must COPY platform/api/prompts so this
-// file is present during `go build`.
+// systemPromptBase is the original monolithic OpsBot prompt (PROMPT-1 / EVAL-1).
+// Retained for reference; agents now use the focused prompts below.
 //
 //go:embed prompts/system_prompt.md
 var systemPromptBase string
 
-func getOpenRouterBaseURL() string {
-	if v := os.Getenv("OPENROUTER_BASE_URL"); v != "" {
+//go:embed prompts/general_prompt.md
+var generalPrompt string
+
+//go:embed prompts/data_prompt.md
+var dataPrompt string
+
+//go:embed prompts/knowledge_prompt.md
+var knowledgePrompt string
+
+//go:embed prompts/scheduling_prompt.md
+var schedulingPrompt string
+
+func getOllamaBaseURL() string {
+	if v := os.Getenv("OLLAMA_BASE_URL"); v != "" {
 		return v
 	}
-	return "https://openrouter.ai/api/v1"
+	return "https://ollama.com/api"
 }
 
-func getOpenRouterModel() string {
-	if v := os.Getenv("OPENROUTER_MODEL"); v != "" {
+func getOllamaModel() string {
+	if v := os.Getenv("OLLAMA_MODEL"); v != "" {
 		return v
 	}
-	return "google/gemma-4-31b-it:free"
+	return "minimax-m2.5:cloud"
 }
 
-func getOpenRouterKey() string {
-	return os.Getenv("OPENROUTER_API_KEY")
+func getOllamaKey() string {
+	return os.Getenv("OLLAMA_API_KEY")
 }
 
 // llmClient is shared across all calls so TCP connections to the provider are
 // pooled. No Timeout is set — callers pass a context that governs the deadline.
 var llmClient = &http.Client{}
 
-// ── OpenRouter client (OpenAI-compatible) ──────────────────────────────────────
+// ── Ollama cloud client ────────────────────────────────────────────────────────
 
 type llmMsg struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type openAIChatReq struct {
+type ollamaChatReq struct {
 	Model    string   `json:"model"`
 	Messages []llmMsg `json:"messages"`
 	Stream   bool     `json:"stream"`
 }
 
-// openAIChatResp matches the OpenAI/OpenRouter response shape: the reply lives
-// in choices[0].message.content, and an "error" object is returned on failure.
-type openAIChatResp struct {
-	Choices []struct {
-		Message llmMsg `json:"message"`
-	} `json:"choices"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error"`
+// ollamaChatResp matches the Ollama native /api/chat response shape: the reply
+// lives in message.content and done=true signals a complete non-streamed response.
+type ollamaChatResp struct {
+	Message llmMsg `json:"message"`
+	Done    bool   `json:"done"`
 }
 
 func callLLM(ctx context.Context, baseURL, apiKey, model string, messages []llmMsg) (string, error) {
 	if apiKey == "" {
-		return "", fmt.Errorf("OPENROUTER_API_KEY is not set")
+		return "", fmt.Errorf("OLLAMA_API_KEY is not set")
 	}
 
-	payload, err := json.Marshal(openAIChatReq{Model: model, Messages: messages, Stream: false})
+	payload, err := json.Marshal(ollamaChatReq{Model: model, Messages: messages, Stream: false})
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat", bytes.NewReader(payload))
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)
 	}
@@ -104,24 +111,31 @@ func callLLM(ctx context.Context, baseURL, apiKey, model string, messages []llmM
 		return "", fmt.Errorf("llm returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	var result openAIChatResp
+	var result ollamaChatResp
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
-	if result.Error != nil {
-		return "", fmt.Errorf("llm error: %s", result.Error.Message)
-	}
-	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("llm returned no choices")
-	}
-	content := strings.TrimSpace(result.Choices[0].Message.Content)
+	content := strings.TrimSpace(result.Message.Content)
 	if content == "" {
-		// Some models (e.g. gpt-oss) can return null/empty content while
-		// routing text through a separate reasoning channel. Treat this as
-		// an error so the caller does not send a blank reply.
 		return "", fmt.Errorf("llm returned empty content")
 	}
 	return content, nil
+}
+
+// WarmUpLLM fires a single no-op request to Ollama at server startup so the
+// model is loaded before the first real user request arrives. Runs in a
+// goroutine — never blocks startup and any error is logged and discarded.
+func WarmUpLLM() {
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+	_, err := callLLM(ctx, getOllamaBaseURL(), getOllamaKey(), getOllamaModel(),
+		[]llmMsg{{Role: "user", Content: "ping"}},
+	)
+	if err != nil {
+		log.Printf("[llm warm-up] failed: %v", err)
+		return
+	}
+	log.Printf("[llm warm-up] done")
 }
 
 // ── buildMCPArgs / isToolError ────────────────────────────────────────────────
@@ -265,6 +279,10 @@ func isIncidentNarrativeQuery(lower string) bool {
 
 // buildMCPArgs maps a classification and original message to an MCP tool name
 // and arguments. Called only for data_query, rag, and action intents.
+//
+// TODO(S3-3): accept allowedTools []string and guard the returned tool name
+// against it. Callers (dataAgent, knowledgeAgent, schedulingAgent) should pass
+// req.AllowedTools so cross-agent tool calls are rejected before hitting MCP.
 func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 	lower := strings.ToLower(msg)
 	hasID := len(c.Entities.ElevatorIDs) > 0
@@ -417,219 +435,46 @@ func detectConfirmation(msg string) (isConfirm, isCancel bool) {
 
 // ── PostChat handler ──────────────────────────────────────────────────────────
 //
-// When pending_action is set, the confirmation check runs first and bypasses the
-// intent classifier. Otherwise, classifies the message, calls the appropriate MCP
-// tool, injects the result as live context, then calls the LLM (OpenRouter).
+// Thin HTTP adapter. Decodes the request, builds an AgentRequest, dispatches
+// to Route, and serialises the AgentResponse back to the caller.
 func PostChat(w http.ResponseWriter, r *http.Request) {
-	var req ChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var chatReq ChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&chatReq); err != nil {
 		writeJSON(w, 400, ErrorResponse{Error: "invalid request body"})
 		return
 	}
-	msg := strings.TrimSpace(req.Message)
+	msg := strings.TrimSpace(chatReq.Message)
 	if msg == "" {
 		writeJSON(w, 400, ErrorResponse{Error: "message is required"})
 		return
 	}
 
-	var dataContext string
-	var pendingAction *PendingAction
-	skipClassify := false
-	agentName := "advisory" // which agent handled this message; logged with the reply
-
-	// ── Confirmation handling (spec §7.2) ─────────────────────────────────────
-	// Runs before the intent classifier when the client carries a pending_action.
-	// Any response that is not yes/no abandons the pending state per spec.
-	if req.PendingAction != nil {
-		isConfirm, isCancel := detectConfirmation(msg)
-		pa := req.PendingAction
-
-		// Ambiguous reply (both confirm and cancel words, e.g. "yes... no"): for a
-		// write action, default to the safe choice — never write on ambiguity.
-		if isConfirm && isCancel {
-			isConfirm = false
-		}
-
-		switch {
-		case isConfirm:
-			skipClassify = true
-			agentName = "action_executor"
-			// The pending_action round-trips through the client, so its values
-			// are untrusted. Reject anything not signed by a genuine Phase 1
-			// preview on this server before writing.
-			if !verifyPendingAction(pa) {
-				log.Printf("chat confirmation rejected: invalid pending_action signature elevator=%d", pa.ElevatorID)
-				dataContext = "[ACTION VALIDATION ERROR]\nThe pending scheduling request could not be verified — it may have expired or been altered. No action was taken and nothing was written. Ask the user to start the scheduling request again."
-				break
-			}
-			// Expiry is part of the signed payload (tamper-proof); reject once the
-			// confirmation window has passed so a stale request is never replayed.
-			if pa.ExpiresAt > 0 && time.Now().Unix() > pa.ExpiresAt {
-				log.Printf("chat confirmation rejected: pending_action expired elevator=%d", pa.ElevatorID)
-				dataContext = "[ACTION VALIDATION ERROR]\nThis scheduling confirmation has expired. No action was taken and nothing was written. Ask the user to start the scheduling request again."
-				break
-			}
-			log.Printf("chat confirmation=yes elevator=%d date=%s", pa.ElevatorID, pa.InspectionDate)
-			phase2Args := map[string]any{
-				"confirmed":       true,
-				"elevator_id":     pa.ElevatorID,
-				"inspection_date": pa.InspectionDate,
-				"reason":          pa.Reason,
-			}
-			if pa.InspectionType != "" {
-				phase2Args["inspection_type"] = pa.InspectionType
-			}
-			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
-			defer mcpCancel()
-			if result, err := CallMCPTool(mcpCtx, "schedule_inspection", phase2Args); err != nil {
-				log.Printf("schedule_inspection phase2 failed: %v", err)
-				errMsg := cleanValidationError(err.Error())
-				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
-			} else if errMsg := extractScheduleError(result); errMsg != "" {
-				log.Printf("schedule_inspection phase2 error: %s", errMsg)
-				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
-			} else {
-				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
-			}
-			// pendingAction stays nil — scheduling complete or failed, either way clear it
-
-		case isCancel:
-			log.Printf("chat confirmation=cancelled elevator=%d", pa.ElevatorID)
-			skipClassify = true
-			agentName = "action_executor"
-			dataContext = "[ACTION CANCELLED]\nThe user cancelled the inspection scheduling. Confirm that no action was taken and no database write occurred."
-			// pendingAction stays nil
-
-		default:
-			// Not yes/no — scheduling abandoned, treat as new intent (spec §7.2)
-			log.Printf("chat confirmation=abandoned elevator=%d", pa.ElevatorID)
-			// pendingAction stays nil; skipClassify stays false → falls through to classifier
-		}
-	}
-
-	// ── Intent classification and routing ─────────────────────────────────────
-	if !skipClassify {
-		classification := ClassifyIntent(msg, time.Now())
-		route := routeIntent(classification)
-		agentName = route.Target
-		log.Printf("chat intent=%s confidence=%.2f route=%s stub=%t reason=%q",
-			classification.Intent, classification.Confidence, route.Target, route.Stub, classification.Reason)
-
-		if classification.Intent == IntentAction &&
-			(len(classification.Entities.ElevatorIDs) == 0 || len(classification.Entities.Dates) == 0) {
-			dataContext = "[ACTION NEEDS MORE INFO]\nThe user wants to schedule an inspection but did not provide both an elevator ID and a date. Ask them for whichever is missing before proceeding. Do not invent values."
-		} else if classification.Intent == IntentAction {
-			toolName, mcpArgs := buildMCPArgs(classification, msg)
-			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 10*time.Second)
-			defer mcpCancel()
-			if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
-				log.Printf("mcp tool %s failed: %v", toolName, err)
-				errMsg := cleanValidationError(err.Error())
-				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
-			} else if errMsg := extractScheduleError(result); errMsg != "" {
-				log.Printf("mcp tool %s returned a validation error: %s", toolName, errMsg)
-				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
-			} else {
-				pendingAction = buildPendingAction(result, classification.Entities, capReason(msg))
-				if pendingAction != nil {
-					// Expire the confirmation window so a signed pending_action cannot
-					// be replayed long after the previewed inspection left 'Pending'.
-					pendingAction.ExpiresAt = time.Now().Add(pendingActionTTL).Unix()
-					pendingAction.Signature = signPendingAction(pendingAction)
-				}
-				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
-			}
-		} else if classification.Intent == IntentDataQuery || classification.Intent == IntentRAG {
-			toolName, mcpArgs := buildMCPArgs(classification, msg)
-			// RAG tools (search_maintenance_docs / search_incident_narratives) run
-			// sentence-transformer embedding on the MCP server. On constrained CPU
-			// (e.g. Render free tier) a single query is ~8s warm and longer cold, so
-			// a 10s budget loses the race and the call falls back to advisory with no
-			// data. 25s gives the embedding query real headroom; the handler's own
-			// deadline (330s) still bounds the whole request.
-			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 25*time.Second)
-			defer mcpCancel()
-			if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
-				log.Printf("mcp tool %s failed: %v — falling back to advisory", toolName, err)
-			} else if isToolError(result) {
-				log.Printf("mcp tool %s returned an error payload: %s — falling back to advisory", toolName, result)
-			} else {
-				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
-			}
-		} else if classification.Intent == IntentAdvisory && shouldTryRagFallback(msg) {
-			// FEATURE-3: the keyword classifier (intent.go) only routes to RAG when a
-			// procedural anchor word is present, so natural-language questions like
-			// "what do I do when hydraulic pressure drops?" fall through to advisory and
-			// never reach the manuals. The spec requires answering those. Run a semantic
-			// search and let the similarity threshold — not keywords — decide relevance:
-			// inject only when a confident match clears the tool's 0.5 floor, otherwise
-			// stay advisory so out-of-scope chatter is unaffected.
-			mcpCtx, mcpCancel := context.WithTimeout(r.Context(), 25*time.Second)
-			defer mcpCancel()
-			if result, err := CallMCPTool(mcpCtx, "search_maintenance_docs", map[string]any{"query": msg, "n_results": 5}); err != nil {
-				log.Printf("rag fallback search failed: %v — staying advisory", err)
-			} else if isToolError(result) {
-				log.Printf("rag fallback returned an error payload — staying advisory")
-			} else if hasConfidentResults(result) {
-				log.Printf("rag fallback matched maintenance docs for an advisory-classified query")
-				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
-			}
-		}
-	}
-
-	// Cap history at 10 turns (20 messages) — drop oldest pair first
-	history := req.History
+	// Cap history at 10 turns (20 messages) — drop oldest pair first.
+	history := chatReq.History
 	for len(history) > 20 {
 		history = history[2:]
 	}
 
-	systemContent := systemPromptBase
-	if dataContext != "" {
-		systemContent += "\n\n## Live Data Context\n" + dataContext
-	}
-	messages := []llmMsg{{Role: "system", Content: systemContent}}
-	for _, h := range history {
-		messages = append(messages, llmMsg{Role: h.Role, Content: h.Content})
-	}
-	messages = append(messages, llmMsg{Role: "user", Content: msg})
-
 	ctx, cancel := context.WithTimeout(r.Context(), 330*time.Second)
 	defer cancel()
-	reply, err := callLLM(ctx, getOpenRouterBaseURL(), getOpenRouterKey(), getOpenRouterModel(), messages)
-	if err != nil {
-		log.Printf("llm call failed: %v", err)
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			writeJSON(w, 503, ErrorResponse{Error: "The assistant took too long to respond. Please try again."})
-		case errors.Is(err, context.Canceled):
-			// client disconnected — nothing to write
-		case strings.Contains(err.Error(), "API_KEY is not set"):
-			writeJSON(w, 503, ErrorResponse{Error: "OPENROUTER_API_KEY is not set. Configure it before using the chat."})
-		case strings.Contains(err.Error(), "status 401"):
-			writeJSON(w, 503, ErrorResponse{Error: "OpenRouter rejected the API key (401). Check OPENROUTER_API_KEY."})
-		case strings.Contains(err.Error(), "status 429"):
-			writeJSON(w, 503, ErrorResponse{Error: "OpenRouter rate limit reached (429). Free models are limited — wait and retry."})
-		case strings.Contains(err.Error(), "unreachable") || strings.Contains(err.Error(), "connection refused"):
-			writeJSON(w, 503, ErrorResponse{Error: "The LLM provider is unreachable. Check your network or OPENROUTER_BASE_URL."})
-		default:
-			writeJSON(w, 500, ErrorResponse{Error: "assistant failed to respond"})
-		}
-		return
-	}
 
-	updatedHistory := append(history,
-		ChatMessage{Role: "user", Content: msg},
-		ChatMessage{Role: "assistant", Content: reply},
-	)
+	agentResp := Route(ctx, AgentRequest{
+		Message:       msg,
+		History:       history,
+		PendingAction: chatReq.PendingAction,
+	})
 
-	// Log the conversation (best-effort, never blocks the reply).
-	convID := EnsureConversation(r.Context(), req.ConversationID)
-	LogTurn(convID, msg, reply, agentName)
+	// Log the conversation (best-effort). EnsureConversation does one bounded
+	// query so it can return the id in the response; LogTurn never blocks. The
+	// agent name comes from the AgentResponse so the logged value matches the
+	// multi-agent router vocabulary (general/data/knowledge/scheduling).
+	convID := EnsureConversation(r.Context(), chatReq.ConversationID)
+	LogTurn(convID, msg, agentResp.Reply, agentResp.AgentName)
 
 	writeJSON(w, 200, ChatResponse{
-		Reply:          reply,
-		History:        updatedHistory,
-		PendingAction:  pendingAction,
+		Reply:          agentResp.Reply,
+		History:        agentResp.UpdatedHistory,
+		PendingAction:  agentResp.PendingAction,
 		ConversationID: convID,
 	})
 }

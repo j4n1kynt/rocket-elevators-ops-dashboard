@@ -5,12 +5,13 @@
 -- ---------------------------------------------------------------------
 -- conversations
 -- One record per chatbot session.
--- message_count is updated after each new message is inserted.
+-- The message count is derived on read with COUNT(*) over messages, so no
+-- denormalized counter is stored here (it would only add a write per turn and
+-- a chance to drift from the real rows).
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS conversations (
     conversation_id BIGSERIAL   PRIMARY KEY,
-    started_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    message_count   INTEGER     NOT NULL DEFAULT 0
+    started_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversations_started_at  ON conversations (started_at);
