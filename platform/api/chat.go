@@ -279,6 +279,10 @@ func isIncidentNarrativeQuery(lower string) bool {
 
 // buildMCPArgs maps a classification and original message to an MCP tool name
 // and arguments. Called only for data_query, rag, and action intents.
+//
+// TODO(S3-3): accept allowedTools []string and guard the returned tool name
+// against it. Callers (dataAgent, knowledgeAgent, schedulingAgent) should pass
+// req.AllowedTools so cross-agent tool calls are rejected before hitting MCP.
 func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 	lower := strings.ToLower(msg)
 	hasID := len(c.Entities.ElevatorIDs) > 0

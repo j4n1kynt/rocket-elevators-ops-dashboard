@@ -173,7 +173,28 @@ The reviewer flagged the `generalAgent` and `knowledgeAgent` paths. The `schedul
 
 ---
 
-### 7. Frontend contract verification
+### 7. Abandoned confirmation re-dispatch refactor
+
+**The bug:** when a user ignored a pending scheduling confirmation and sent a different message, the `schedulingAgent` default branch ran a full classify→MCP→LLM pipeline internally but always called `buildReply(ctx, schedulingPrompt, ...)` at the end — regardless of what data it had just fetched. This caused a prompt/data mismatch: `schedulingPrompt` says "no data lookups" but the branch may have fetched fleet data, RAG results, or triggered a new Phase 1 scheduling preview.
+
+**The fix:** the entire ~47-line default branch was replaced with a single `Route()` call:
+
+```go
+default:
+    log.Printf("[scheduling] confirmation=abandoned elevator=%d — re-dispatching", pa.ElevatorID)
+    return Route(ctx, AgentRequest{
+        Message: req.Message,
+        History: req.History,
+    })
+```
+
+`PendingAction` is omitted (nil), so the router's pre-emption check does not fire and the message is classified normally. The correct agent — with its own focused prompt — handles it. If the abandoned message itself has scheduling intent, it reaches `schedulingAgent` again via Phase 1 (no pending action), which is the correct behavior.
+
+**Init cycle fix:** calling `Route` from `schedulingAgent` created a package-level initialization cycle: the `agents` map held a reference to `schedulingAgent`, `schedulingAgent` called `Route`, and `Route` read `agents`. Go's init cycle detector flagged this as a compile error. The fix was to move the `agents` map assignment from a package-level var initializer into an `init()` function in `router.go`. `init()` runs after all variable initializations, breaking the cycle. The map contents and lookup logic are unchanged.
+
+---
+
+### 8. Frontend contract verification
 
 After the `PostChat` refactor, the JSON shapes were verified end-to-end to confirm the frontend still works without changes.
 
