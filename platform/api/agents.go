@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,9 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 	reply, err := callLLM(ctx, getOllamaBaseURL(), getOllamaKey(), getOllamaModel(), messages)
 	if err != nil {
 		log.Printf("[agent] llm call failed: %v", err)
+		if strings.Contains(err.Error(), "status 429") {
+			return "The model is currently rate-limited. Please wait a moment and try again."
+		}
 		return "I'm having trouble reaching the assistant right now. Please try again in a moment."
 	}
 	return reply
