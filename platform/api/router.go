@@ -56,6 +56,7 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 
 	if req.PendingAction != nil {
 		log.Printf("[router] pending_action present → scheduling")
+		req.AllowedTools = []string{"schedule_inspection"}
 		return schedulingAgent(ctx, req)
 	}
 
@@ -70,8 +71,11 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 		log.Printf("[router] intent=%s confidence=%.2f → %s", c.Intent, c.Confidence, route.Target)
 	}
 
-	// Scope the agent to its allowed tools (design §1). An agent with no entry
-	// (the general agent) gets an empty list — it does not call MCP tools.
+	// Scope every agent to its allowed tools via the single-source agentTools map
+	// (design §1). An agent with no entry (the general agent) gets an empty list
+	// and calls no MCP tools. This also covers the scheduling agent — its entry is
+	// {"schedule_inspection"}, which schedulingAgent reads via toolAllowed() — so it
+	// supersedes the earlier action_executor-only gating (AND-109).
 	req.AllowedTools = agentTools[route.Target]
 
 	return agent(ctx, req)
