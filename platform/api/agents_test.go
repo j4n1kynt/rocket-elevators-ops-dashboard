@@ -639,6 +639,49 @@ func TestKnowledgeAgentBothCorporaToolErrorNoRawError(t *testing.T) {
 	}
 }
 
+// TestBuildReplyMalformedLLMOutput verifies that buildReply returns a safe
+// fallback when the LLM produces a raw error string or a JSON blob, and passes
+// short replies through unchanged (logged only, not discarded).
+func TestBuildReplyMalformedLLMOutput(t *testing.T) {
+	const safeFallback = "I'm having trouble generating a response right now. Please try again."
+
+	cases := []struct {
+		name      string
+		llmReply  string
+		wantReply string
+	}{
+		{
+			name:      "raw_error",
+			llmReply:  "mcp server unreachable: dial tcp 127.0.0.1:8765: connection refused",
+			wantReply: safeFallback,
+		},
+		{
+			name:      "json_blob",
+			llmReply:  `{"elevators":[{"id":1,"status":"active"}]}`,
+			wantReply: safeFallback,
+		},
+		{
+			name:      "short_reply",
+			llmReply:  "OK",
+			wantReply: "OK",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			llm := fakeLLMServer(t, tc.llmReply)
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			got := buildReply(context.Background(), "You are a helpful assistant.", "", nil, "test message")
+			if got != tc.wantReply {
+				t.Errorf("got %q, want %q", got, tc.wantReply)
+			}
+		})
+	}
+}
+
 // ── Scheduling agent tests ────────────────────────────────────────────────────
 
 // TestSchedulingAgentPhase1Preview verifies that given a valid elevator ID and

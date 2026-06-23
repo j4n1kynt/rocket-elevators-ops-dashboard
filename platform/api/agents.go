@@ -23,6 +23,24 @@ func toolAllowed(allowed []string, name string) bool {
 	return false
 }
 
+// looksLikeRawError reports whether reply appears to be a leaked infrastructure
+// error string rather than a natural-language answer.
+func looksLikeRawError(reply string) bool {
+	lower := strings.ToLower(reply)
+	for _, marker := range []string{"mcp ", "dial tcp", "connection refused", "connectex:", "llm returned status"} {
+		if strings.HasPrefix(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// looksLikeJSON reports whether reply is an unparsed JSON blob (the model
+// echoed structured data instead of a natural-language answer).
+func looksLikeJSON(reply string) bool {
+	return strings.HasPrefix(reply, "{") || strings.HasPrefix(reply, "[")
+}
+
 // buildReply assembles the message list and calls the LLM. Returns the reply
 // text or a plain-language error string — never a Go error (§4.3).
 func buildReply(ctx context.Context, systemPrompt string, dataContext string, history []ChatMessage, msg string) string {
@@ -43,6 +61,17 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 			return "The model is currently rate-limited. Please wait a moment and try again."
 		}
 		return "I'm having trouble reaching the assistant right now. Please try again in a moment."
+	}
+	if looksLikeRawError(reply) {
+		log.Printf("[agent] llm reply looks like a raw error — discarding: %.120s", reply)
+		return "I'm having trouble generating a response right now. Please try again."
+	}
+	if looksLikeJSON(reply) {
+		log.Printf("[agent] llm reply looks like an unparsed JSON blob — discarding: %.120s", reply)
+		return "I'm having trouble generating a response right now. Please try again."
+	}
+	if len(reply) < 20 {
+		log.Printf("[agent] llm reply is suspiciously short (%d chars): %s", len(reply), reply)
 	}
 	return reply
 }
