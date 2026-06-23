@@ -119,26 +119,32 @@ func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	}
 
 	var dataContext string
-	mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
-	defer mcpCancel()
 
-	if result, err := CallMCPTool(mcpCtx, primaryTool, primaryArgs); err != nil {
-		log.Printf("[knowledge] primary tool %s failed: %v — trying fallback", primaryTool, err)
-	} else if isToolError(result) {
+	// Each corpus call gets its own 25s budget so a slow primary never starves
+	// the fallback (embedding queries on constrained CPU can take ~8s warm).
+	primaryCtx, primaryCancel := context.WithTimeout(ctx, 25*time.Second)
+	primaryResult, primaryErr := CallMCPTool(primaryCtx, primaryTool, primaryArgs)
+	primaryCancel()
+	if primaryErr != nil {
+		log.Printf("[knowledge] primary tool %s failed: %v — trying fallback", primaryTool, primaryErr)
+	} else if isToolError(primaryResult) {
 		log.Printf("[knowledge] primary tool %s returned error payload — trying fallback", primaryTool)
-	} else if hasConfidentResults(result) {
+	} else if hasConfidentResults(primaryResult) {
 		log.Printf("[knowledge] primary tool %s matched", primaryTool)
-		dataContext = knowledgeSourceLabel(primaryTool) + result
+		dataContext = knowledgeSourceLabel(primaryTool) + primaryResult
 	}
 
 	if dataContext == "" {
-		if result, err := CallMCPTool(mcpCtx, fallbackTool, fallbackArgs); err != nil {
-			log.Printf("[knowledge] fallback tool %s failed: %v — advisory only", fallbackTool, err)
-		} else if isToolError(result) {
+		fallbackCtx, fallbackCancel := context.WithTimeout(ctx, 25*time.Second)
+		fallbackResult, fallbackErr := CallMCPTool(fallbackCtx, fallbackTool, fallbackArgs)
+		fallbackCancel()
+		if fallbackErr != nil {
+			log.Printf("[knowledge] fallback tool %s failed: %v — advisory only", fallbackTool, fallbackErr)
+		} else if isToolError(fallbackResult) {
 			log.Printf("[knowledge] fallback tool %s returned error payload — advisory only", fallbackTool)
-		} else if hasConfidentResults(result) {
+		} else if hasConfidentResults(fallbackResult) {
 			log.Printf("[knowledge] fallback tool %s matched", fallbackTool)
-			dataContext = knowledgeSourceLabel(fallbackTool) + result
+			dataContext = knowledgeSourceLabel(fallbackTool) + fallbackResult
 		}
 	}
 
