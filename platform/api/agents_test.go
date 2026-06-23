@@ -273,7 +273,8 @@ func TestSchedulingAgentPhase1Preview(t *testing.T) {
 	t.Setenv("OLLAMA_API_KEY", "test-key")
 
 	resp := schedulingAgent(context.Background(), AgentRequest{
-		Message: "schedule an inspection for elevator 12345 on 2026-07-01",
+		Message:      "schedule an inspection for elevator 12345 on 2026-07-01",
+		AllowedTools: []string{"schedule_inspection"},
 	})
 
 	if resp.AgentName != "scheduling" {
@@ -288,10 +289,11 @@ func TestSchedulingAgentPhase1Preview(t *testing.T) {
 
 	// The call must carry confirmed=false — Phase 1 previews, never writes.
 	args := mcp.CallArgs()
-	if len(args) > 0 {
-		if confirmed, ok := args[0]["confirmed"].(bool); !ok || confirmed {
-			t.Errorf("schedule_inspection must be called with confirmed=false, got confirmed=%v (ok=%v)", args[0]["confirmed"], ok)
-		}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 call args entry, got %d", len(args))
+	}
+	if confirmed, ok := args[0]["confirmed"].(bool); !ok || confirmed {
+		t.Errorf("schedule_inspection must be called with confirmed=false, got confirmed=%v (ok=%v)", args[0]["confirmed"], ok)
 	}
 
 	// A non-nil PendingAction means the preview was returned to the caller
@@ -347,10 +349,11 @@ func TestSchedulingAgentPhase2WritesAfterConfirmation(t *testing.T) {
 		t.Errorf("tool calls: got %v, want [schedule_inspection]", calls)
 	}
 	args := mcp.CallArgs()
-	if len(args) > 0 {
-		if confirmed, ok := args[0]["confirmed"].(bool); !ok || !confirmed {
-			t.Errorf("schedule_inspection must be called with confirmed=true in Phase 2, got confirmed=%v (ok=%v)", args[0]["confirmed"], ok)
-		}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 call args entry, got %d", len(args))
+	}
+	if confirmed, ok := args[0]["confirmed"].(bool); !ok || !confirmed {
+		t.Errorf("schedule_inspection must be called with confirmed=true in Phase 2, got confirmed=%v (ok=%v)", args[0]["confirmed"], ok)
 	}
 
 	// After a successful write the pending state is cleared — no further confirmation needed.
@@ -445,7 +448,8 @@ func TestSchedulingAgentNeverCallsForbiddenTools(t *testing.T) {
 	t.Setenv("OLLAMA_API_KEY", "test-key")
 
 	schedulingAgent(context.Background(), AgentRequest{
-		Message: "what is the risk for elevator 12345 on 2026-07-01",
+		Message:      "what is the risk for elevator 12345 on 2026-07-01",
+		AllowedTools: []string{"schedule_inspection"},
 	})
 
 	for _, call := range mcp.Calls() {
