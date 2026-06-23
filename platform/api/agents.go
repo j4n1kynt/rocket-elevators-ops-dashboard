@@ -94,20 +94,56 @@ func dataAgent(ctx context.Context, req AgentRequest) AgentResponse {
 
 // ── Knowledge agent ───────────────────────────────────────────────────────────
 
+// knowledgeSourceLabel returns the correct data context tag for each knowledge
+// tool. Keeping labels distinct ensures the model cites source_name accurately
+// and never attributes documentation to the live fleet database.
+func knowledgeSourceLabel(toolName string) string {
+	if toolName == "search_incident_narratives" {
+		return "[DATA SOURCE: incident narratives]\n"
+	}
+	return "[DATA SOURCE: maintenance documentation]\n"
+}
+
 func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
-	c := ClassifyIntent(req.Message, time.Now())
-	toolName, mcpArgs := buildMCPArgs(c, req.Message)
+	lower := strings.ToLower(req.Message)
+
+	// Scope: this agent may only call the two knowledge search tools.
+	// Route through isIncidentNarrativeQuery to pick the primary corpus;
+	// fall back to the other if the primary returns nothing confident.
+	primaryTool := "search_maintenance_docs"
+	primaryArgs := map[string]any{"query": req.Message, "n_results": 5}
+	fallbackTool := "search_incident_narratives"
+	fallbackArgs := map[string]any{"query": req.Message, "limit": 5}
+	if isIncidentNarrativeQuery(lower) {
+		primaryTool, primaryArgs, fallbackTool, fallbackArgs = fallbackTool, fallbackArgs, primaryTool, primaryArgs
+	}
 
 	var dataContext string
 	mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
 	defer mcpCancel()
-	result, err := CallMCPTool(mcpCtx, toolName, mcpArgs)
-	if err != nil {
-		log.Printf("[knowledge] mcp tool %s failed: %v — falling back to advisory", toolName, err)
+
+	if result, err := CallMCPTool(mcpCtx, primaryTool, primaryArgs); err != nil {
+		log.Printf("[knowledge] primary tool %s failed: %v — trying fallback", primaryTool, err)
 	} else if isToolError(result) {
-		log.Printf("[knowledge] mcp tool %s returned error payload — falling back to advisory", toolName)
-	} else {
-		dataContext = "[DATA SOURCE: maintenance documentation]\n" + result
+		log.Printf("[knowledge] primary tool %s returned error payload — trying fallback", primaryTool)
+	} else if hasConfidentResults(result) {
+		log.Printf("[knowledge] primary tool %s matched", primaryTool)
+		dataContext = knowledgeSourceLabel(primaryTool) + result
+	}
+
+	if dataContext == "" {
+		if result, err := CallMCPTool(mcpCtx, fallbackTool, fallbackArgs); err != nil {
+			log.Printf("[knowledge] fallback tool %s failed: %v — advisory only", fallbackTool, err)
+		} else if isToolError(result) {
+			log.Printf("[knowledge] fallback tool %s returned error payload — advisory only", fallbackTool)
+		} else if hasConfidentResults(result) {
+			log.Printf("[knowledge] fallback tool %s matched", fallbackTool)
+			dataContext = knowledgeSourceLabel(fallbackTool) + result
+		}
+	}
+
+	if dataContext == "" {
+		log.Printf("[knowledge] no confident results from either corpus — advisory only")
 	}
 
 	reply := buildReply(ctx, knowledgePrompt, dataContext, req.History, req.Message)
