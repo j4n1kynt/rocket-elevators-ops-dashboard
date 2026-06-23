@@ -20,6 +20,24 @@ func init() {
 	}
 }
 
+// agentTools is the single source of truth for the MCP tools each route target's
+// agent may call (S3-3, design §1). The router copies the matching slice into
+// AgentRequest.AllowedTools, and each tool-using agent enforces it before any MCP
+// call. The general agent (advisory) has no entry — it answers from its prompt.
+var agentTools = map[string][]string{
+	"mcp_data_tool": {
+		"get_fleet_stats",
+		"get_inspection_history",
+		"get_elevator_risk",
+		"get_elevator_incidents",
+		"get_elevators_needing_followup",
+		"get_tssa_shutdown_elevators",
+		"get_incident_count_last_year",
+	},
+	"rag_search":      {"search_maintenance_docs", "search_incident_narratives"},
+	"action_executor": {"schedule_inspection"},
+}
+
 // Route is the single entry point for the multi-agent pipeline. It classifies
 // the incoming request, selects an agent, and returns its response.
 //
@@ -52,10 +70,9 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 		log.Printf("[router] intent=%s confidence=%.2f → %s", c.Intent, c.Confidence, route.Target)
 	}
 
-	// TODO(S3-3): populate req.AllowedTools based on route.Target before calling
-	// the agent. Each agent should only be permitted to call the tools listed in
-	// multi-agent-design.md §2 for its intent (e.g. dataAgent may not call
-	// search_maintenance_docs; knowledgeAgent may not call get_fleet_stats).
+	// Scope the agent to its allowed tools (design §1). An agent with no entry
+	// (the general agent) gets an empty list — it does not call MCP tools.
+	req.AllowedTools = agentTools[route.Target]
 
 	return agent(ctx, req)
 }

@@ -41,6 +41,84 @@ func TestCallLLMSuccess(t *testing.T) {
 	}
 }
 
+func TestCallOpenRouterSuccess(t *testing.T) {
+	var gotAuth, gotPath string
+	var gotReq openRouterChatReq
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"  hi there  "}}]}`)
+	}))
+	defer srv.Close()
+
+	reply, err := callOpenRouter(context.Background(), srv.URL, "sk-or", "some/model", []llmMsg{{Role: "user", Content: "hi"}})
+	if err != nil {
+		t.Fatalf("callOpenRouter: %v", err)
+	}
+	if reply != "hi there" {
+		t.Errorf("reply: got %q, want %q", reply, "hi there")
+	}
+	if gotAuth != "Bearer sk-or" {
+		t.Errorf("auth header: got %q, want %q", gotAuth, "Bearer sk-or")
+	}
+	if gotPath != "/chat/completions" {
+		t.Errorf("path: got %q, want %q", gotPath, "/chat/completions")
+	}
+	if gotReq.Model != "some/model" {
+		t.Errorf("model: got %q, want %q", gotReq.Model, "some/model")
+	}
+}
+
+// TestCallChatLLMSelectsProvider verifies the dispatcher: OpenRouter when its key
+// is set, Ollama otherwise.
+func TestCallChatLLMSelectsProvider(t *testing.T) {
+	orHit, ollamaHit := false, false
+
+	orSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		orHit = true
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"from openrouter"}}]}`)
+	}))
+	defer orSrv.Close()
+
+	ollamaSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ollamaHit = true
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"message":{"role":"assistant","content":"from ollama"},"done":true}`)
+	}))
+	defer ollamaSrv.Close()
+
+	t.Run("uses OpenRouter when its key is set", func(t *testing.T) {
+		t.Setenv("OPENROUTER_API_KEY", "sk-or")
+		t.Setenv("OPENROUTER_BASE_URL", orSrv.URL)
+		orHit = false
+		reply, err := callChatLLM(context.Background(), []llmMsg{{Role: "user", Content: "hi"}})
+		if err != nil {
+			t.Fatalf("callChatLLM: %v", err)
+		}
+		if reply != "from openrouter" || !orHit {
+			t.Errorf("expected OpenRouter to be used; reply=%q orHit=%v", reply, orHit)
+		}
+	})
+
+	t.Run("defaults to Ollama without an OpenRouter key", func(t *testing.T) {
+		// TestMain already cleared OPENROUTER_API_KEY for the package.
+		t.Setenv("OLLAMA_BASE_URL", ollamaSrv.URL)
+		t.Setenv("OLLAMA_API_KEY", "sk-ollama")
+		ollamaHit = false
+		reply, err := callChatLLM(context.Background(), []llmMsg{{Role: "user", Content: "hi"}})
+		if err != nil {
+			t.Fatalf("callChatLLM: %v", err)
+		}
+		if reply != "from ollama" || !ollamaHit {
+			t.Errorf("expected Ollama to be used; reply=%q ollamaHit=%v", reply, ollamaHit)
+		}
+	})
+}
+
 func TestCallLLMMissingKey(t *testing.T) {
 	_, err := callLLM(context.Background(), "http://unused", "", "m", nil)
 	if err == nil || !strings.Contains(err.Error(), "OLLAMA_API_KEY is not set") {

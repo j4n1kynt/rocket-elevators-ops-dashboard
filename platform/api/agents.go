@@ -20,7 +20,7 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 	}
 	messages = append(messages, llmMsg{Role: "user", Content: msg})
 
-	reply, err := callLLM(ctx, getOllamaBaseURL(), getOllamaKey(), getOllamaModel(), messages)
+	reply, err := callChatLLM(ctx, messages)
 	if err != nil {
 		log.Printf("[agent] llm call failed: %v", err)
 		if strings.Contains(err.Error(), "status 429") {
@@ -68,22 +68,91 @@ func generalAgent(ctx context.Context, req AgentRequest) AgentResponse {
 
 // ── Data agent ────────────────────────────────────────────────────────────────
 
+// toolInScope reports whether toolName is in the allowed set. It is the guard
+// that keeps each agent inside its tool scope (design §1).
+func toolInScope(toolName string, allowed []string) bool {
+	for _, t := range allowed {
+		if t == toolName {
+			return true
+		}
+	}
+	return false
+}
+
+// dataSummaryPrompt drives the one-line natural-language intro that sits above a
+// deterministic data block (hybrid formatting, S3-3). The block is built in Go,
+// so the model only writes the intro — it never touches the numbers.
+const dataSummaryPrompt = `You are OpsBot, an assistant for Rocket Elevators operations. The user asked a question, and the exact data answer is shown below, already formatted. Write ONE short sentence (20 words or fewer) in plain language to introduce it. Do not repeat the field values. Do not add any fact that is not in the data. Output only the sentence, with no labels and no line breaks.`
+
+// summarizeForUser asks the model for a single short sentence to sit above a
+// deterministic data block. The block itself is built in Go, so the model never
+// touches the numbers. On any LLM error it returns "" and the caller shows the
+// block alone — the data answer is never lost.
+func summarizeForUser(ctx context.Context, dataBlock, msg string) string {
+	sys := dataSummaryPrompt + "\n\n## Data Answer (already formatted — do not repeat it)\n" + dataBlock
+	messages := []llmMsg{
+		{Role: "system", Content: sys},
+		{Role: "user", Content: msg},
+	}
+	reply, err := callChatLLM(ctx, messages)
+	if err != nil {
+		log.Printf("[data] summary llm call failed: %v — showing data block only", err)
+		return ""
+	}
+	line := strings.TrimSpace(reply)
+	if i := strings.IndexByte(line, '\n'); i >= 0 {
+		line = strings.TrimSpace(line[:i])
+	}
+	return line
+}
+
 func dataAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	c := ClassifyIntent(req.Message, time.Now())
 	toolName, mcpArgs := buildMCPArgs(c, req.Message)
 
-	var dataContext string
-	mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
-	defer mcpCancel()
-	result, err := CallMCPTool(mcpCtx, toolName, mcpArgs)
-	if err != nil {
-		log.Printf("[data] mcp tool %s failed: %v — falling back to advisory", toolName, err)
-	} else if isToolError(result) {
-		log.Printf("[data] mcp tool %s returned error payload — falling back to advisory", toolName)
-	} else {
-		dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+	// Scope guard: the data agent may call only the data tools. When the router
+	// populates AllowedTools it uses that list; called directly (tests), it falls
+	// back to its own canonical set. A tool outside the scope is never called —
+	// the agent stays advisory instead (acceptance criteria §2).
+	allowed := req.AllowedTools
+	if len(allowed) == 0 {
+		allowed = agentTools["mcp_data_tool"]
 	}
 
+	var dataContext string
+	var dataBlock string // deterministic Go-formatted block, when a formatter exists
+
+	if !toolInScope(toolName, allowed) {
+		log.Printf("[data] tool %s is out of scope for the data agent — skipping MCP call", toolName)
+	} else {
+		mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
+		result, err := CallMCPTool(mcpCtx, toolName, mcpArgs)
+		mcpCancel()
+		if err != nil {
+			log.Printf("[data] mcp tool %s failed: %v — falling back to advisory", toolName, err)
+		} else if isToolError(result) {
+			log.Printf("[data] mcp tool %s returned error payload — falling back to advisory", toolName)
+		} else if block, ok := formatToolResult(toolName, result); ok {
+			dataBlock = block // hybrid: Go owns the exact data block
+		} else {
+			dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+		}
+	}
+
+	// Hybrid path: the model writes one intro line; the Go block stays exact.
+	if dataBlock != "" {
+		reply := dataBlock
+		if line := summarizeForUser(ctx, dataBlock, req.Message); line != "" {
+			reply = line + "\n\n" + dataBlock
+		}
+		return AgentResponse{
+			AgentName:      "data",
+			Reply:          reply,
+			UpdatedHistory: appendHistory(req.History, req.Message, reply),
+		}
+	}
+
+	// Fallback path: tools without a Go formatter use inject-and-answer.
 	reply := buildReply(ctx, dataPrompt, dataContext, req.History, req.Message)
 	return AgentResponse{
 		AgentName:      "data",

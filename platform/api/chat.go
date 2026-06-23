@@ -56,6 +56,27 @@ func getOllamaKey() string {
 	return os.Getenv("OLLAMA_API_KEY")
 }
 
+// OpenRouter is a supported chat provider, selected when OPENROUTER_API_KEY is
+// set — this is the provider the live deployment uses. When the key is absent,
+// callChatLLM falls back to Ollama cloud. See multi-agent-design.md §5.
+func getOpenRouterBaseURL() string {
+	if v := os.Getenv("OPENROUTER_BASE_URL"); v != "" {
+		return v
+	}
+	return "https://openrouter.ai/api/v1"
+}
+
+func getOpenRouterModel() string {
+	if v := os.Getenv("OPENROUTER_MODEL"); v != "" {
+		return v
+	}
+	return "google/gemma-4-31b-it:free"
+}
+
+func getOpenRouterKey() string {
+	return os.Getenv("OPENROUTER_API_KEY")
+}
+
 // llmClient is shared across all calls so TCP connections to the provider are
 // pooled. No Timeout is set — callers pass a context that governs the deadline.
 var llmClient = &http.Client{}
@@ -122,15 +143,86 @@ func callLLM(ctx context.Context, baseURL, apiKey, model string, messages []llmM
 	return content, nil
 }
 
-// WarmUpLLM fires a single no-op request to Ollama at server startup so the
-// model is loaded before the first real user request arrives. Runs in a
-// goroutine — never blocks startup and any error is logged and discarded.
+// ── OpenRouter client ────────────────────────────────────────────────────────
+
+// openRouterChatReq / openRouterChatResp match the OpenAI-compatible shape that
+// OpenRouter uses at POST /chat/completions.
+type openRouterChatReq struct {
+	Model    string   `json:"model"`
+	Messages []llmMsg `json:"messages"`
+}
+
+type openRouterChatResp struct {
+	Choices []struct {
+		Message llmMsg `json:"message"`
+	} `json:"choices"`
+}
+
+func callOpenRouter(ctx context.Context, baseURL, apiKey, model string, messages []llmMsg) (string, error) {
+	if apiKey == "" {
+		return "", fmt.Errorf("OPENROUTER_API_KEY is not set")
+	}
+
+	payload, err := json.Marshal(openRouterChatReq{Model: model, Messages: messages})
+	if err != nil {
+		return "", fmt.Errorf("marshal: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(payload))
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := llmClient.Do(req)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return "", err
+		}
+		return "", fmt.Errorf("llm provider unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return "", fmt.Errorf("llm returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var result openRouterChatResp
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("decode response: %w", err)
+	}
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("llm returned no choices")
+	}
+	content := strings.TrimSpace(result.Choices[0].Message.Content)
+	if content == "" {
+		return "", fmt.Errorf("llm returned empty content")
+	}
+	return content, nil
+}
+
+// ── Provider dispatch ────────────────────────────────────────────────────────
+
+// callChatLLM sends a chat completion using the configured provider. When
+// OPENROUTER_API_KEY is set it uses OpenRouter (the provider the live deployment
+// uses); otherwise it falls back to Ollama cloud. All agents call this, not the
+// per-provider functions directly.
+func callChatLLM(ctx context.Context, messages []llmMsg) (string, error) {
+	if getOpenRouterKey() != "" {
+		return callOpenRouter(ctx, getOpenRouterBaseURL(), getOpenRouterKey(), getOpenRouterModel(), messages)
+	}
+	return callLLM(ctx, getOllamaBaseURL(), getOllamaKey(), getOllamaModel(), messages)
+}
+
+// WarmUpLLM fires a single no-op request to the active provider at server
+// startup so the model is loaded before the first real user request arrives.
+// Runs in a goroutine — never blocks startup and any error is logged and discarded.
 func WarmUpLLM() {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	_, err := callLLM(ctx, getOllamaBaseURL(), getOllamaKey(), getOllamaModel(),
-		[]llmMsg{{Role: "user", Content: "ping"}},
-	)
+	_, err := callChatLLM(ctx, []llmMsg{{Role: "user", Content: "ping"}})
 	if err != nil {
 		log.Printf("[llm warm-up] failed: %v", err)
 		return
@@ -280,9 +372,9 @@ func isIncidentNarrativeQuery(lower string) bool {
 // buildMCPArgs maps a classification and original message to an MCP tool name
 // and arguments. Called only for data_query, rag, and action intents.
 //
-// TODO(S3-3): accept allowedTools []string and guard the returned tool name
-// against it. Callers (dataAgent, knowledgeAgent, schedulingAgent) should pass
-// req.AllowedTools so cross-agent tool calls are rejected before hitting MCP.
+// It does not enforce tool scoping itself — the calling agent guards the
+// returned tool against its allowed set (see toolInScope in agents.go and the
+// agentTools map in router.go), so a cross-agent tool is never sent to MCP.
 func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
 	lower := strings.ToLower(msg)
 	hasID := len(c.Entities.ElevatorIDs) > 0

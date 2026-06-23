@@ -19,6 +19,15 @@ The model never selects tools or extracts arguments. "Tool access" in this docum
 
 **Consequence for model selection:** Since models never invoke tools, the only criterion is response quality when given injected context. All agents receive plain text context and return plain text answers. The no-tool tests (T1) are the valid benchmark; T2/T3 (native tool-call latency tests) do not represent production behavior and are retained for documentation only.
 
+### 0.1 Hybrid formatting for the data agent (S3-3)
+
+For tools that return a known JSON shape, the data agent builds the data block **deterministically in Go** instead of asking the model to format it. The model then writes only a one-line natural-language intro that sits above the block. This keeps the numbers exact (no drift, no invented fields) while still giving a natural sentence.
+
+- The data block is plain text (no markdown), with a `Source:` line, a blank line, then labeled fields (e.g. `Risk level:`, `Score:`).
+- The format is keyed by **tool name**, not by agent, because each tool returns a different shape. `formatToolResult` (in `data_format.go`) dispatches one formatter per tool.
+- All seven data tools have Go formatters: `get_elevator_risk`, `get_fleet_stats`, `get_inspection_history`, `get_elevator_incidents`, `get_elevators_needing_followup`, `get_tssa_shutdown_elevators`, `get_incident_count_last_year`. Any tool without a formatter falls back to the original inject-and-answer path, so the design stays incremental.
+- If the one-line LLM call fails, the agent shows the Go block alone — the data answer is never lost.
+
 ---
 
 ## 1. Agents
@@ -343,6 +352,10 @@ The current `callLLM` in `chat.go` targets the OpenAI-compatible `/chat/completi
 ### 5.1 Provider
 
 All agents use Ollama cloud models via the hosted API at `https://ollama.com/api/` with bearer token auth (`OLLAMA_API_KEY`). No local Ollama installation required — the API is callable directly from the Go HTTP client. This replaces the previous OpenRouter + `google/gemma-4-31b-it:free` configuration.
+
+**Provider selection:** `callChatLLM` dispatches by provider. If `OPENROUTER_API_KEY` is set, it uses OpenRouter (OpenAI-compatible `/chat/completions`); otherwise it falls back to Ollama. **The live deployment sets `OPENROUTER_API_KEY`, so production runs on OpenRouter**; Ollama is the fallback for environments without an OpenRouter key.
+
+Note: the model-selection tests in §5.3 below were run against Ollama models. They justify the Ollama fallback model, not the OpenRouter model used in deployment (`OPENROUTER_MODEL`). This section should be reconciled to document the production OpenRouter model too.
 
 ### 5.2 Model assignments
 
