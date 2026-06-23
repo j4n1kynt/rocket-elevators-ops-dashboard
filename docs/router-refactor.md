@@ -194,7 +194,23 @@ default:
 
 ---
 
-### 8. Frontend contract verification
+### 8. Rate-limit error message (HTTP 429)
+
+The original `PostChat` returned specific user-facing messages for 401, 429, timeout, and unreachable provider. The refactor collapsed all of these into one generic fallback inside `buildReply` (§4.3 — always return a response, never a Go error).
+
+The reviewer flagged 429 as a required exception: the free Ollama tier will hit rate limits during the demo, and a generic "having trouble" message looks like a broken integration. All other errors stay on the generic path.
+
+`buildReply` now checks whether the error string contains `"status 429"` (the format `callLLM` uses for non-200 responses) and returns a distinct message before falling through to the generic one:
+
+```
+The model is currently rate-limited. Please wait a moment and try again.
+```
+
+401, timeout (`context.DeadlineExceeded`), unreachable provider, and empty-content errors all remain on the generic path.
+
+---
+
+### 9. Frontend contract verification
 
 After the `PostChat` refactor, the JSON shapes were verified end-to-end to confirm the frontend still works without changes.
 
