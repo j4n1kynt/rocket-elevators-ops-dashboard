@@ -231,7 +231,10 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			toolName, mcpArgs := buildMCPArgs(c, req.Message)
 			mcpCtx, mcpCancel := context.WithTimeout(ctx, 10*time.Second)
 			defer mcpCancel()
-			if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
+			if toolName != "schedule_inspection" {
+				log.Printf("[scheduling] blocked forbidden tool %q — only schedule_inspection is allowed", toolName)
+				dataContext = "[ACTION VALIDATION ERROR]\nInternal routing error: the scheduling agent may only call schedule_inspection. No action was taken. Please try again or contact support."
+			} else if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
 				log.Printf("[scheduling] mcp tool %s failed: %v", toolName, err)
 				errMsg := cleanValidationError(err.Error())
 				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
