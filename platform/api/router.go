@@ -38,7 +38,6 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 
 	if req.PendingAction != nil {
 		log.Printf("[router] pending_action present → scheduling")
-		req.AllowedTools = []string{"schedule_inspection"}
 		return schedulingAgent(ctx, req)
 	}
 
@@ -53,13 +52,10 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 		log.Printf("[router] intent=%s confidence=%.2f → %s", c.Intent, c.Confidence, route.Target)
 	}
 
-	// allowedTools gates which MCP tools each agent's Go handler may call
-	// (design §2). Scheduling is the only agent with a write tool, so it is
-	// the only one explicitly listed here. Other agents enforce their own
-	// scoping internally (knowledgeAgent, dataAgent, generalAgent).
-	if route.Target == "action_executor" {
-		req.AllowedTools = []string{"schedule_inspection"}
-	}
+	// TODO(S3-3): populate req.AllowedTools based on route.Target before calling
+	// the agent. Each agent should only be permitted to call the tools listed in
+	// multi-agent-design.md §2 for its intent (e.g. dataAgent may not call
+	// search_maintenance_docs; knowledgeAgent may not call get_fleet_stats).
 
 	return agent(ctx, req)
 }
