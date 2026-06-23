@@ -150,6 +150,13 @@ def run_migration(conn):
         conn.rollback()
         print(f"  WARNING: 003_pending_inspection_unique.sql skipped: {exc}")
 
+    # 004 uses IF NOT EXISTS — always safe to run
+    sql = Path("platform/api/migrations/004_conversations.sql").read_text()
+    with conn.cursor() as cur:
+        cur.execute(sql)
+    conn.commit()
+    print("  004_conversations.sql applied")
+
 
 # ---------------------------------------------------------------------------
 # Load elevators ← data/license.csv

@@ -435,6 +435,7 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 	var dataContext string
 	var pendingAction *PendingAction
 	skipClassify := false
+	agentName := "advisory" // which agent handled this message; logged with the reply
 
 	// ── Confirmation handling (spec §7.2) ─────────────────────────────────────
 	// Runs before the intent classifier when the client carries a pending_action.
@@ -452,6 +453,7 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case isConfirm:
 			skipClassify = true
+			agentName = "action_executor"
 			// The pending_action round-trips through the client, so its values
 			// are untrusted. Reject anything not signed by a genuine Phase 1
 			// preview on this server before writing.
@@ -494,6 +496,7 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		case isCancel:
 			log.Printf("chat confirmation=cancelled elevator=%d", pa.ElevatorID)
 			skipClassify = true
+			agentName = "action_executor"
 			dataContext = "[ACTION CANCELLED]\nThe user cancelled the inspection scheduling. Confirm that no action was taken and no database write occurred."
 			// pendingAction stays nil
 
@@ -508,6 +511,7 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 	if !skipClassify {
 		classification := ClassifyIntent(msg, time.Now())
 		route := routeIntent(classification)
+		agentName = route.Target
 		log.Printf("chat intent=%s confidence=%.2f route=%s stub=%t reason=%q",
 			classification.Intent, classification.Confidence, route.Target, route.Stub, classification.Reason)
 
@@ -618,9 +622,14 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		ChatMessage{Role: "assistant", Content: reply},
 	)
 
+	// Log the conversation (best-effort, never blocks the reply).
+	convID := EnsureConversation(r.Context(), req.ConversationID)
+	LogTurn(convID, msg, reply, agentName)
+
 	writeJSON(w, 200, ChatResponse{
-		Reply:         reply,
-		History:       updatedHistory,
-		PendingAction: pendingAction,
+		Reply:          reply,
+		History:        updatedHistory,
+		PendingAction:  pendingAction,
+		ConversationID: convID,
 	})
 }

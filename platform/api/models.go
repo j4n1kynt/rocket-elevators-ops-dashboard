@@ -111,10 +111,14 @@ type ChatRequest struct {
 	Message       string         `json:"message"`
 	History       []ChatMessage  `json:"history"`
 	PendingAction *PendingAction `json:"pending_action,omitempty"`
+	// ConversationID links turns into one conversation. The server sets it on
+	// the first turn; the client sends it back on every following turn.
+	ConversationID int64 `json:"conversation_id,omitempty"`
 }
 
 type ChatResponse struct {
-	Reply         string         `json:"reply"`
-	History       []ChatMessage  `json:"history"`
-	PendingAction *PendingAction `json:"pending_action,omitempty"`
+	Reply          string         `json:"reply"`
+	History        []ChatMessage  `json:"history"`
+	PendingAction  *PendingAction `json:"pending_action,omitempty"`
+	ConversationID int64          `json:"conversation_id,omitempty"`
 }

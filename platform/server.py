@@ -522,7 +522,13 @@ def chat():
     except Exception:
         pending_action = None
 
+    try:
+        conversation_id = int(request.form.get("conversation_id", "0"))
+    except (TypeError, ValueError):
+        conversation_id = 0
+
     api_payload = {"message": message, "history": history}
+    api_payload["conversation_id"] = conversation_id
     if pending_action is not None:
         api_payload["pending_action"] = pending_action
 
@@ -544,6 +550,7 @@ def chat():
                 error=detail or "The assistant is currently unavailable. Please try again in a moment.",
                 history=json.dumps(history),
                 pending_action="null",
+                conversation_id=conversation_id,
             )
         api_resp.raise_for_status()
         data = api_resp.json()
@@ -555,6 +562,7 @@ def chat():
             error="The assistant took too long to respond. Please try again.",
             history=json.dumps(history),
             pending_action="null",
+            conversation_id=conversation_id,
         )
     except Exception:
         return render_template(
@@ -564,6 +572,7 @@ def chat():
             error="Failed to reach the assistant. Please try again.",
             history=json.dumps(history),
             pending_action="null",
+            conversation_id=conversation_id,
         )
 
     return render_template(
@@ -573,6 +582,7 @@ def chat():
         error=None,
         history=json.dumps(data.get("history", [])),
         pending_action=json.dumps(data.get("pending_action")),
+        conversation_id=data.get("conversation_id", conversation_id),
     )
 
 
