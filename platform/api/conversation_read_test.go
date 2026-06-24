@@ -354,6 +354,85 @@ func TestGetConversationStats_Integration(t *testing.T) {
 	}
 }
 
+// TestGetConversations_FilterIntegration is the regression guard for the
+// filtered list query. An earlier bug placed the WHERE clause BEFORE the JOINs
+// in the list SQL, so any ?agent= or ?q= filter returned 500 (the unfiltered
+// list still worked, which is why unit tests missed it). This test seeds two
+// conversations that share a unique content token but use different agents,
+// then exercises the q, agent, and combined filters. The key assertion is that
+// every filtered request returns 200 — never a 500 — with the correct matches.
+// Skips when no database is available.
+func TestGetConversations_FilterIntegration(t *testing.T) {
+	pool := tryInitDB(t)
+	if pool == nil {
+		t.Skip("no database")
+	}
+
+	ctx := context.Background()
+	const token = "rkt_filter_regtest_xyz" // unique, so q isolates only these rows
+
+	// Self-healing: remove any rows a prior crashed run left behind, before and after.
+	cleanup := func() {
+		pool.Exec(ctx,
+			`DELETE FROM conversations WHERE conversation_id IN (
+				SELECT DISTINCT conversation_id FROM messages WHERE content LIKE '%' || $1 || '%')`,
+			token)
+	}
+	cleanup()
+	defer cleanup()
+
+	convData := seedConversation(t, ctx, pool, token+" alpha question", "answer alpha", "data")
+	convKnow := seedConversation(t, ctx, pool, token+" beta question", "answer beta", "knowledge")
+
+	// get runs the handler with the given query string and returns the decoded
+	// body, failing the test on any non-200 (the regression we guard against).
+	get := func(query string) map[string]any {
+		r := httptest.NewRequest(http.MethodGet, "/api/conversations?"+query, nil)
+		rec := httptest.NewRecorder()
+		GetConversations(rec, r)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("query %q: want 200, got %d — body: %s", query, rec.Code, rec.Body.String())
+		}
+		return decodeBody(t, rec)
+	}
+	total := func(body map[string]any) int {
+		v, ok := body["total"].(float64)
+		if !ok {
+			t.Fatalf("response has no numeric 'total': %v", body["total"])
+		}
+		return int(v)
+	}
+	firstConvID := func(body map[string]any) int64 {
+		convs, _ := body["conversations"].([]any)
+		if len(convs) == 0 {
+			t.Fatalf("expected at least one conversation, got none")
+		}
+		m, _ := convs[0].(map[string]any)
+		return int64(m["conversation_id"].(float64))
+	}
+
+	// q alone matches both seeded conversations (the token is unique to them).
+	if got := total(get("q=" + token)); got != 2 {
+		t.Errorf("q=%s: want total=2, got %d", token, got)
+	}
+	// q + agent=data matches only the data conversation.
+	if b := get("q=" + token + "&agent=data"); total(b) != 1 {
+		t.Errorf("q+agent=data: want total=1, got %d", total(b))
+	} else if id := firstConvID(b); id != convData {
+		t.Errorf("q+agent=data: expected conversation_id=%d, got %d", convData, id)
+	}
+	// q + agent=knowledge matches only the knowledge conversation.
+	if b := get("q=" + token + "&agent=knowledge"); total(b) != 1 {
+		t.Errorf("q+agent=knowledge: want total=1, got %d", total(b))
+	} else if id := firstConvID(b); id != convKnow {
+		t.Errorf("q+agent=knowledge: expected conversation_id=%d, got %d", convKnow, id)
+	}
+	// q + agent=scheduling matches neither (proves the agent filter excludes).
+	if got := total(get("q=" + token + "&agent=scheduling")); got != 0 {
+		t.Errorf("q+agent=scheduling: want total=0, got %d", got)
+	}
+}
+
 // itoa64 converts int64 to string — avoids importing strconv in the test file
 // since strconv is already in the main package.
 func itoa64(n int64) string {
