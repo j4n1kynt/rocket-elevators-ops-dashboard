@@ -525,6 +525,191 @@ func TestDataAgentRespectsAllowedTools(t *testing.T) {
 		t.Errorf("expected no MCP calls when tool is out of allowed scope, got %v", calls)
 	}
 }
+
+// capturingLLMServer records the system-message content of every request so
+// tests can assert on what the agent actually sent to the model.
+type capturingLLMServer struct {
+	*httptest.Server
+	mu      sync.Mutex
+	systems []string
+}
+
+func newCapturingLLMServer(t *testing.T, reply string) *capturingLLMServer {
+	t.Helper()
+	srv := &capturingLLMServer{}
+	srv.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if err := json.Unmarshal(body, &req); err == nil {
+			srv.mu.Lock()
+			for _, m := range req.Messages {
+				if m.Role == "system" {
+					srv.systems = append(srv.systems, m.Content)
+				}
+			}
+			srv.mu.Unlock()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		b, _ := json.Marshal(reply)
+		io.WriteString(w, `{"message":{"role":"assistant","content":`+string(b)+`},"done":true}`) //nolint:errcheck
+	}))
+	return srv
+}
+
+func (s *capturingLLMServer) SystemMessages() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string{}, s.systems...)
+}
+
+// TestDataAgentMCPTransportFailureNoRawError verifies that when the MCP server
+// is unreachable, dataAgent injects the plain-language unavailability notice
+// rather than leaking raw Go error strings (e.g. "connection refused", "dial
+// tcp") into the system message sent to the LLM.
+func TestDataAgentMCPTransportFailureNoRawError(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{})
+	mcp.Close() // shut down before the agent runs — produces "connection refused"
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := newCapturingLLMServer(t, "The data service is currently unavailable.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	dataAgent(context.Background(), AgentRequest{
+		Message: "how many elevators are offline?",
+	})
+
+	systems := llm.SystemMessages()
+	if len(systems) == 0 {
+		t.Fatal("no system message captured — LLM was never called")
+	}
+	sys := systems[0]
+
+	if !strings.Contains(sys, "DATA SERVICE UNAVAILABLE") {
+		t.Errorf("system message must contain DATA SERVICE UNAVAILABLE\ngot: %s", sys)
+	}
+	for _, bad := range []string{"connection refused", "dial tcp", "mcp server unreachable", "mcp status"} {
+		if strings.Contains(sys, bad) {
+			t.Errorf("system message must not contain raw error text %q\ngot: %s", bad, sys)
+		}
+	}
+}
+
+// TestKnowledgeAgentBothCorporaToolErrorNoRawError verifies that when both
+// corpus tools return error payloads (isToolError path), knowledgeAgent injects
+// the plain-language unavailability notice and does not forward raw error
+// strings to the LLM.
+func TestKnowledgeAgentBothCorporaToolErrorNoRawError(t *testing.T) {
+	errorPayload := `{"error":true,"message":"internal tool error"}`
+	mcp := newTrackingMCPServer(t, map[string]string{
+		"search_maintenance_docs":    errorPayload,
+		"search_incident_narratives": errorPayload,
+	})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := newCapturingLLMServer(t, "The documentation search service is currently unavailable.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	knowledgeAgent(context.Background(), AgentRequest{
+		Message: "how do I maintain hydraulic systems?",
+	})
+
+	systems := llm.SystemMessages()
+	if len(systems) == 0 {
+		t.Fatal("no system message captured — LLM was never called")
+	}
+	sys := systems[0]
+
+	if !strings.Contains(sys, "DATA SERVICE UNAVAILABLE") {
+		t.Errorf("system message must contain DATA SERVICE UNAVAILABLE\ngot: %s", sys)
+	}
+	for _, bad := range []string{"tool error", "connection refused", "dial tcp", "internal tool error"} {
+		if strings.Contains(sys, bad) {
+			t.Errorf("system message must not contain raw error text %q\ngot: %s", bad, sys)
+		}
+	}
+}
+
+// TestBuildReplyMalformedLLMOutput verifies that buildReply returns a safe
+// fallback when the LLM produces a raw error string or a JSON blob, passes
+// short replies through unchanged (logged only, not discarded), trims leading
+// whitespace before the prefix-based checks, and does not discard markdown
+// links or citations that legitimately begin with "[".
+func TestBuildReplyMalformedLLMOutput(t *testing.T) {
+	const safeFallback = "I'm having trouble generating a response right now. Please try again."
+
+	cases := []struct {
+		name      string
+		llmReply  string
+		wantReply string
+	}{
+		{
+			name:      "raw_error",
+			llmReply:  "mcp server unreachable: dial tcp 127.0.0.1:8765: connection refused",
+			wantReply: safeFallback,
+		},
+		{
+			name:      "json_object_blob",
+			llmReply:  `{"elevators":[{"id":1,"status":"active"}]}`,
+			wantReply: safeFallback,
+		},
+		{
+			name:      "json_array_blob",
+			llmReply:  `[{"id":1,"status":"active"},{"id":2,"status":"offline"}]`,
+			wantReply: safeFallback,
+		},
+		{
+			// Improvement: leading whitespace/newlines must not let a JSON blob
+			// slip past the prefix-based checks.
+			name:      "json_blob_with_leading_whitespace",
+			llmReply:  "\n\n  {\"elevators\":[{\"id\":1}]}",
+			wantReply: safeFallback,
+		},
+		{
+			// Improvement: a reply that begins with "[" but is not valid JSON
+			// (a markdown link) is a real answer and must pass through.
+			name:      "markdown_link_not_json",
+			llmReply:  "[TSSA guidance](https://example.com) covers the annual inspection requirement.",
+			wantReply: "[TSSA guidance](https://example.com) covers the annual inspection requirement.",
+		},
+		{
+			// Improvement: a citation-style reply starting with "[1]" is not
+			// valid JSON and must pass through.
+			name:      "citation_not_json",
+			llmReply:  "[1] According to the maintenance log, the unit was serviced in March.",
+			wantReply: "[1] According to the maintenance log, the unit was serviced in March.",
+		},
+		{
+			name:      "short_reply",
+			llmReply:  "OK",
+			wantReply: "OK",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			llm := fakeLLMServer(t, tc.llmReply)
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			got := buildReply(context.Background(), "You are a helpful assistant.", "", nil, "test message")
+			if got != tc.wantReply {
+				t.Errorf("got %q, want %q", got, tc.wantReply)
+			}
+		})
+	}
+}
+
 // ── Scheduling agent tests ────────────────────────────────────────────────────
 
 // TestSchedulingAgentPhase1Preview verifies that given a valid elevator ID and

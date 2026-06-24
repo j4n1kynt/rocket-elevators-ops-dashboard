@@ -316,7 +316,7 @@ func cleanValidationError(raw string) string {
 			return after
 		}
 	}
-	return raw
+	return "The request could not be processed. Please try again."
 }
 
 // incidentNarrativeCues are experiential / recurrence phrases that mean "has

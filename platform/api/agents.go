@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strings"
 	"time"
@@ -19,6 +20,34 @@ func toolAllowed(allowed []string, name string) bool {
 		if a == name {
 			return true
 		}
+	}
+	return false
+}
+
+// looksLikeRawError reports whether reply appears to be a leaked infrastructure
+// error string rather than a natural-language answer.
+func looksLikeRawError(reply string) bool {
+	lower := strings.ToLower(reply)
+	for _, marker := range []string{"mcp ", "dial tcp", "connection refused", "connectex:", "llm returned status"} {
+		if strings.HasPrefix(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// looksLikeJSON reports whether reply is an unparsed JSON blob (the model
+// echoed structured data instead of a natural-language answer). A leading "{"
+// is treated as a misfire outright. A leading "[" is ambiguous — markdown links
+// ([text](url)) and citations ([1] Smith et al.) also start with "[" — so it is
+// only discarded when the whole reply actually parses as JSON.
+func looksLikeJSON(reply string) bool {
+	trimmed := strings.TrimSpace(reply)
+	if strings.HasPrefix(trimmed, "{") {
+		return true
+	}
+	if strings.HasPrefix(trimmed, "[") {
+		return json.Valid([]byte(trimmed))
 	}
 	return false
 }
@@ -43,6 +72,20 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 			return "The model is currently rate-limited. Please wait a moment and try again."
 		}
 		return "I'm having trouble reaching the assistant right now. Please try again in a moment."
+	}
+	// Trim first so leading whitespace/newlines don't cause the sanity checks
+	// below (all prefix-based) to miss a malformed reply.
+	reply = strings.TrimSpace(reply)
+	if looksLikeRawError(reply) {
+		log.Printf("[agent] llm reply looks like a raw error — discarding: %.120s", reply)
+		return "I'm having trouble generating a response right now. Please try again."
+	}
+	if looksLikeJSON(reply) {
+		log.Printf("[agent] llm reply looks like an unparsed JSON blob — discarding: %.120s", reply)
+		return "I'm having trouble generating a response right now. Please try again."
+	}
+	if len(reply) < 20 {
+		log.Printf("[agent] llm reply is suspiciously short (%d chars): %s", len(reply), reply)
 	}
 	return reply
 }
@@ -129,9 +172,15 @@ func dataAgent(ctx context.Context, req AgentRequest) AgentResponse {
 		result, err := CallMCPTool(mcpCtx, toolName, mcpArgs)
 		mcpCancel()
 		if err != nil {
-			log.Printf("[data] mcp tool %s failed: %v — falling back to advisory", toolName, err)
+			log.Printf("[data] mcp tool %s failed: %v", toolName, err)
+			dataContext = "[DATA SERVICE UNAVAILABLE: the PostgreSQL data service could not be reached. " +
+				"Tell the user that live fleet data is currently unavailable and you cannot answer their question with real data. " +
+				"Do not speculate or answer from general knowledge.]"
 		} else if isToolError(result) {
-			log.Printf("[data] mcp tool %s returned error payload — falling back to advisory", toolName)
+			log.Printf("[data] mcp tool %s returned error payload", toolName)
+			dataContext = "[DATA SERVICE ERROR: the data tool returned an error response. " +
+				"Tell the user that live fleet data is currently unavailable and you cannot answer their question with real data. " +
+				"Do not speculate or answer from general knowledge.]"
 		} else if block, ok := formatToolResult(toolName, result); ok {
 			dataBlock = block // hybrid: Go owns the exact data block
 		} else {
@@ -194,23 +243,29 @@ func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	primaryCtx, primaryCancel := context.WithTimeout(ctx, 25*time.Second)
 	primaryResult, primaryErr := CallMCPTool(primaryCtx, primaryTool, primaryArgs)
 	primaryCancel()
+	var primaryHardFailed bool
 	if primaryErr != nil {
 		log.Printf("[knowledge] primary tool %s failed: %v — trying fallback", primaryTool, primaryErr)
+		primaryHardFailed = true
 	} else if isToolError(primaryResult) {
 		log.Printf("[knowledge] primary tool %s returned error payload — trying fallback", primaryTool)
+		primaryHardFailed = true
 	} else if hasConfidentResults(primaryResult) {
 		log.Printf("[knowledge] primary tool %s matched", primaryTool)
 		dataContext = knowledgeSourceLabel(primaryTool) + primaryResult
 	}
 
+	var fallbackHardFailed bool
 	if dataContext == "" {
 		fallbackCtx, fallbackCancel := context.WithTimeout(ctx, 25*time.Second)
 		fallbackResult, fallbackErr := CallMCPTool(fallbackCtx, fallbackTool, fallbackArgs)
 		fallbackCancel()
 		if fallbackErr != nil {
-			log.Printf("[knowledge] fallback tool %s failed: %v — advisory only", fallbackTool, fallbackErr)
+			log.Printf("[knowledge] fallback tool %s failed: %v", fallbackTool, fallbackErr)
+			fallbackHardFailed = true
 		} else if isToolError(fallbackResult) {
-			log.Printf("[knowledge] fallback tool %s returned error payload — advisory only", fallbackTool)
+			log.Printf("[knowledge] fallback tool %s returned error payload", fallbackTool)
+			fallbackHardFailed = true
 		} else if hasConfidentResults(fallbackResult) {
 			log.Printf("[knowledge] fallback tool %s matched", fallbackTool)
 			dataContext = knowledgeSourceLabel(fallbackTool) + fallbackResult
@@ -218,7 +273,14 @@ func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	}
 
 	if dataContext == "" {
-		log.Printf("[knowledge] no confident results from either corpus — advisory only")
+		if primaryHardFailed && fallbackHardFailed {
+			log.Printf("[knowledge] both corpus tools unreachable — injecting unavailability notice")
+			dataContext = "[DATA SERVICE UNAVAILABLE: the maintenance knowledge base could not be reached. " +
+				"Tell the user that documentation search is currently unavailable and you cannot answer their question from maintenance records. " +
+				"Do not speculate or answer from general knowledge.]"
+		} else {
+			log.Printf("[knowledge] no confident results from either corpus — advisory only")
+		}
 	}
 
 	reply := buildReply(ctx, knowledgePrompt, dataContext, req.History, req.Message)
