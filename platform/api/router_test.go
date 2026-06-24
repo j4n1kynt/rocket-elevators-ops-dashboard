@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -224,6 +225,254 @@ func TestRouteSelectsCorrectAgent(t *testing.T) {
 
 			if resp.AgentName != tc.wantAgent {
 				t.Errorf("Route(%q) agentName = %q, want %q", tc.message, resp.AgentName, tc.wantAgent)
+			}
+		})
+	}
+}
+
+// TestMultiDomainQueriesRoutedDeterministically verifies that a message whose
+// text contains keywords from more than one intent class is always routed to
+// the single correct agent (the highest-scoring intent wins), returns a
+// non-empty reply, and — crucially — never calls a tool that belongs to a
+// different domain. The third assertion is the unique value here: classification
+// and tool-selection are already proven at the unit level; this test confirms
+// the winning agent's scope guard holds in the full Route() pipeline.
+//
+// Score workings are in the row comments. Floor = 0.60; confidence = score/(score+1).
+func TestMultiDomainQueriesRoutedDeterministically(t *testing.T) {
+	cases := []struct {
+		name           string
+		message        string
+		wantAgent      string
+		wantToolCalled string   // must appear in mcp.Calls() (first call)
+		forbiddenTools []string // must NOT appear in mcp.Calls() under any circumstance
+		mcpPayloads    map[string]string
+	}{
+		{
+			// RAG wins: "procedure" (RAG 1.5) > "incident" (DataQuery 1.0).
+			// Confidence = 1.5/2.5 = 0.60. The DataQuery "incident" signal must not
+			// cause a data tool (e.g. get_incident_count_last_year) to fire.
+			name:           "rag beats data: procedure + incident keyword",
+			message:        "What's the procedure for reporting an incident?",
+			wantAgent:      "knowledge",
+			wantToolCalled: "search_maintenance_docs",
+			forbiddenTools: []string{
+				"get_incident_count_last_year", "get_elevator_incidents",
+				"get_fleet_stats", "get_tssa_shutdown_elevators",
+			},
+			mcpPayloads: map[string]string{
+				// Return a confident result so the fallback corpus is not tried.
+				"search_maintenance_docs": `{"total_returned":1,"results":[{"text":"File a report within 24 hours.","source_name":"Maintenance Document 42","similarity_score":0.88}]}`,
+			},
+		},
+		{
+			// DataQuery wins: "tssa" (1.0) + "shut down" (1.0) + "which" (0.5) = 2.5
+			// vs RAG "maintenance" (0.5). Confidence = 2.5/3.5 = 0.71.
+			// The RAG "maintenance" signal must not cause search_maintenance_docs to fire.
+			name:           "data beats rag: shutdown keywords + maintenance keyword",
+			message:        "Which TSSA shutdown elevators need maintenance?",
+			wantAgent:      "data",
+			wantToolCalled: "get_tssa_shutdown_elevators",
+			forbiddenTools: []string{"search_maintenance_docs", "search_incident_narratives"},
+			mcpPayloads: map[string]string{
+				"get_tssa_shutdown_elevators": `{"count":0,"source":"inspections table","note":"","elevators":[]}`,
+			},
+		},
+		{
+			// TRUE TIE broken by precedence:
+			//   "how do i"        → RAG       1.5
+			//   "inspection history" → DataQuery 1.0
+			//   elevator-ID bonus → DataQuery +0.5
+			// Both intents score exactly 1.5. tieBreakOrder=[Action, DataQuery, RAG]
+			// and the loop is strict (>), so DataQuery wins the tie over RAG.
+			// Confidence = 1.5/2.5 = 0.60. This is the only case where the fixed
+			// precedence rule alone decides the winner — the result must be the data
+			// agent, not the knowledge agent, and search_* must never be called.
+			name:           "data ties rag at 1.5, precedence decides: how-do-i + inspection history + elevator ID",
+			message:        "How do I check the inspection history for elevator 12345?",
+			wantAgent:      "data",
+			wantToolCalled: "get_inspection_history",
+			forbiddenTools: []string{"search_maintenance_docs", "search_incident_narratives"},
+			mcpPayloads: map[string]string{
+				"get_inspection_history": `{"found":true,"elevator_id":12345,"total_returned":1,"source":"inspections table","inspections":[{"inspection_type":"ED-Periodic Inspection","latest_inspection_date":"2025-03-20","outcome":"Passed"}]}`,
+			},
+		},
+		{
+			// Action wins: "schedule" (1.0) + ID bonus (0.5) + date bonus (0.5)
+			// + verb-and-entity bonus (1.0) = 3.0 vs RAG "procedure" (1.5).
+			// Confidence = 3.0/4.0 = 0.75. The RAG "procedure" signal must not
+			// cause search_maintenance_docs to fire.
+			name:           "action beats rag: schedule verb + procedure keyword",
+			message:        "What's the procedure to schedule an inspection for elevator 12345 on 2026-07-15?",
+			wantAgent:      "scheduling",
+			wantToolCalled: "schedule_inspection",
+			forbiddenTools: []string{"search_maintenance_docs", "search_incident_narratives"},
+			mcpPayloads: map[string]string{
+				"schedule_inspection": `{"pending_confirmation":true,"summary":"Elevator 12345 — ED-Periodic Inspection — 2026-07-15"}`,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, tc.mcpPayloads)
+			defer mcp.Close()
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := fakeLLMServer(t, "Here is what I found.")
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := Route(context.Background(), AgentRequest{Message: tc.message})
+
+			if resp.AgentName != tc.wantAgent {
+				t.Errorf("AgentName = %q, want %q", resp.AgentName, tc.wantAgent)
+			}
+			// Non-empty and free of leaked raw errors or JSON.
+			assertSafeReply(t, resp.Reply)
+			calls := mcp.Calls()
+			if len(calls) == 0 || calls[0] != tc.wantToolCalled {
+				t.Errorf("first MCP call = %v, want [%s]", calls, tc.wantToolCalled)
+			}
+			for _, call := range calls {
+				for _, forbidden := range tc.forbiddenTools {
+					if call == forbidden {
+						t.Errorf("cross-domain tool %q must not be called for a %s-winning message", forbidden, tc.wantAgent)
+					}
+				}
+			}
+			// Determinism: same message, same result.
+			resp2 := Route(context.Background(), AgentRequest{Message: tc.message})
+			if resp2.AgentName != resp.AgentName {
+				t.Errorf("Route is not deterministic: first=%q second=%q", resp.AgentName, resp2.AgentName)
+			}
+		})
+	}
+}
+
+// TestMultiDomainSignalTraceRecordsAllKeywords verifies that ClassifyIntent's
+// Signals trace captures every keyword that fired — including the losing-domain
+// keywords — so callers can audit why a multi-domain message was resolved the
+// way it was. This is the classification-layer complement to the Route()-level
+// test above.
+func TestMultiDomainSignalTraceRecordsAllKeywords(t *testing.T) {
+	cases := []struct {
+		name         string
+		message      string
+		wantIntent   Intent
+		mustContain  []string // keyword strings that must appear in Signals
+	}{
+		{
+			name:        "procedure + incident: RAG wins, incident signal still recorded",
+			message:     "What's the procedure for reporting an incident?",
+			wantIntent:  IntentRAG,
+			mustContain: []string{"procedure", "incident"},
+		},
+		{
+			// "shutdown" (one word) matches the "shutdown" keyword, not "shut down".
+			name:        "shutdown + maintenance: DataQuery wins, maintenance signal still recorded",
+			message:     "Which TSSA shutdown elevators need maintenance?",
+			wantIntent:  IntentDataQuery,
+			mustContain: []string{"shutdown", "tssa", "which", "maintenance"},
+		},
+		{
+			// True tie: "how do i" (RAG 1.5) and "inspection history" (DataQuery 1.0)
+			// + ID bonus (DataQuery +0.5) both reach 1.5. The trace must record both
+			// keywords so the precedence decision — DataQuery beats RAG in the
+			// tieBreakOrder — is auditable after the fact.
+			name:        "how-do-i + inspection history: true 1.5 tie, both signals recorded",
+			message:     "How do I check the inspection history for elevator 12345?",
+			wantIntent:  IntentDataQuery,
+			mustContain: []string{"how do i", "inspection history"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ClassifyIntent(tc.message, fixedNow)
+			if got.Intent != tc.wantIntent {
+				t.Fatalf("intent = %q, want %q (reason: %s)", got.Intent, tc.wantIntent, got.Reason)
+			}
+			signalKeywords := make([]string, len(got.Signals))
+			for i, s := range got.Signals {
+				signalKeywords[i] = s.Keyword
+			}
+			joined := strings.Join(signalKeywords, " | ")
+			for _, kw := range tc.mustContain {
+				found := false
+				for _, s := range got.Signals {
+					if s.Keyword == kw {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Signals missing keyword %q — signals: %s", kw, joined)
+				}
+			}
+		})
+	}
+}
+
+// TestAmbiguousQueriesHandledGracefully verifies the full Route() → generalAgent()
+// pipeline for low-signal messages: correct agent, non-empty reply, zero MCP calls.
+//
+// Three distinct mechanisms drive messages below the confidence floor (0.60):
+//
+//  1. Zero signal — no keyword matches any intent; score=0, confidence=0.
+//  2. Single keyword below floor — one match, but not enough weight to clear 0.60.
+//  3. Competing signals tie — two intents score equally; DataQuery wins by
+//     precedence but the score is still too low (confidence < 0.60).
+//
+// TestRouteSelectsCorrectAgent already verifies AgentName for these messages.
+// This test adds the graceful-handling dimension: non-empty reply and no
+// MCP tool calls, which the routing table does not assert.
+func TestAmbiguousQueriesHandledGracefully(t *testing.T) {
+	cases := []struct {
+		name    string
+		message string
+	}{
+		{
+			// score=0, confidence=0 — pure advisory, no keyword match
+			name:    "zero signal: no keyword match",
+			message: "What is a hydraulic elevator?",
+		},
+		{
+			// "tssa" (DataQuery 1.0) → confidence=1.0/2.0=0.50 < floor (0.60)
+			// A single named-entity keyword is not enough on its own.
+			name:    "single keyword below floor",
+			message: "What does TSSA stand for?",
+		},
+		{
+			// "list" (DataQuery 0.5) + "replace" (RAG 0.5) → tie at 0.5
+			// DataQuery wins by precedence; confidence=0.5/1.5=0.33 < floor.
+			name:    "competing signals cancel below floor",
+			message: "List what I need to replace",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, nil)
+			defer mcp.Close()
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := fakeLLMServer(t, "I can help you with that question.")
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := Route(context.Background(), AgentRequest{Message: tc.message})
+
+			if resp.AgentName != "general" {
+				t.Errorf("AgentName = %q, want %q", resp.AgentName, "general")
+			}
+			// Ambiguous queries must get a graceful, safe response — non-empty and
+			// free of leaked raw errors or JSON.
+			assertSafeReply(t, resp.Reply)
+			if calls := mcp.Calls(); len(calls) != 0 {
+				t.Errorf("no MCP tools must be called for an ambiguous query, got: %v", calls)
 			}
 		})
 	}

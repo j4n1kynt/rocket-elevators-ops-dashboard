@@ -89,6 +89,35 @@ func fakeLLMServer(t *testing.T, reply string) *httptest.Server {
 	}))
 }
 
+// assertSafeReply asserts that a user-facing reply is safe to show: non-empty
+// and free of leaked raw infrastructure errors or unparsed JSON blobs. Edge-case
+// tests use it to prove that however a query degrades (ambiguous, multi-domain,
+// no-results, or a misbehaving LLM), the user never sees internal error text or
+// structured payloads.
+func assertSafeReply(t *testing.T, reply string) {
+	t.Helper()
+	if strings.TrimSpace(reply) == "" {
+		t.Error("reply must not be empty")
+		return
+	}
+	// No unparsed JSON blob. looksLikeJSON catches a leading "{" or an array that
+	// parses as JSON; the `{"` substring catches an object embedded mid-reply.
+	if looksLikeJSON(reply) || strings.Contains(reply, `{"`) {
+		t.Errorf("reply must not leak raw JSON\n--- reply ---\n%s", reply)
+	}
+	// No leaked infrastructure error text anywhere in the reply.
+	lower := strings.ToLower(reply)
+	for _, marker := range []string{
+		"connection refused", "dial tcp", "connectex:",
+		"mcp server unreachable", "mcp status", "llm returned status",
+		"panic:", "goroutine ",
+	} {
+		if strings.Contains(lower, marker) {
+			t.Errorf("reply must not leak raw error text %q\n--- reply ---\n%s", marker, reply)
+		}
+	}
+}
+
 // ── Unit tests ────────────────────────────────────────────────────────────────
 
 func TestToolInScope(t *testing.T) {
@@ -547,6 +576,134 @@ func TestDataAgentFleetStatsBlockInReply(t *testing.T) {
 		if !strings.Contains(resp.Reply, want) {
 			t.Errorf("reply missing %q\n--- reply ---\n%s", want, resp.Reply)
 		}
+	}
+}
+
+// TestDataAgentNoResultsReportsNoRecordsNotInvented verifies the "unanswerable"
+// edge case for the data agent: when a data tool returns no records (elevator
+// not found, found-but-no-prediction, or an empty list), the user-facing reply
+// must carry the deterministic "no records / not found" block — never an
+// invented answer.
+//
+// The guarantee is structural: formatToolResult returns ok=true for these
+// payloads too, so the hybrid path sets dataBlock and injects it verbatim into
+// resp.Reply. The LLM only writes the one-line intro and never touches the
+// block. The fake LLM here returns a neutral intro that contains none of the
+// asserted wording, so the "no records" text can only have originated from the
+// Go-built block — proving the answer is grounded in what the tool returned.
+//
+// Formatter-level coverage of these branches lives in TestFormatRiskBlock and
+// TestFormatToolResult (unit); this test proves the block survives all the way
+// into the reply the user sees.
+func TestDataAgentNoResultsReportsNoRecordsNotInvented(t *testing.T) {
+	cases := []struct {
+		name        string
+		message     string
+		wantTool    string
+		toolPayload string
+		wantInReply string
+	}{
+		{
+			// elevator_found:false → notFoundBlock
+			name:        "elevator not found",
+			message:     "what is the risk level of elevator 99999?",
+			wantTool:    "get_elevator_risk",
+			toolPayload: `{"elevator_found":false,"prediction_found":false,"elevator_id":99999}`,
+			wantInReply: "Elevator 99999 was not found in the fleet database.",
+		},
+		{
+			// elevator exists but the model scored no prediction for it
+			name:        "found but no prediction",
+			message:     "what is the risk level of elevator 42?",
+			wantTool:    "get_elevator_risk",
+			toolPayload: `{"elevator_found":true,"prediction_found":false,"elevator_id":42}`,
+			wantInReply: "Elevator 42 has no risk prediction.",
+		},
+		{
+			// list query that legitimately matches zero elevators
+			name:        "empty list result",
+			message:     "Which elevators are shut down by TSSA?",
+			wantTool:    "get_tssa_shutdown_elevators",
+			toolPayload: `{"count":0,"source":"inspections table","note":"","elevators":[]}`,
+			wantInReply: "Elevators flagged for TSSA shutdown: 0",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, map[string]string{tc.wantTool: tc.toolPayload})
+			defer mcp.Close()
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			// Neutral intro — deliberately contains none of the wantInReply text,
+			// so the "no records" wording can only come from the Go-built block.
+			llm := fakeLLMServer(t, "Here is what the fleet database shows.")
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := dataAgent(context.Background(), AgentRequest{Message: tc.message})
+
+			if resp.AgentName != "data" {
+				t.Errorf("agent name: got %q, want %q", resp.AgentName, "data")
+			}
+			if calls := mcp.Calls(); len(calls) == 0 || calls[0] != tc.wantTool {
+				t.Errorf("tool: got %v, want %s", calls, tc.wantTool)
+			}
+			// The reply must be non-empty and never leak raw errors or JSON.
+			assertSafeReply(t, resp.Reply)
+			// The grounded "no records" text must reach the reply verbatim.
+			if !strings.Contains(resp.Reply, tc.wantInReply) {
+				t.Errorf("reply must carry the deterministic no-records block %q\n--- reply ---\n%s", tc.wantInReply, resp.Reply)
+			}
+		})
+	}
+}
+
+// TestDataAgentHybridIntroDropsMalformedLLMOutput verifies that the data agent's
+// hybrid path stays safe even when the summary model misbehaves. The intro line
+// is the one piece of unguarded LLM output in that path (the block below it is
+// Go-built), so if the model returns a raw error string or a JSON blob it must be
+// dropped — the user then sees the deterministic block alone, never the leak.
+//
+// buildReply already guards the fallback/general/knowledge paths
+// (TestBuildReplyMalformedLLMOutput); this covers the hybrid data path it does
+// not run through.
+func TestDataAgentHybridIntroDropsMalformedLLMOutput(t *testing.T) {
+	cases := []struct {
+		name     string
+		llmReply string
+	}{
+		{name: "raw error intro", llmReply: "mcp server unreachable: dial tcp 127.0.0.1:8765: connection refused"},
+		{name: "json blob intro", llmReply: `{"risk_level":"LOW","risk_score":0.1}`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, map[string]string{
+				"get_elevator_risk": `{"elevator_found":true,"prediction_found":true,"risk_score":0.82,"risk_level":"HIGH","model_version":"v2","prediction_date":"2026-05-01"}`,
+			})
+			defer mcp.Close()
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := fakeLLMServer(t, tc.llmReply)
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := dataAgent(context.Background(), AgentRequest{
+				Message: "what is the risk level of elevator 12345?",
+			})
+
+			// The malformed intro must be dropped, never leaked.
+			assertSafeReply(t, resp.Reply)
+			// The grounded Go block must still be delivered — the answer is never lost.
+			for _, want := range []string{"Source: live fleet database", "Risk level: HIGH", "Score: 0.82"} {
+				if !strings.Contains(resp.Reply, want) {
+					t.Errorf("reply missing grounded block %q\n--- reply ---\n%s", want, resp.Reply)
+				}
+			}
+		})
 	}
 }
 

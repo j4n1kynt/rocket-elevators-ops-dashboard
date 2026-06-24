@@ -146,6 +146,15 @@ func summarizeForUser(ctx context.Context, dataBlock, msg string) string {
 	if i := strings.IndexByte(line, '\n'); i >= 0 {
 		line = strings.TrimSpace(line[:i])
 	}
+	// The intro is unguarded LLM output sitting above a trusted, Go-built data
+	// block. If the model echoed a raw infrastructure error or a JSON blob instead
+	// of a sentence, drop it — the caller then shows the deterministic block alone,
+	// which is the real answer. Without this the data path would leak exactly what
+	// buildReply already guards against on the fallback path.
+	if looksLikeRawError(line) || looksLikeJSON(line) {
+		log.Printf("[data] summary intro looks malformed — dropping, showing data block only: %.80s", line)
+		return ""
+	}
 	return line
 }
 
