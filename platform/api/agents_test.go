@@ -640,8 +640,10 @@ func TestKnowledgeAgentBothCorporaToolErrorNoRawError(t *testing.T) {
 }
 
 // TestBuildReplyMalformedLLMOutput verifies that buildReply returns a safe
-// fallback when the LLM produces a raw error string or a JSON blob, and passes
-// short replies through unchanged (logged only, not discarded).
+// fallback when the LLM produces a raw error string or a JSON blob, passes
+// short replies through unchanged (logged only, not discarded), trims leading
+// whitespace before the prefix-based checks, and does not discard markdown
+// links or citations that legitimately begin with "[".
 func TestBuildReplyMalformedLLMOutput(t *testing.T) {
 	const safeFallback = "I'm having trouble generating a response right now. Please try again."
 
@@ -656,9 +658,35 @@ func TestBuildReplyMalformedLLMOutput(t *testing.T) {
 			wantReply: safeFallback,
 		},
 		{
-			name:      "json_blob",
+			name:      "json_object_blob",
 			llmReply:  `{"elevators":[{"id":1,"status":"active"}]}`,
 			wantReply: safeFallback,
+		},
+		{
+			name:      "json_array_blob",
+			llmReply:  `[{"id":1,"status":"active"},{"id":2,"status":"offline"}]`,
+			wantReply: safeFallback,
+		},
+		{
+			// Improvement: leading whitespace/newlines must not let a JSON blob
+			// slip past the prefix-based checks.
+			name:      "json_blob_with_leading_whitespace",
+			llmReply:  "\n\n  {\"elevators\":[{\"id\":1}]}",
+			wantReply: safeFallback,
+		},
+		{
+			// Improvement: a reply that begins with "[" but is not valid JSON
+			// (a markdown link) is a real answer and must pass through.
+			name:      "markdown_link_not_json",
+			llmReply:  "[TSSA guidance](https://example.com) covers the annual inspection requirement.",
+			wantReply: "[TSSA guidance](https://example.com) covers the annual inspection requirement.",
+		},
+		{
+			// Improvement: a citation-style reply starting with "[1]" is not
+			// valid JSON and must pass through.
+			name:      "citation_not_json",
+			llmReply:  "[1] According to the maintenance log, the unit was serviced in March.",
+			wantReply: "[1] According to the maintenance log, the unit was serviced in March.",
 		},
 		{
 			name:      "short_reply",

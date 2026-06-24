@@ -211,17 +211,19 @@ Redundant format guidance was removed from existing sections:
 
 ### `TestBuildReplyMalformedLLMOutput`
 
-Three table-driven sub-tests that call `buildReply` directly with a `fakeLLMServer` returning a controlled bad reply.
+Table-driven sub-tests that call `buildReply` directly with a `fakeLLMServer` returning a controlled bad reply.
 
 | Sub-test | LLM reply | Expected |
 |---|---|---|
 | `raw_error` | `"mcp server unreachable: dial tcp ..."` | safe fallback |
-| `json_blob` | `{"elevators":[...]}` | safe fallback |
+| `json_object_blob` | `{"elevators":[...]}` | safe fallback |
+| `json_array_blob` | `[{"id":1,...},{"id":2,...}]` | safe fallback |
+| `json_blob_with_leading_whitespace` | `"\n\n  {...}"` | safe fallback |
+| `markdown_link_not_json` | `"[TSSA guidance](https://...) covers ..."` | passed through |
+| `citation_not_json` | `"[1] According to the maintenance log, ..."` | passed through |
 | `short_reply` | `"OK"` | `"OK"` passed through |
 
-The `short_reply` case is an intentional pass-through assertion — it documents that short replies are logged but not discarded, so a future developer cannot accidentally change the behaviour without the test failing.
-
-**All three sub-tests passed on first run.**
+The `short_reply` case is an intentional pass-through assertion — it documents that short replies are logged but not discarded, so a future developer cannot accidentally change the behaviour without the test failing. The `json_blob_with_leading_whitespace`, `markdown_link_not_json`, and `citation_not_json` cases lock in the two refinements described under §4 (trim before checks; `[`-leading replies discarded only when they actually parse as JSON).
 
 ---
 
@@ -251,12 +253,22 @@ func looksLikeRawError(reply string) bool {
 }
 
 func looksLikeJSON(reply string) bool {
-    return strings.HasPrefix(reply, "{") || strings.HasPrefix(reply, "[")
+    trimmed := strings.TrimSpace(reply)
+    if strings.HasPrefix(trimmed, "{") {
+        return true
+    }
+    if strings.HasPrefix(trimmed, "[") {
+        return json.Valid([]byte(trimmed))
+    }
+    return false
 }
 ```
 
 ```go
 // In buildReply, after callLLM returns without error:
+// Trim first so leading whitespace/newlines don't cause the prefix-based
+// checks below to miss a malformed reply.
+reply = strings.TrimSpace(reply)
 if looksLikeRawError(reply) {
     log.Printf("[agent] llm reply looks like a raw error — discarding: %.120s", reply)
     return "I'm having trouble generating a response right now. Please try again."
@@ -273,7 +285,11 @@ return reply
 
 **Why different actions per case:** Raw error strings and JSON blobs are unambiguously wrong and are replaced with a safe fallback. Short replies are only logged and passed through — replies like `"Yes."` or `"Done."` can be legitimately short in a conversational context, so discarding them would introduce false positives.
 
-**No new imports required** — both helpers use only `strings`, which was already imported.
+### Two refinements applied during the dev rebase
+
+**`buildReply` trims the reply before the sanity checks.** All three checks are prefix-based, so a reply like `"\n\n{...}"` would have slipped past `looksLikeJSON` unmodified. `strings.TrimSpace` now runs once before the checks; the trimmed value is also what is returned, so leading/trailing whitespace never reaches the user.
+
+**`looksLikeJSON` no longer discards every reply that starts with `[`.** A leading `{` is still treated as a misfire outright, but a leading `[` is ambiguous — markdown links (`[text](url)`) and citations (`[1] Smith et al.`) also begin with `[`. The function now only discards a `[`-leading reply when the whole string actually parses as JSON (`json.Valid`), so genuine answers with bracketed links or citations pass through while true JSON-array blobs are still caught. This adds the `encoding/json` import to `agents.go`.
 
 ---
 

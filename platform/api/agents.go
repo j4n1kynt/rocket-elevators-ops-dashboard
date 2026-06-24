@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strings"
 	"time"
@@ -36,9 +37,19 @@ func looksLikeRawError(reply string) bool {
 }
 
 // looksLikeJSON reports whether reply is an unparsed JSON blob (the model
-// echoed structured data instead of a natural-language answer).
+// echoed structured data instead of a natural-language answer). A leading "{"
+// is treated as a misfire outright. A leading "[" is ambiguous — markdown links
+// ([text](url)) and citations ([1] Smith et al.) also start with "[" — so it is
+// only discarded when the whole reply actually parses as JSON.
 func looksLikeJSON(reply string) bool {
-	return strings.HasPrefix(reply, "{") || strings.HasPrefix(reply, "[")
+	trimmed := strings.TrimSpace(reply)
+	if strings.HasPrefix(trimmed, "{") {
+		return true
+	}
+	if strings.HasPrefix(trimmed, "[") {
+		return json.Valid([]byte(trimmed))
+	}
+	return false
 }
 
 // buildReply assembles the message list and calls the LLM. Returns the reply
@@ -62,6 +73,9 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 		}
 		return "I'm having trouble reaching the assistant right now. Please try again in a moment."
 	}
+	// Trim first so leading whitespace/newlines don't cause the sanity checks
+	// below (all prefix-based) to miss a malformed reply.
+	reply = strings.TrimSpace(reply)
 	if looksLikeRawError(reply) {
 		log.Printf("[agent] llm reply looks like a raw error — discarding: %.120s", reply)
 		return "I'm having trouble generating a response right now. Please try again."
