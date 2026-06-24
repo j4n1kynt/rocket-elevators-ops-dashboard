@@ -48,9 +48,65 @@ type RiskResponse struct {
 }
 
 type ErrorResponse struct {
-	Error      string `json:"error"`
-	ElevatorID string `json:"elevator_id,omitempty"`
-	Endpoint   string `json:"endpoint,omitempty"`
+	Error          string `json:"error"`
+	ElevatorID     string `json:"elevator_id,omitempty"`
+	Endpoint       string `json:"endpoint,omitempty"`
+	ConversationID string `json:"conversation_id,omitempty"`
+}
+
+// ── Conversation analytics (S3-8) ────────────────────────────────────────────
+
+// ConversationSummary is one entry in the GET /api/conversations list.
+type ConversationSummary struct {
+	ConversationID int64    `json:"conversation_id"`
+	StartedAt      string   `json:"started_at"`
+	LastActivityAt string   `json:"last_activity_at"`
+	MessageCount   int      `json:"message_count"`
+	Agents         []string `json:"agents"`
+	Title          string   `json:"title"`
+}
+
+// ConversationListResponse is the envelope for GET /api/conversations.
+type ConversationListResponse struct {
+	Total         int                   `json:"total"`
+	Page          int                   `json:"page"`
+	Limit         int                   `json:"limit"`
+	Conversations []ConversationSummary `json:"conversations"`
+}
+
+// Message is one row from the messages table.
+type Message struct {
+	MessageID  int64   `json:"message_id"`
+	Role       string  `json:"role"`
+	Content    string  `json:"content"`
+	Agent      *string `json:"agent"`
+	CreatedAt  string  `json:"created_at"`
+}
+
+// ConversationDetail is the envelope for GET /api/conversations/{id}.
+type ConversationDetail struct {
+	ConversationID int64    `json:"conversation_id"`
+	StartedAt      string   `json:"started_at"`
+	LastActivityAt string   `json:"last_activity_at"`
+	MessageCount   int      `json:"message_count"`
+	Agents         []string `json:"agents"`
+	Title          string   `json:"title"`
+	Messages       []Message `json:"messages"`
+}
+
+// DayActivity is one entry in the activity_by_day array.
+type DayActivity struct {
+	Date          string `json:"date"`
+	Conversations int    `json:"conversations"`
+}
+
+// ConversationStats is the envelope for GET /api/conversations/stats.
+type ConversationStats struct {
+	TotalConversations         int            `json:"total_conversations"`
+	TotalMessages              int            `json:"total_messages"`
+	AvgMessagesPerConversation float64        `json:"avg_messages_per_conversation"`
+	AgentDistribution          map[string]int `json:"agent_distribution"`
+	ActivityByDay              []DayActivity  `json:"activity_by_day"`
 }
 
 type RiskDistribution struct {
