@@ -39,6 +39,12 @@ Feature: A single command runs the full test suite
     When a tool or service is simulated as down
     Then the test checks the chatbot replies gracefully
 
+    # Full failure-mode × agent matrix (3 modes × 4 agents) lives in agents_test.go:
+    #   TestAgentsMCPUnreachableRecoverGracefully        (knowledge + scheduling / MCP down)
+    #   TestAgentsToolErrorPayloadRecoverGracefully      (data + scheduling / tool error payload)
+    #   TestAgentsLLMFailureRecoverGracefully            (all four agents / LLM HTTP 503)
+    # plus the two original cells called out below.
+    #
     # MCP transport failure (connection refused):
     #   TestDataAgentMCPTransportFailureNoRawError   (agents_test.go)
     #     — MCP server is closed before the agent runs; dataAgent must inject

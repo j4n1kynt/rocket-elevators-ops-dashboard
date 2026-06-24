@@ -477,3 +477,142 @@ func TestAmbiguousQueriesHandledGracefully(t *testing.T) {
 		})
 	}
 }
+
+// assertErrorContract asserts the design's §4.3 error contract on a response
+// produced through Route() under a failure: the Reply is populated and
+// plain-language (never a raw infrastructure error or an unparsed JSON blob) and
+// no pending write is left dangling. It is the single place that encodes what
+// "degrades gracefully" means for the chatbot's public surface.
+func assertErrorContract(t *testing.T, resp AgentResponse) {
+	t.Helper()
+	if strings.TrimSpace(resp.Reply) == "" {
+		t.Error("contract §4.3 violated: Reply must always be populated")
+	}
+	if looksLikeRawError(resp.Reply) || looksLikeJSON(resp.Reply) {
+		t.Errorf("contract §4.3 violated: Reply must be plain-language (no raw error / JSON)\n--- reply ---\n%s", resp.Reply)
+	}
+	// Defence in depth against leaked infrastructure strings anywhere in the reply.
+	assertSafeReply(t, resp.Reply)
+	if resp.PendingAction != nil {
+		t.Error("contract §4.3 violated: PendingAction must be nil on an error path")
+	}
+}
+
+// TestRouteErrorContract verifies the design's error contract (multi-agent-design.md
+// §4.3 + router-refactor.md) on the chatbot's public surface — the real Route()
+// entry point — across every failure mode and every agent.
+//
+// The distinguishing stress here: in each row the upstream service is down AND
+// the LLM itself misbehaves (parrots a raw error string, returns a JSON blob, or
+// is unreachable). The contract — populated, plain-language reply; nil
+// PendingAction; never a Go error to the caller — must hold without relying on a
+// cooperative model. The per-agent matrix in agents_test.go uses a clean canned
+// LLM; this proves the guarantee survives an uncooperative one.
+func TestRouteErrorContract(t *testing.T) {
+	cases := []struct {
+		name      string
+		message   string
+		mcpDown   bool              // close MCP before Route → connection refused
+		payloads  map[string]string // tool payloads when MCP is up
+		llmReply  string            // canned LLM reply (ignored when llmDown)
+		llmDown   bool              // close LLM before Route → connection refused
+		wantAgent string
+	}{
+		{
+			name:      "data: MCP unreachable + LLM parrots a raw error",
+			message:   "what is the risk level of elevator 12345?",
+			mcpDown:   true,
+			llmReply:  "mcp server unreachable: dial tcp 127.0.0.1:8765: connection refused",
+			wantAgent: "data",
+		},
+		{
+			name:      "knowledge: MCP unreachable + LLM returns a JSON blob",
+			message:   "how do I troubleshoot a stuck door?",
+			mcpDown:   true,
+			llmReply:  `{"error":"boom","trace":"goroutine 1 [running]"}`,
+			wantAgent: "knowledge",
+		},
+		{
+			name:      "scheduling: MCP unreachable + LLM parrots a raw error",
+			message:   "schedule an inspection for elevator 12345 on 2026-07-01",
+			mcpDown:   true,
+			llmReply:  "Post \"http://mcp/\": dial tcp: connection refused",
+			wantAgent: "scheduling",
+		},
+		{
+			// Scheduling under a clean LLM outage: the tool reports a validation
+			// failure (so no pending write is created) and the LLM that would phrase
+			// it is unreachable. The contract must still hold end-to-end.
+			name:      "scheduling: tool validation error + LLM unreachable",
+			message:   "schedule an inspection for elevator 99999 on 2026-07-01",
+			payloads:  map[string]string{"schedule_inspection": `{"success":false,"error":"Elevator 99999 does not exist in the fleet."}`},
+			llmDown:   true,
+			wantAgent: "scheduling",
+		},
+		{
+			name:      "data: tool error envelope + LLM unreachable",
+			message:   "what is the risk level of elevator 12345?",
+			payloads:  map[string]string{"get_elevator_risk": `{"error":true,"message":"internal database failure"}`},
+			llmDown:   true,
+			wantAgent: "data",
+		},
+		{
+			name:      "general: LLM unreachable",
+			message:   "what does TSSA stand for?",
+			llmDown:   true,
+			wantAgent: "general",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, tc.payloads)
+			if tc.mcpDown {
+				mcp.Close()
+			} else {
+				defer mcp.Close()
+			}
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := fakeLLMServer(t, tc.llmReply)
+			if tc.llmDown {
+				llm.Close()
+			} else {
+				defer llm.Close()
+			}
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := Route(context.Background(), AgentRequest{Message: tc.message})
+
+			assertErrorContract(t, resp)
+			if resp.AgentName != tc.wantAgent {
+				t.Errorf("AgentName = %q, want %q", resp.AgentName, tc.wantAgent)
+			}
+		})
+	}
+}
+
+// TestRouteRecoversFromAgentPanic verifies Route's last-resort guarantee
+// (router-refactor.md): if a dispatched agent panics, the defer/recover block
+// still returns a populated, plain-language AgentResponse tagged "router" — the
+// caller never sees a crash, a Go error, or an empty reply. A panicking stub is
+// swapped into the package-level agents map for the duration of the test (Go runs
+// package tests sequentially, and the original is restored via t.Cleanup).
+func TestRouteRecoversFromAgentPanic(t *testing.T) {
+	orig := agents["mcp_data_tool"]
+	t.Cleanup(func() { agents["mcp_data_tool"] = orig })
+	agents["mcp_data_tool"] = func(ctx context.Context, req AgentRequest) AgentResponse {
+		panic("simulated agent crash")
+	}
+
+	// Routes to mcp_data_tool (the panicking stub).
+	resp := Route(context.Background(), AgentRequest{
+		Message: "what is the risk level of elevator 12345?",
+	})
+
+	assertErrorContract(t, resp)
+	if resp.AgentName != "router" {
+		t.Errorf("AgentName after recover = %q, want %q", resp.AgentName, "router")
+	}
+}

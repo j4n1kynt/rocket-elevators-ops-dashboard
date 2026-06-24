@@ -89,6 +89,18 @@ func fakeLLMServer(t *testing.T, reply string) *httptest.Server {
 	}))
 }
 
+// newFailingLLMServer returns an LLM endpoint that always responds with the given
+// HTTP status and an error body, so callChatLLM returns an error. Agents must
+// then fall back to a graceful plain-language reply (buildReply) or, on the data
+// hybrid path, show the deterministic block alone — never crash or leak the error.
+func newFailingLLMServer(t *testing.T, status int) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(status)
+		io.WriteString(w, `{"error":{"message":"the model service is down"}}`) //nolint:errcheck
+	}))
+}
+
 // assertSafeReply asserts that a user-facing reply is safe to show: non-empty
 // and free of leaked raw infrastructure errors or unparsed JSON blobs. Edge-case
 // tests use it to prove that however a query degrades (ambiguous, multi-domain,
@@ -882,6 +894,247 @@ func TestKnowledgeAgentBothCorporaToolErrorNoRawError(t *testing.T) {
 	}
 }
 
+// ── Error recovery: downstream service unavailable (AC §4) ────────────────────
+//
+// These three table-driven tests complete the failure-mode × agent matrix for
+// "a tool or downstream service is down". The two pre-existing cells are
+// TestDataAgentMCPTransportFailureNoRawError (data / MCP unreachable) and
+// TestKnowledgeAgentBothCorporaToolErrorNoRawError (knowledge / tool error
+// payload); the cells below are the ones those did not cover.
+//
+// rawErrorMarkers are infrastructure error fragments that must never reach the
+// model's system message — leaking them would mean the user could see a Go
+// transport error instead of a plain-language notice.
+var rawErrorMarkers = []string{
+	"connection refused", "dial tcp", "connectex:",
+	"mcp server unreachable", "mcp status", "llm returned status",
+	"panic:", "goroutine ",
+}
+
+func assertNoRawErrorLeak(t *testing.T, sys string) {
+	t.Helper()
+	lower := strings.ToLower(sys)
+	for _, bad := range rawErrorMarkers {
+		if strings.Contains(lower, bad) {
+			t.Errorf("system message must not contain raw error text %q\n--- system ---\n%s", bad, sys)
+		}
+	}
+}
+
+// TestAgentsMCPUnreachableRecoverGracefully simulates the MCP server being down
+// (closed before the agent runs → "connection refused") for the knowledge and
+// scheduling agents. Each must inject a plain-language notice into the system
+// message, never leak the raw transport error, and still return a safe reply.
+func TestAgentsMCPUnreachableRecoverGracefully(t *testing.T) {
+	cases := []struct {
+		name       string
+		req        AgentRequest
+		agent      func(context.Context, AgentRequest) AgentResponse
+		wantName   string
+		wantNotice string // must appear in the system message sent to the LLM
+	}{
+		{
+			name:       "knowledge: both corpora unreachable",
+			req:        AgentRequest{Message: "how do I maintain hydraulic systems?"},
+			agent:      knowledgeAgent,
+			wantName:   "knowledge",
+			wantNotice: "DATA SERVICE UNAVAILABLE",
+		},
+		{
+			// Phase 1 with a valid ID + date so the agent reaches the MCP call;
+			// the closed server yields a transport error that cleanValidationError
+			// must scrub down to a generic message.
+			name:       "scheduling: schedule_inspection unreachable",
+			req:        AgentRequest{Message: "schedule an inspection for elevator 12345 on 2026-07-01", AllowedTools: []string{"schedule_inspection"}},
+			agent:      schedulingAgent,
+			wantName:   "scheduling",
+			wantNotice: "ACTION VALIDATION ERROR",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, map[string]string{})
+			mcp.Close() // down before the agent runs → connection refused
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := newCapturingLLMServer(t, "Live fleet data is currently unavailable; please try again shortly.")
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := tc.agent(context.Background(), tc.req)
+
+			if resp.AgentName != tc.wantName {
+				t.Errorf("agent name: got %q, want %q", resp.AgentName, tc.wantName)
+			}
+			systems := llm.SystemMessages()
+			if len(systems) == 0 {
+				t.Fatal("no system message captured — LLM was never called")
+			}
+			sys := systems[0]
+			if !strings.Contains(sys, tc.wantNotice) {
+				t.Errorf("system message must contain %q\n--- system ---\n%s", tc.wantNotice, sys)
+			}
+			assertNoRawErrorLeak(t, sys)
+			assertSafeReply(t, resp.Reply)
+			// A scheduling failure must never leave a pending write outstanding.
+			if resp.PendingAction != nil {
+				t.Error("PendingAction must be nil when the MCP call failed")
+			}
+		})
+	}
+}
+
+// TestAgentsToolErrorPayloadRecoverGracefully simulates a reachable tool that
+// returns an application-level error envelope (data agent) or a validation
+// failure (scheduling agent). The agent must surface a plain-language notice and
+// never forward the raw error payload to the model.
+func TestAgentsToolErrorPayloadRecoverGracefully(t *testing.T) {
+	cases := []struct {
+		name       string
+		req        AgentRequest
+		agent      func(context.Context, AgentRequest) AgentResponse
+		payloads   map[string]string
+		wantName   string
+		wantNotice string
+		mustHide   string // raw payload text that must NOT reach the system message
+	}{
+		{
+			name:       "data: tool returns error envelope",
+			req:        AgentRequest{Message: "what is the risk level of elevator 12345?"},
+			agent:      dataAgent,
+			payloads:   map[string]string{"get_elevator_risk": `{"error":true,"message":"internal database failure"}`},
+			wantName:   "data",
+			wantNotice: "DATA SERVICE ERROR",
+			mustHide:   "internal database failure",
+		},
+		{
+			// success=false + error string → extractScheduleError → ACTION VALIDATION
+			// ERROR. The clean validation message is allowed in the system message;
+			// only raw infrastructure text is forbidden.
+			name:       "scheduling: schedule_inspection validation failure",
+			req:        AgentRequest{Message: "schedule an inspection for elevator 99999 on 2026-07-01", AllowedTools: []string{"schedule_inspection"}},
+			agent:      schedulingAgent,
+			payloads:   map[string]string{"schedule_inspection": `{"success":false,"error":"Elevator 99999 does not exist in the fleet."}`},
+			wantName:   "scheduling",
+			wantNotice: "ACTION VALIDATION ERROR",
+			mustHide:   "", // the validation message itself is user-appropriate
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, tc.payloads)
+			defer mcp.Close()
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := newCapturingLLMServer(t, "I can't reach live fleet data right now, so I can't answer that with real records.")
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := tc.agent(context.Background(), tc.req)
+
+			if resp.AgentName != tc.wantName {
+				t.Errorf("agent name: got %q, want %q", resp.AgentName, tc.wantName)
+			}
+			systems := llm.SystemMessages()
+			if len(systems) == 0 {
+				t.Fatal("no system message captured — LLM was never called")
+			}
+			sys := systems[0]
+			if !strings.Contains(sys, tc.wantNotice) {
+				t.Errorf("system message must contain %q\n--- system ---\n%s", tc.wantNotice, sys)
+			}
+			if tc.mustHide != "" && strings.Contains(sys, tc.mustHide) {
+				t.Errorf("system message must not forward raw payload text %q\n--- system ---\n%s", tc.mustHide, sys)
+			}
+			assertNoRawErrorLeak(t, sys)
+			assertSafeReply(t, resp.Reply)
+			if resp.PendingAction != nil {
+				t.Error("PendingAction must be nil when the tool returned an error")
+			}
+		})
+	}
+}
+
+// TestAgentsLLMFailureRecoverGracefully simulates the LLM endpoint being down
+// (HTTP 503) for all four agents. Agents that answer through buildReply must
+// return the graceful fallback message; the data agent's hybrid path must drop
+// the failed intro and show the deterministic Go block alone — the grounded
+// answer is never lost. No path may crash or leak the transport error.
+func TestAgentsLLMFailureRecoverGracefully(t *testing.T) {
+	cases := []struct {
+		name        string
+		req         AgentRequest
+		agent       func(context.Context, AgentRequest) AgentResponse
+		payloads    map[string]string
+		wantName    string
+		wantInReply string // substring proving graceful recovery
+	}{
+		{
+			// Hybrid path: MCP is healthy, only the summary LLM is down → reply is
+			// the deterministic block alone, so the grounded data still reaches the user.
+			name:        "data: summary LLM down, block survives",
+			req:         AgentRequest{Message: "what is the risk level of elevator 12345?"},
+			agent:       dataAgent,
+			payloads:    map[string]string{"get_elevator_risk": `{"elevator_found":true,"prediction_found":true,"risk_score":0.82,"risk_level":"HIGH","model_version":"v2","prediction_date":"2026-05-01"}`},
+			wantName:    "data",
+			wantInReply: "Risk level: HIGH",
+		},
+		{
+			name:        "knowledge: LLM down → graceful fallback",
+			req:         AgentRequest{Message: "how do I troubleshoot a stuck door?"},
+			agent:       knowledgeAgent,
+			payloads:    map[string]string{},
+			wantName:    "knowledge",
+			wantInReply: "trouble",
+		},
+		{
+			// Missing-info path needs no MCP — isolates the LLM failure cleanly.
+			name:        "scheduling: LLM down → graceful fallback",
+			req:         AgentRequest{Message: "Schedule an inspection for elevator 12345", AllowedTools: []string{"schedule_inspection"}},
+			agent:       schedulingAgent,
+			payloads:    map[string]string{},
+			wantName:    "scheduling",
+			wantInReply: "trouble",
+		},
+		{
+			name:        "general: LLM down → graceful fallback",
+			req:         AgentRequest{Message: "what does TSSA stand for?"},
+			agent:       generalAgent,
+			payloads:    map[string]string{},
+			wantName:    "general",
+			wantInReply: "trouble",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcp := newTrackingMCPServer(t, tc.payloads)
+			defer mcp.Close()
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := newFailingLLMServer(t, http.StatusServiceUnavailable)
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			resp := tc.agent(context.Background(), tc.req)
+
+			if resp.AgentName != tc.wantName {
+				t.Errorf("agent name: got %q, want %q", resp.AgentName, tc.wantName)
+			}
+			// Non-empty, safe, and no leaked transport error.
+			assertSafeReply(t, resp.Reply)
+			if !strings.Contains(resp.Reply, tc.wantInReply) {
+				t.Errorf("reply must contain %q (graceful recovery)\n--- reply ---\n%s", tc.wantInReply, resp.Reply)
+			}
+		})
+	}
+}
+
 // TestBuildReplyMalformedLLMOutput verifies that buildReply returns a safe
 // fallback when the LLM produces a raw error string or a JSON blob, passes
 // short replies through unchanged (logged only, not discarded), trims leading
@@ -1195,6 +1448,275 @@ func TestSchedulingAgentMissingInfoAsksNotFabricates(t *testing.T) {
 	if resp.PendingAction != nil {
 		t.Error("PendingAction must be nil when required fields are missing")
 	}
+}
+
+// TestSchedulingAgentLLMDownAcrossPhases closes the scheduling-specific gap in
+// the LLM-down matrix: TestAgentsLLMFailureRecoverGracefully exercises only the
+// missing-info branch. Here the two real scheduling branches run with the LLM
+// down (HTTP 503), proving the confirmation token and the database write both
+// survive an LLM outage while the user still gets a safe, populated reply.
+func TestSchedulingAgentLLMDownAcrossPhases(t *testing.T) {
+	t.Run("phase 1 preview — confirmation token survives the LLM outage", func(t *testing.T) {
+		mcp := newTrackingMCPServer(t, map[string]string{
+			"schedule_inspection": `{"pending_confirmation":true,"summary":"Elevator 12345 — ED-Periodic Inspection — 2026-07-01"}`,
+		})
+		defer mcp.Close()
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+		llm := newFailingLLMServer(t, http.StatusServiceUnavailable)
+		defer llm.Close()
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		resp := schedulingAgent(context.Background(), AgentRequest{
+			Message:      "schedule an inspection for elevator 12345 on 2026-07-01",
+			AllowedTools: []string{"schedule_inspection"},
+		})
+
+		if resp.AgentName != "scheduling" {
+			t.Errorf("agent name: got %q, want %q", resp.AgentName, "scheduling")
+		}
+		// The preview is computed before the (failed) intro LLM call, so the signed
+		// confirmation token must survive — the user can still confirm on the next
+		// turn rather than being forced to restart over a transient LLM blip.
+		if resp.PendingAction == nil {
+			t.Error("PendingAction must survive an LLM outage during the Phase 1 preview")
+		}
+		// Preview only — confirmed=false, nothing written.
+		args := mcp.CallArgs()
+		if len(args) != 1 {
+			t.Fatalf("expected exactly 1 schedule_inspection call, got %d", len(args))
+		}
+		if confirmed, _ := args[0]["confirmed"].(bool); confirmed {
+			t.Error("Phase 1 must call schedule_inspection with confirmed=false")
+		}
+		// Reply is the graceful fallback — populated and free of raw errors.
+		assertSafeReply(t, resp.Reply)
+	})
+
+	t.Run("phase 2 write — committed inspection is not lost when the LLM is down", func(t *testing.T) {
+		mcp := newTrackingMCPServer(t, map[string]string{
+			"schedule_inspection": `{"success":true,"inspection_id":42,"message":"Inspection scheduled successfully."}`,
+		})
+		defer mcp.Close()
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+		llm := newFailingLLMServer(t, http.StatusServiceUnavailable)
+		defer llm.Close()
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		pa := &PendingAction{
+			ElevatorID:     12345,
+			InspectionDate: "2026-07-01",
+			InspectionType: "Periodic",
+			Reason:         "schedule an inspection for elevator 12345 on 2026-07-01",
+			ExpiresAt:      time.Now().Add(10 * time.Minute).Unix(),
+		}
+		pa.Signature = signPendingAction(pa)
+
+		resp := schedulingAgent(context.Background(), AgentRequest{
+			Message:       "yes",
+			PendingAction: pa,
+		})
+
+		// The write must go through with confirmed=true even though the LLM that
+		// phrases the success message is down — the outage must not silently drop a
+		// committed inspection.
+		calls := mcp.Calls()
+		if len(calls) != 1 || calls[0] != "schedule_inspection" {
+			t.Fatalf("tool calls: got %v, want [schedule_inspection]", calls)
+		}
+		if confirmed, _ := mcp.CallArgs()[0]["confirmed"].(bool); !confirmed {
+			t.Error("Phase 2 must call schedule_inspection with confirmed=true even when the LLM is down")
+		}
+		// Write done → pending state cleared.
+		if resp.PendingAction != nil {
+			t.Error("PendingAction must be nil after the Phase 2 write")
+		}
+		assertSafeReply(t, resp.Reply)
+	})
+}
+
+// assertNoConfirmedWrite is the write-gate invariant: schedule_inspection must
+// never have been called with confirmed=true. confirmed=true is the only call
+// shape that writes to the database (Phase 2), so this is the single check that
+// proves no unintended write occurred — regardless of how many confirmed=false
+// previews ran.
+func assertNoConfirmedWrite(t *testing.T, mcp *trackingMCPServer) {
+	t.Helper()
+	args := mcp.CallArgs()
+	for i, call := range mcp.Calls() {
+		if call != "schedule_inspection" {
+			continue
+		}
+		if confirmed, _ := args[i]["confirmed"].(bool); confirmed {
+			t.Errorf("write-gate violated: schedule_inspection called with confirmed=true on a failure path (call #%d)", i)
+		}
+	}
+}
+
+// TestSchedulingFailuresNeverWriteToDatabase confirms the core safety property:
+// no failure or invalid input during scheduling ever produces a database write.
+// A write happens only when schedule_inspection is called with confirmed=true,
+// so every case asserts that never happens. The unit tests in chat_test.go prove
+// verifyPendingAction / detectConfirmation return the right verdicts; this test
+// proves the agent *acts* on those verdicts by refusing the write.
+//
+// Each case uses a LIVE tracking MCP server (not a closed one) so that any
+// erroneous write attempt would be recorded and caught — a silent failure cannot
+// hide the bug.
+func TestSchedulingFailuresNeverWriteToDatabase(t *testing.T) {
+	// A schedule_inspection payload that, if the agent wrongly reached the write,
+	// would look like a successful write — making an accidental confirmed=true call
+	// observable rather than masked by an empty default.
+	writeLikePayload := map[string]string{
+		"schedule_inspection": `{"success":true,"inspection_id":99,"message":"Inspection scheduled successfully."}`,
+	}
+
+	t.Run("tampered signature on confirmation is rejected without a write", func(t *testing.T) {
+		mcp := newTrackingMCPServer(t, writeLikePayload)
+		defer mcp.Close()
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+		llm := fakeLLMServer(t, "That request could not be verified. Please start the scheduling request again.")
+		defer llm.Close()
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		pa := &PendingAction{
+			ElevatorID:     12345,
+			InspectionDate: "2026-07-01",
+			InspectionType: "Periodic",
+			Reason:         "schedule an inspection for elevator 12345 on 2026-07-01",
+			ExpiresAt:      time.Now().Add(10 * time.Minute).Unix(),
+		}
+		pa.Signature = signPendingAction(pa)
+		pa.ElevatorID = 99999 // tamper AFTER signing — signature no longer matches
+
+		resp := schedulingAgent(context.Background(), AgentRequest{Message: "yes", PendingAction: pa})
+
+		assertNoConfirmedWrite(t, mcp)
+		// The reject branch sets the notice directly and makes no MCP call at all.
+		if calls := mcp.Calls(); len(calls) != 0 {
+			t.Errorf("a tampered confirmation must make no MCP call, got %v", calls)
+		}
+		if resp.PendingAction != nil {
+			t.Error("PendingAction must be nil after rejecting a tampered confirmation")
+		}
+		assertSafeReply(t, resp.Reply)
+	})
+
+	t.Run("expired confirmation is rejected without a write", func(t *testing.T) {
+		mcp := newTrackingMCPServer(t, writeLikePayload)
+		defer mcp.Close()
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+		llm := fakeLLMServer(t, "This confirmation has expired. Please start the scheduling request again.")
+		defer llm.Close()
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		// Signed correctly (so verifyPendingAction passes) but already expired, so
+		// the agent's expiry check must reject before reaching the write.
+		pa := &PendingAction{
+			ElevatorID:     12345,
+			InspectionDate: "2026-07-01",
+			InspectionType: "Periodic",
+			Reason:         "schedule an inspection for elevator 12345 on 2026-07-01",
+			ExpiresAt:      time.Now().Add(-1 * time.Minute).Unix(),
+		}
+		pa.Signature = signPendingAction(pa)
+
+		resp := schedulingAgent(context.Background(), AgentRequest{Message: "yes", PendingAction: pa})
+
+		assertNoConfirmedWrite(t, mcp)
+		if calls := mcp.Calls(); len(calls) != 0 {
+			t.Errorf("an expired confirmation must make no MCP call, got %v", calls)
+		}
+		if resp.PendingAction != nil {
+			t.Error("PendingAction must be nil after rejecting an expired confirmation")
+		}
+		assertSafeReply(t, resp.Reply)
+	})
+
+	t.Run("ambiguous yes+cancel defaults to no write", func(t *testing.T) {
+		mcp := newTrackingMCPServer(t, writeLikePayload)
+		defer mcp.Close()
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+		llm := fakeLLMServer(t, "Cancelled. No inspection was booked.")
+		defer llm.Close()
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		// A perfectly valid, signed, unexpired action — so the ONLY thing stopping a
+		// write is the ambiguity guard (isConfirm && isCancel → isConfirm=false).
+		pa := &PendingAction{
+			ElevatorID:     12345,
+			InspectionDate: "2026-07-01",
+			InspectionType: "Periodic",
+			Reason:         "schedule an inspection for elevator 12345 on 2026-07-01",
+			ExpiresAt:      time.Now().Add(10 * time.Minute).Unix(),
+		}
+		pa.Signature = signPendingAction(pa)
+
+		resp := schedulingAgent(context.Background(), AgentRequest{Message: "yes cancel", PendingAction: pa})
+
+		assertNoConfirmedWrite(t, mcp)
+		if calls := mcp.Calls(); len(calls) != 0 {
+			t.Errorf("an ambiguous confirmation must make no MCP call, got %v", calls)
+		}
+		if resp.PendingAction != nil {
+			t.Error("PendingAction must be nil after an ambiguous confirmation defaults to cancel")
+		}
+		assertSafeReply(t, resp.Reply)
+	})
+
+	t.Run("MCP unreachable during preview never escalates to a write", func(t *testing.T) {
+		mcp := newTrackingMCPServer(t, writeLikePayload)
+		mcp.Close() // down before the agent runs
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+		llm := fakeLLMServer(t, "Live fleet data is unavailable right now; please try again shortly.")
+		defer llm.Close()
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		// Valid Phase 1 request (ID + date). The preview call fails because MCP is
+		// down — it must not fall through to a write, and no pending action is issued.
+		resp := schedulingAgent(context.Background(), AgentRequest{
+			Message:      "schedule an inspection for elevator 12345 on 2026-07-01",
+			AllowedTools: []string{"schedule_inspection"},
+		})
+
+		assertNoConfirmedWrite(t, mcp)
+		if resp.PendingAction != nil {
+			t.Error("PendingAction must be nil when the preview call failed")
+		}
+		assertSafeReply(t, resp.Reply)
+	})
+
+	t.Run("tool validation error during preview never escalates to a write", func(t *testing.T) {
+		mcp := newTrackingMCPServer(t, map[string]string{
+			"schedule_inspection": `{"success":false,"error":"Elevator 99999 does not exist in the fleet."}`,
+		})
+		defer mcp.Close()
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+		llm := fakeLLMServer(t, "That elevator does not exist; please check the number and try again.")
+		defer llm.Close()
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		resp := schedulingAgent(context.Background(), AgentRequest{
+			Message:      "schedule an inspection for elevator 99999 on 2026-07-01",
+			AllowedTools: []string{"schedule_inspection"},
+		})
+
+		assertNoConfirmedWrite(t, mcp)
+		// The preview ran (confirmed=false) but returned a validation error → no write,
+		// no pending action.
+		if resp.PendingAction != nil {
+			t.Error("PendingAction must be nil after a validation error")
+		}
+		assertSafeReply(t, resp.Reply)
+	})
 }
 
 // ── General agent ─────────────────────────────────────────────────────────────
