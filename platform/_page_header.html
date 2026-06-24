@@ -3,8 +3,28 @@
   On HTMX navigation, render_page() returns this with oob=True so the title
   swaps in place while the rest of the shell stays put.
 #}
-<div id="page-header" class="px-8 py-5 border-b border-slate-200 bg-white shrink-0"{% if oob %} hx-swap-oob="true"{% endif %}>
-  <p class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Fleet Operations</p>
-  <h1 class="text-lg font-semibold leading-tight text-slate-800 mt-1">{{ page_title }}</h1>
-  <p class="text-sm text-slate-500 mt-0.5">{{ page_subtitle }}</p>
+<div id="page-header" class="px-8 py-5 border-b border-slate-200 bg-white shrink-0 flex items-center justify-between gap-4"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <div class="min-w-0">
+    <p class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Fleet Operations</p>
+    <h1 class="text-lg font-semibold leading-tight text-slate-800 mt-1">{{ page_title }}</h1>
+    <p class="text-sm text-slate-500 mt-0.5">{{ page_subtitle }}</p>
+  </div>
+
+  {# OpsBot entry point — lives in the top bar on EVERY page (replaces the old
+     floating bottom-right FAB). A short message draws attention; the button
+     toggles the chat panel, which opens from the top-right under this bar. #}
+  <div class="shrink-0 flex items-center gap-3">
+    <span class="hidden lg:inline text-xs text-slate-400">Questions about regulations, terms, or risk?</span>
+    <button
+      id="ask-opsbot"
+      type="button"
+      hx-on:click="document.getElementById('chatPanel').classList.toggle('hidden')"
+      class="inline-flex items-center gap-2 bg-slate-900 text-white rounded-lg px-3.5 py-2 text-sm font-medium hover:bg-slate-700 transition-colors shadow-sm"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M4.848 2.771A49.144 49.144 0 0 1 12 2.25c2.43 0 4.817.178 7.152.52 1.978.292 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.678-3.348 3.97a48.901 48.901 0 0 1-3.476.383.39.39 0 0 0-.297.17l-2.755 4.133a.75.75 0 0 1-1.248 0l-2.755-4.133a.39.39 0 0 0-.297-.17 48.9 48.9 0 0 1-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97Z" clip-rule="evenodd" />
+      </svg>
+      Ask OpsBot
+    </button>
+  </div>
 </div>
