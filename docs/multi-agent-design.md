@@ -351,17 +351,19 @@ The current `callLLM` in `chat.go` targets the OpenAI-compatible `/chat/completi
 
 ### 5.1 Provider
 
-All agents use Ollama cloud models via the hosted API at `https://ollama.com/api/` with bearer token auth (`OLLAMA_API_KEY`). No local Ollama installation required — the API is callable directly from the Go HTTP client. This replaces the previous OpenRouter + `google/gemma-4-31b-it:free` configuration.
+`callChatLLM` dispatches by provider. If `OPENROUTER_API_KEY` is set, it uses OpenRouter (OpenAI-compatible `/chat/completions` at `https://openrouter.ai/api/v1`, model `OPENROUTER_MODEL`, default `google/gemma-4-31b-it:free`). Otherwise it falls back to Ollama cloud (`https://ollama.com/api/`, bearer token `OLLAMA_API_KEY`, model `minimax-m2.5:cloud`). No local Ollama installation is required in either case.
 
-**Provider selection:** `callChatLLM` dispatches by provider. If `OPENROUTER_API_KEY` is set, it uses OpenRouter (OpenAI-compatible `/chat/completions`); otherwise it falls back to Ollama. **The live deployment sets `OPENROUTER_API_KEY`, so production runs on OpenRouter**; Ollama is the fallback for environments without an OpenRouter key.
+**Production runs on OpenRouter.** The live deployment sets `OPENROUTER_API_KEY`, so production answers through OpenRouter; Ollama cloud is the fallback for local and dev environments without an OpenRouter key.
 
-Note: the model-selection tests in §5.3 below were run against Ollama models. They justify the Ollama fallback model, not the OpenRouter model used in deployment (`OPENROUTER_MODEL`). This section should be reconciled to document the production OpenRouter model too.
+**Why OpenRouter, not the S3-1 Ollama choice:** S3-1 (PR #54) chose Ollama cloud `minimax-m2.5:cloud` on tested no-tool quality (see §5.3). That decision still holds *on quality*, and `minimax-m2.5:cloud` remains the fallback model for that reason. Production overrides it for an **account/access** reason: the deploy environment has a working OpenRouter key but no working Ollama cloud account, so OpenRouter is the only provider that can serve traffic there. This is a deployment constraint, not a reversal of the S3-1 quality evaluation.
+
+Note: the model-selection tests in §5.3 below were run against Ollama models. They justify the Ollama fallback model (`minimax-m2.5:cloud`), not the production OpenRouter model (`OPENROUTER_MODEL`). The production OpenRouter model has not been benchmarked the same way; the deterministic Go formatters mean the model only writes a short intro line over an exact data block, so model quality has limited blast radius for data answers. The known caveat is that `google/gemma-4-31b-it:free` is rate-limited at times (a free-tier provider limit).
 
 ### 5.2 Model assignments
 
-All agents use the same model. Because the production pipeline is inject-and-answer (no native tool-calling), the only criterion is no-tool response quality. A single model eliminates split-config complexity.
+All agents use the same model. Because the pipeline is inject-and-answer (no native tool-calling), the only criterion is no-tool response quality. A single model eliminates split-config complexity. The model below is the **Ollama fallback** model; production serves through OpenRouter (`OPENROUTER_MODEL`) per §5.1.
 
-| Agent | Model | Rationale |
+| Agent | Model (Ollama fallback) | Rationale |
 |---|---|---|
 | Router | No model — keyword classifier | Zero latency, deterministic, testable |
 | General | `minimax-m2.5:cloud` | Fastest accurate free-tier model on T1 (2.7s, correct TSSA definition) |
@@ -406,7 +408,7 @@ Tests run against `https://ollama.com/api/chat` (n=1 per cell, single-threaded, 
 | `ministral-3:8b` | Fast; factual errors on domain knowledge | Rejected — factual errors disqualify for any agent role |
 | `gpt-oss:20b` | Fast; wrong domain (confused TSSA with commercial vehicle regulator) | Rejected — domain confusion is a hard disqualifier |
 | LLM-based router | More accurate classification; adds 2–4s per message | Rejected — keyword classifier is deterministic and free |
-| OpenRouter (previous provider) | Wide selection; free tier has rate limits and 300s+ cold starts | Replaced — Ollama cloud is the agreed provider for Sprint 3 |
+| OpenRouter (`google/gemma-4-31b-it:free`) | Wide selection; free tier is rate-limited at times | **Used in production** — the deploy has an OpenRouter key but no working Ollama cloud account, so OpenRouter is the only provider that can serve traffic there (§5.1). Ollama `minimax-m2.5:cloud` stays the quality-chosen fallback. |
 
 ---
 
