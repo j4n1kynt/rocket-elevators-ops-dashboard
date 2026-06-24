@@ -20,6 +20,24 @@ func init() {
 	}
 }
 
+// agentTools is the single source of truth for the MCP tools each route target's
+// agent may call (S3-3, design §1). The router copies the matching slice into
+// AgentRequest.AllowedTools, and each tool-using agent enforces it before any MCP
+// call. The general agent (advisory) has no entry — it answers from its prompt.
+var agentTools = map[string][]string{
+	"mcp_data_tool": {
+		"get_fleet_stats",
+		"get_inspection_history",
+		"get_elevator_risk",
+		"get_elevator_incidents",
+		"get_elevators_needing_followup",
+		"get_tssa_shutdown_elevators",
+		"get_incident_count_last_year",
+	},
+	"rag_search":      {"search_maintenance_docs", "search_incident_narratives"},
+	"action_executor": {"schedule_inspection"},
+}
+
 // Route is the single entry point for the multi-agent pipeline. It classifies
 // the incoming request, selects an agent, and returns its response.
 //
@@ -53,14 +71,12 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 		log.Printf("[router] intent=%s confidence=%.2f → %s", c.Intent, c.Confidence, route.Target)
 	}
 
-	// AllowedTools gates which MCP tools the scheduling agent may call (design §2).
-	// It is now load-bearing: schedulingAgent reads it via toolAllowed() instead of
-	// a hardcoded string. The other three agents (data, knowledge, general) scope
-	// themselves internally and do not yet call toolAllowed — that cross-agent
-	// gating is tracked as tech debt in AND-109.
-	if route.Target == "action_executor" {
-		req.AllowedTools = []string{"schedule_inspection"}
-	}
+	// Scope every agent to its allowed tools via the single-source agentTools map
+	// (design §1). An agent with no entry (the general agent) gets an empty list
+	// and calls no MCP tools. This also covers the scheduling agent — its entry is
+	// {"schedule_inspection"}, which schedulingAgent reads via toolAllowed() — so it
+	// supersedes the earlier action_executor-only gating (AND-109).
+	req.AllowedTools = agentTools[route.Target]
 
 	return agent(ctx, req)
 }

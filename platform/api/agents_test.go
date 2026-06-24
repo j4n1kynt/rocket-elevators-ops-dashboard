@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -89,6 +90,179 @@ func fakeLLMServer(t *testing.T, reply string) *httptest.Server {
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
+
+func TestToolInScope(t *testing.T) {
+	allowed := []string{"get_fleet_stats", "get_elevator_risk"}
+	if !toolInScope("get_elevator_risk", allowed) {
+		t.Error("get_elevator_risk should be in scope")
+	}
+	if toolInScope("search_maintenance_docs", allowed) {
+		t.Error("search_maintenance_docs should not be in scope")
+	}
+	if toolInScope("get_fleet_stats", nil) {
+		t.Error("nothing is in scope for an empty allowed set")
+	}
+}
+
+func TestFormatRiskBlock(t *testing.T) {
+	t.Run("full prediction with explanation", func(t *testing.T) {
+		block, ok := formatRiskBlock(`{"elevator_found":true,"prediction_found":true,"source":"predictions table","elevator_id":12345,"risk_score":0.82,"risk_level":"HIGH","model_version":"v2","prediction_date":"2026-05-01","risk_explanation":"Two overdue orders."}`)
+		if !ok {
+			t.Fatal("ok should be true for a valid payload")
+		}
+		for _, want := range []string{
+			"Source: live fleet database — predictions (model v2, 2026-05-01)",
+			"Elevator: 12345",
+			"Risk level: HIGH",
+			"Score: 0.82",
+			"Explanation: Two overdue orders.",
+		} {
+			if !strings.Contains(block, want) {
+				t.Errorf("block missing %q\n--- block ---\n%s", want, block)
+			}
+		}
+	})
+
+	t.Run("prediction without explanation omits the line", func(t *testing.T) {
+		block, ok := formatRiskBlock(`{"elevator_found":true,"prediction_found":true,"elevator_id":7,"risk_score":0.3,"risk_level":"LOW","risk_explanation":null}`)
+		if !ok {
+			t.Fatal("ok should be true")
+		}
+		if strings.Contains(block, "Explanation:") {
+			t.Errorf("block should not contain an Explanation line when none is present\n%s", block)
+		}
+		if !strings.Contains(block, "Score: 0.30") {
+			t.Errorf("score should be formatted to two decimals\n%s", block)
+		}
+	})
+
+	t.Run("elevator not found", func(t *testing.T) {
+		block, ok := formatRiskBlock(`{"elevator_found":false,"prediction_found":false,"elevator_id":99999}`)
+		if !ok {
+			t.Fatal("ok should be true")
+		}
+		if !strings.Contains(block, "was not found") {
+			t.Errorf("block should state the elevator was not found\n%s", block)
+		}
+	})
+
+	t.Run("found but no prediction", func(t *testing.T) {
+		block, ok := formatRiskBlock(`{"elevator_found":true,"prediction_found":false,"elevator_id":42}`)
+		if !ok {
+			t.Fatal("ok should be true")
+		}
+		if !strings.Contains(block, "no risk prediction") {
+			t.Errorf("block should state no prediction is available\n%s", block)
+		}
+	})
+
+	t.Run("invalid JSON falls back", func(t *testing.T) {
+		if _, ok := formatRiskBlock("not json"); ok {
+			t.Error("ok should be false for invalid JSON")
+		}
+	})
+}
+
+func TestFormatToolResult(t *testing.T) {
+	cases := []struct {
+		name    string
+		tool    string
+		payload string
+		want    []string // substrings that must appear in the block
+	}{
+		{
+			name:    "fleet stats",
+			tool:    "get_fleet_stats",
+			payload: `{"total_elevators":1000,"source":"fleet database (aggregate)","risk_distribution":{"low":600,"medium":300,"high":80,"unknown":20},"inspection_pass_rate_pct":87.5,"equipment_type_distribution":{"Passenger Elevator":900,"Freight Elevator":100}}`,
+			want: []string{
+				"Source: live fleet database — fleet-wide aggregate",
+				"Total elevators: 1000",
+				"Risk — low: 600, medium: 300, high: 80, unknown: 20",
+				"Inspection pass rate: 87.5%",
+				"Equipment types: Passenger Elevator: 900, Freight Elevator: 100",
+			},
+		},
+		{
+			name:    "inspection history",
+			tool:    "get_inspection_history",
+			payload: `{"found":true,"elevator_id":12345,"total_returned":2,"source":"inspections table","inspections":[{"inspection_type":"ED-Periodic Inspection","latest_inspection_date":"2025-03-20","outcome":"Passed"},{"inspection_type":"ED-Followup Inspection","latest_inspection_date":"2024-03-15","outcome":"Follow up"}]}`,
+			want: []string{
+				"Source: live fleet database — inspections",
+				"Elevator: 12345",
+				"Inspections found: 2",
+				"- 2025-03-20 — ED-Periodic Inspection — Passed",
+				"- 2024-03-15 — ED-Followup Inspection — Follow up",
+			},
+		},
+		{
+			name:    "inspection history not found",
+			tool:    "get_inspection_history",
+			payload: `{"found":false,"elevator_id":99999,"inspections":[]}`,
+			want:    []string{"Elevator 99999 was not found"},
+		},
+		{
+			name:    "elevator incidents",
+			tool:    "get_elevator_incidents",
+			payload: `{"found":true,"elevator_id":102,"total_returned":1,"source":"incidents table","incidents":[{"incident_id":4821,"date_of_occurrence":"2015-06-06","category":"Entrapment","incident_summary":"Doors failed to open.","injury_severity":"minor","fatal_injury":false}]}`,
+			want: []string{
+				"Source: live fleet database — incidents",
+				"Incidents found: 1",
+				"- Incident #4821 (2015-06-06) — category: Entrapment, injury: minor",
+				"  Summary: Doors failed to open.",
+			},
+		},
+		{
+			name:    "needing followup",
+			tool:    "get_elevators_needing_followup",
+			payload: `{"count":1,"source":"inspections table (most-recent inspection per elevator)","elevators":[{"elevator_id":555,"location":"Toronto","status":"Active","latest_inspection_date":"2025-01-10","outcome":"Follow up","inspection_type":"ED-Periodic Inspection"}]}`,
+			want: []string{
+				"Elevators needing follow-up: 1",
+				"- Elevator 555 — Toronto — Follow up (last inspection 2025-01-10)",
+			},
+		},
+		{
+			name:    "tssa shutdown keeps note",
+			tool:    "get_tssa_shutdown_elevators",
+			payload: `{"count":1,"source":"inspections table (most-recent inspection per elevator)","note":"No explicit shutdown flag exists in the database.","elevators":[{"elevator_id":777,"location":"Ottawa","status":"Active","latest_inspection_date":"2024-12-01","outcome":"Fail","inspection_type":"ED-Periodic Inspection"}]}`,
+			want: []string{
+				"Elevators flagged for TSSA shutdown: 1",
+				"Note: No explicit shutdown flag exists in the database.",
+				"- Elevator 777 — Ottawa — Fail (last inspection 2024-12-01)",
+			},
+		},
+		{
+			name:    "incident count last year",
+			tool:    "get_incident_count_last_year",
+			payload: `{"source":"incidents table (aggregate)","total_incidents":42,"fatal_incidents":1,"injury_incidents":10,"year_queried":2015}`,
+			want: []string{
+				"Year: 2015",
+				"Total incidents: 42",
+				"With injury: 10",
+				"Fatal: 1",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			block, ok := formatToolResult(c.tool, c.payload)
+			if !ok {
+				t.Fatalf("formatToolResult(%q) returned ok=false", c.tool)
+			}
+			for _, want := range c.want {
+				if !strings.Contains(block, want) {
+					t.Errorf("block missing %q\n--- block ---\n%s", want, block)
+				}
+			}
+		})
+	}
+}
+
+func TestFormatToolResultUnknownTool(t *testing.T) {
+	if _, ok := formatToolResult("search_maintenance_docs", `{}`); ok {
+		t.Error("a tool without a formatter must return ok=false")
+	}
+}
 
 func TestKnowledgeSourceLabel(t *testing.T) {
 	cases := []struct {
@@ -253,6 +427,104 @@ func TestKnowledgeAgentNeverCallsDataTools(t *testing.T) {
 	}
 }
 
+// ── Data agent ──────────────────────────────────────────────────────────────
+
+// TestDataAgentRiskLookupUsesRiskTool verifies a risk question reaches the data
+// agent's risk tool and the answer carries the agent name (acceptance criteria
+// §1 — grounded risk lookup).
+func TestDataAgentRiskLookupUsesRiskTool(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{
+		"get_elevator_risk": `{"elevator_found":true,"prediction_found":true,"risk_score":0.82,"risk_level":"HIGH","model_version":"v2","prediction_date":"2026-05-01"}`,
+	})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "According to the live fleet database, elevator 12345 is HIGH risk (score 0.82).")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	resp := dataAgent(context.Background(), AgentRequest{
+		Message: "what is the risk level of elevator 12345?",
+	})
+
+	if resp.AgentName != "data" {
+		t.Errorf("agent name: got %q, want %q", resp.AgentName, "data")
+	}
+	calls := mcp.Calls()
+	if len(calls) == 0 || calls[0] != "get_elevator_risk" {
+		t.Errorf("tool: got %v, want get_elevator_risk", calls)
+	}
+	// Hybrid: the deterministic Go block must appear in the reply, exactly,
+	// regardless of what the model wrote for the intro line.
+	for _, want := range []string{"Source: live fleet database", "Risk level: HIGH", "Score: 0.82"} {
+		if !strings.Contains(resp.Reply, want) {
+			t.Errorf("reply missing %q\n--- reply ---\n%s", want, resp.Reply)
+		}
+	}
+}
+
+// TestDataAgentNeverCallsForbiddenTools asserts the data agent is scoped to the
+// data tools and never invokes the knowledge or scheduling tools, even when the
+// message would otherwise classify as RAG or action (acceptance criteria §2).
+func TestDataAgentNeverCallsForbiddenTools(t *testing.T) {
+	forbiddenTools := []string{
+		"search_maintenance_docs", "search_incident_narratives", "schedule_inspection",
+	}
+
+	// These messages classify as RAG / action inside the agent; the scope guard
+	// must stop the resulting tool from ever reaching MCP.
+	messages := []string{
+		"what is the procedure for hydraulic pressure loss?",
+		"schedule an inspection for elevator 12345 on 2026-07-01",
+	}
+
+	for _, msg := range messages {
+		mcp := newTrackingMCPServer(t, map[string]string{})
+		t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+		llm := fakeLLMServer(t, "I can only answer fleet data questions.")
+		t.Setenv("OLLAMA_BASE_URL", llm.URL)
+		t.Setenv("OLLAMA_API_KEY", "test-key")
+
+		dataAgent(context.Background(), AgentRequest{Message: msg})
+
+		for _, call := range mcp.Calls() {
+			for _, forbidden := range forbiddenTools {
+				if call == forbidden {
+					t.Errorf("data agent must not call %q (message: %q)", call, msg)
+				}
+			}
+		}
+		mcp.Close()
+		llm.Close()
+	}
+}
+
+// TestDataAgentRespectsAllowedTools verifies that the router-supplied scope is
+// honored: a data tool absent from AllowedTools is not called.
+func TestDataAgentRespectsAllowedTools(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{
+		"get_elevator_risk": `{"elevator_found":true,"prediction_found":true,"risk_score":0.4,"risk_level":"MEDIUM"}`,
+	})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "No risk data available right now.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	// AllowedTools omits get_elevator_risk → the agent must skip the MCP call.
+	dataAgent(context.Background(), AgentRequest{
+		Message:      "what is the risk level of elevator 12345?",
+		AllowedTools: []string{"get_fleet_stats"},
+	})
+
+	if calls := mcp.Calls(); len(calls) != 0 {
+		t.Errorf("expected no MCP calls when tool is out of allowed scope, got %v", calls)
+	}
+}
 // ── Scheduling agent tests ────────────────────────────────────────────────────
 
 // TestSchedulingAgentPhase1Preview verifies that given a valid elevator ID and

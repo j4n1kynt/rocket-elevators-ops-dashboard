@@ -491,10 +491,20 @@ _RISK_BADGES = {
 }
 
 def _render_reply(text: str) -> str:
-    """Replace risk level words with coloured badges and escape remaining HTML."""
+    """Render an assistant reply as safe HTML.
+
+    Steps: escape all HTML, bold line-start field labels (e.g. "Risk level:"),
+    then swap risk-level words for coloured badges. Newlines are preserved by the
+    `whitespace-pre-line` class on the chat bubble, so the structured data blocks
+    keep their layout.
+    """
     import re
     from markupsafe import Markup, escape
     safe = str(escape(text))
+    # Bold a short label at the start of a line, up to its first colon. Anchored
+    # to the line start so mid-sentence colons and bullet lines are left alone.
+    safe = re.sub(r'(?m)^([ ]*)([A-Za-z][A-Za-z ()/\-]{0,38}):',
+                  r'\1<strong>\2:</strong>', safe)
     for level, badge in _RISK_BADGES.items():
         safe = re.sub(r'\b' + level + r'\b', badge, safe, flags=re.IGNORECASE)
     return Markup(safe)
