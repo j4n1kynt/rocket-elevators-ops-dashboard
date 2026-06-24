@@ -56,8 +56,8 @@ All Go tests use `httptest.NewServer` fake servers and `t.Setenv` for all extern
 | `mcp_client_test.go` | Isolated | `httptest` fake MCP server; `t.Setenv("MCP_SERVER_URL", ...)` |
 | `intent_test.go` | Isolated | Pure function calls; no network (27+ cases) |
 | `chat_test.go` | Isolated | `httptest` fake Ollama + OpenRouter; `t.Setenv` for all URLs/keys |
-| `agents_test.go` | Isolated | `newTrackingMCPServer` + `fakeLLMServer` via `httptest`; `t.Setenv` throughout |
-| `router_test.go` | Isolated | Calls real `Route()` entry point; same fake server helpers; asserts `AgentName` for 18 representative queries across all 4 agents |
+| `agents_test.go` | Isolated | Per-agent behavior + error recovery. `newTrackingMCPServer` / `fakeLLMServer` / `newFailingLLMServer` / `newCapturingLLMServer` via `httptest`; `t.Setenv` throughout. Includes the failure-mode × agent matrix and the scheduling write-gate test |
+| `router_test.go` | Isolated | Drives the real `Route()` entry point: routing accuracy (`AgentName` across all 4 agents), ambiguous/multi-domain edge cases, the §4.3 error contract (`TestRouteErrorContract`), and the panic/recover guarantee (`TestRouteRecoversFromAgentPanic`) |
 
 ### Python — Isolated (`make test-python`)
 
@@ -89,6 +89,47 @@ Run with `make eval` when the full stack is up (PostgreSQL + Go API + MCP server
 
 ---
 
+## Simulating a service being down
+
+Every "service down" scenario is reproduced **in-process** with `net/http/httptest` fake servers and `t.Setenv` — no real PostgreSQL, MCP server, or LLM is ever contacted. This is what makes the error-recovery suite deterministic and fast (~2 s) with zero network flakiness: a "failure" is a fake server that closes its socket or returns a chosen status/payload, not a real outage we have to provoke.
+
+The agents reach three downstream dependencies, each behind an env var the test overrides:
+
+| Dependency | Env var (set per-test) | Fake server |
+|---|---|---|
+| MCP tool server | `MCP_SERVER_URL` | `newTrackingMCPServer` |
+| LLM (Ollama path) | `OLLAMA_BASE_URL`, `OLLAMA_API_KEY` | `fakeLLMServer` / `newFailingLLMServer` / `newCapturingLLMServer` |
+| LLM (OpenRouter path) | `OPENROUTER_API_KEY` | unset by `TestMain` so tests stay on the Ollama path |
+
+### Failure-simulation matrix
+
+| Failure mode | How it is simulated | Representative test |
+|---|---|---|
+| **MCP server unreachable** | Create `newTrackingMCPServer`, then `.Close()` it **before** the agent runs → the client gets "connection refused" | `TestAgentsMCPUnreachableRecoverGracefully`, `TestDataAgentMCPTransportFailureNoRawError` |
+| **MCP tool returns an error** | Tracking server returns an error payload — `{"error":true,...}` (data → `isToolError`) or `{"success":false,"error":"…"}` (scheduling → `extractScheduleError`) | `TestAgentsToolErrorPayloadRecoverGracefully`, `TestKnowledgeAgentBothCorporaToolErrorNoRawError` |
+| **MCP returns no results** | Tracking server's default payload `{"total_returned":0,"results":[]}` (any tool not in the map) | `TestKnowledgeAgentNoResultsAdvisoryOnly`, `TestDataAgentNoResultsReportsNoRecordsNotInvented` |
+| **LLM endpoint down (HTTP 5xx)** | `newFailingLLMServer(t, http.StatusServiceUnavailable)` → `callChatLLM` returns a non-200 error | `TestAgentsLLMFailureRecoverGracefully`, `TestSchedulingAgentLLMDownAcrossPhases` |
+| **LLM endpoint unreachable** | `fakeLLMServer(...)` then `.Close()` → "connection refused" | `TestRouteErrorContract` (the `llmDown` rows) |
+| **LLM returns garbage** | `fakeLLMServer(t, "<raw error string or JSON blob>")` — the model "answers" with infra text instead of prose | `TestRouteErrorContract`, `TestBuildReplyMalformedLLMOutput`, `TestDataAgentHybridIntroDropsMalformedLLMOutput` |
+| **Agent panics** | Swap a panicking stub into the package-level `agents` map (restored via `t.Cleanup`) | `TestRouteRecoversFromAgentPanic` |
+
+### Helpers
+
+| Helper (in `agents_test.go` unless noted) | Role |
+|---|---|
+| `newTrackingMCPServer(t, payloads)` | Fake MCP server; records every `tools/call` name + args; serves a canned payload by tool name, else the empty-results default. `.Close()` it to simulate "unreachable". |
+| `fakeLLMServer(t, reply)` | Fake LLM returning a fixed assistant reply; `.Close()` to simulate "unreachable". |
+| `newFailingLLMServer(t, status)` | Fake LLM that always responds with the given HTTP status (e.g. 503). |
+| `newCapturingLLMServer(t, reply)` | Fake LLM that records the **system messages** the agent sent, so a test can assert what reached the model (e.g. an unavailability notice, no raw error). |
+| `assertSafeReply(t, reply)` | Reply is non-empty **and** carries no raw error text or JSON blob. |
+| `assertNoRawErrorLeak(t, sys)` | A captured system message carries no raw infrastructure fragments (`dial tcp`, `connectex:`, …). |
+| `assertErrorContract(t, resp)` *(router_test.go)* | Design §4.3: reply populated + plain-language, `PendingAction` nil. |
+| `assertNoConfirmedWrite(t, mcp)` | `schedule_inspection` was never called with `confirmed=true` — the write-gate invariant. |
+
+**Why a *live* fake server is used for the write-gate.** `TestSchedulingFailuresNeverWriteToDatabase` keeps the MCP server **open** (returning a write-like success payload) on its reject-path cases, rather than closing it. A closed server would make an erroneous `confirmed=true` call fail silently and go unrecorded; a live server records the call so an accidental write is actually caught.
+
+---
+
 ## Environment Variables
 
 | Variable | Required by | Set by Makefile |
@@ -113,6 +154,34 @@ The Gherkin scenarios for S3-10 live in `tests/chatbot_suite.feature`. All crite
 | 5 | Whole suite runs with one command | `make test` |
 
 All tests in AC 1–4 run under `make test-go` (`go test ./...` in `platform/api`) using `httptest` fake servers and `t.Setenv` — no live database, LLM, or MCP server is contacted.
+
+---
+
+## Pre-release trust checklist
+
+The suite is trustworthy to release behind when:
+
+- [ ] **`make test` exits 0** — Go (`build` + `vet` + `test`) and every isolated Python suite pass, with **no skipped Go tests**. This needs no live services.
+- [ ] **All four acceptance criteria are green inside that one command** — routing (AC 1), grounded answers (AC 2), edge cases (AC 3), error recovery (AC 4). See the coverage table below.
+- [ ] **The error-recovery matrix is complete** — every cell of (MCP unreachable | tool error | LLM down) × (data | knowledge | scheduling | general) is exercised (AC 4), plus the §4.3 contract and panic/recover at the `Route()` level.
+- [ ] **The scheduling write-gate holds** — `TestSchedulingFailuresNeverWriteToDatabase` proves no failure path issues a `confirmed=true` write.
+- [ ] **No raw error or JSON ever reaches the user** — `assertSafeReply` / `assertErrorContract` guard the reply on every degraded path.
+- [ ] **DB-backed checks pass** — run `make test-integration` against a real PostgreSQL whenever schema or SQL changed.
+- [ ] **Eval sanity-run** — `make eval` against the full stack for any prompt or agent-routing change (manual confidence check, not an automated gate).
+
+---
+
+## Gaps & Assumptions
+
+`make test` proves the **Go agent pipeline is correct given a model** — routing, tool selection, scope guards, grounding-block assembly, error handling, and the write-gate. It deliberately does **not** prove the things below. Read this before treating a green run as full release confidence.
+
+- **Live model quality is not tested — the LLM is faked.** Every Go test uses a canned `fakeLLMServer` reply (or a forced failure). The suite verifies that the pipeline routes correctly, injects the right context/notice, keeps the deterministic data block exact, and never leaks raw errors — but it cannot verify that the *real* model (mistral:7b) produces accurate, well-phrased, prompt-compliant prose. Assertions like "the system message carries the no-fabrication instruction" prove the agent *asked* the model to behave, not that the model *did*. **Live answer quality is checked only manually via `make eval`** (`run_eval.py` / `run_eval2.py`), which is not a regression gate.
+- **"Service down" means closed / erroring / 5xx — never *slow*.** Fake servers respond instantly, so the agents' context timeouts (data 25 s, knowledge 25 s per corpus, scheduling 10 s) are never exercised. A dependency that is reachable but slow (a real risk on constrained CPU, where warm embedding queries take ~8 s) is untested.
+- **MCP payload fixtures are hand-authored, not contract-verified.** The fake MCP server returns canned JSON shaped to match what the Go formatters expect. If the live MCP tool's response schema drifts, a formatter could break (or silently mis-parse) without the isolated suite noticing. The real Go↔MCP contract is only exercised by `make eval` and the Python MCP-tool tests.
+- **DB-write safety is two-layered; this suite owns only the Go layer.** `TestSchedulingFailuresNeverWriteToDatabase` proves the agent never *requests* a write (`confirmed=true`) on a failure path. That the MCP `schedule_inspection` tool itself honors the confirmed flag server-side is a **separate** guarantee, covered by `test_schedule_inspection.py` (`make test-integration`, needs PostgreSQL).
+- **Pending-action signing uses an ephemeral secret in tests.** With `CHAT_SIGNING_SECRET` unset, each run signs with a throwaway HMAC key (the "ephemeral signing secret" log line). Signature verification logic is tested, but **survival of a pending confirmation across a server restart** (which requires a stable configured secret) is not.
+- **Provider path assumption: Ollama.** `TestMain` unsets `OPENROUTER_API_KEY`, so the agent error-recovery tests all run the Ollama branch of `callChatLLM`. The OpenRouter branch is covered only at the `chat.go` unit level, not through the agents.
+- **Out of scope for this suite entirely:** the Flask server (`server.py`), HTMX templates and front-end behavior, full HTTP end-to-end, and live RAG retrieval quality (ChromaDB content — see `make validate-rag`).
 
 ---
 
