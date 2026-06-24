@@ -57,6 +57,7 @@ All Go tests use `httptest.NewServer` fake servers and `t.Setenv` for all extern
 | `intent_test.go` | Isolated | Pure function calls; no network (27+ cases) |
 | `chat_test.go` | Isolated | `httptest` fake Ollama + OpenRouter; `t.Setenv` for all URLs/keys |
 | `agents_test.go` | Isolated | `newTrackingMCPServer` + `fakeLLMServer` via `httptest`; `t.Setenv` throughout |
+| `router_test.go` | Isolated | Calls real `Route()` entry point; same fake server helpers; asserts `AgentName` for 13 representative queries across all 4 agents |
 
 ### Python — Isolated (`make test-python`)
 
@@ -105,7 +106,7 @@ The Gherkin scenarios for S3-10 live in `tests/chatbot_suite.feature`. All crite
 
 | AC | Requirement | Satisfied by |
 |---|---|---|
-| 1 | Routing accuracy for all four agents | `TestRouteIntent` (all 4 targets), `TestClassifyIntent` (all 4 intents), `TestBuildMCPArgsRouting`, plus one end-to-end routing test per agent |
+| 1 | Routing accuracy for all four agents | `TestRouteIntent` (all 4 targets), `TestClassifyIntent` (all 4 intents), `TestBuildMCPArgsRouting`; **`TestRouteSelectsCorrectAgent`** (calls real `Route()`, checks `AgentName` for all 4 agents + incident-RAG split); **`TestRoutePendingActionPreemptsClassification`** |
 | 2 | Response quality on grounded answers | `TestDataAgentRiskLookupUsesRiskTool` (reply contains source/level/score), `TestFormatToolResult` (6 tool formatters), `TestKnowledgeAgentProcedureUsesMaintenanceDocs` |
 | 3 | Edge cases: ambiguous, multi-domain, unanswerable | `TestConfidenceFallbackToAdvisory`, `TestAdvisoryByDefaultConfidence`, `TestKnowledgeAgentNoResultsAdvisoryOnly`, `TestDataAgentNeverCallsForbiddenTools`, `TestKnowledgeAgentNeverCallsDataTools`, `TestBuildReplyMalformedLLMOutput`, `TestGeneralAgentNoFallbackOnSubstantiveMessage` |
 | 4 | Error recovery when a service is down | `TestDataAgentMCPTransportFailureNoRawError` (MCP closed → graceful reply), `TestKnowledgeAgentBothCorporaToolErrorNoRawError` (tool error payload → graceful reply), `mcp_client_test.go` (HTTP errors, unreachable host) |
