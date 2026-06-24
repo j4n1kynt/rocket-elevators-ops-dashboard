@@ -362,6 +362,73 @@ func TestBuildMCPArgsRouting(t *testing.T) {
 	}
 }
 
+func TestContextCarry(t *testing.T) {
+	cases := []struct {
+		name        string
+		msg         string
+		history     []ChatMessage
+		wantIntent  Intent
+		wantEntity  string // first elevator ID expected, "" if none required
+	}{
+		{
+			// data follow-up: elevator ID triggers carry
+			name: "data_elevator_id",
+			msg:  "And for 20718?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 14575"},
+				{Role: "assistant", Content: "Here are the inspections for elevator 14575."},
+			},
+			wantIntent: IntentDataQuery,
+			wantEntity: "20718",
+		},
+		{
+			// RAG follow-up: connector phrase triggers carry, no elevator ID needed
+			name: "rag_connector",
+			msg:  "What about the hydraulic system?",
+			history: []ChatMessage{
+				{Role: "user", Content: "What are the steps to replace a governor?"},
+				{Role: "assistant", Content: "Here are the steps..."},
+			},
+			wantIntent: IntentRAG,
+			wantEntity: "",
+		},
+		{
+			// No history → no change
+			name:       "no_history",
+			msg:        "And for 20718?",
+			history:    nil,
+			wantIntent: IntentAdvisory,
+			wantEntity: "20718",
+		},
+		{
+			// Genuine advisory question must not be carried
+			name: "genuine_advisory_not_carried",
+			msg:  "What is a hydraulic elevator?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 14575"},
+			},
+			wantIntent: IntentAdvisory,
+			wantEntity: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := ClassifyIntent(tc.msg, fixedNow)
+			carried := contextCarry(c, tc.msg, tc.history, fixedNow)
+
+			if carried.Intent != tc.wantIntent {
+				t.Fatalf("intent: got %s, want %s", carried.Intent, tc.wantIntent)
+			}
+			if tc.wantEntity != "" {
+				if len(carried.Entities.ElevatorIDs) == 0 || carried.Entities.ElevatorIDs[0] != tc.wantEntity {
+					t.Fatalf("entity: got %v, want [%s]", carried.Entities.ElevatorIDs, tc.wantEntity)
+				}
+			}
+		})
+	}
+}
+
 func TestRouteIntent(t *testing.T) {
 	cases := []struct {
 		intent     Intent

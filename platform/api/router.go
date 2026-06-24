@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -60,7 +61,7 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 		return schedulingAgent(ctx, req)
 	}
 
-	c := ClassifyIntent(req.Message, time.Now())
+	c := contextCarry(ClassifyIntent(req.Message, time.Now()), req.Message, req.History, time.Now())
 	route := routeIntent(c)
 
 	agent, ok := agents[route.Target]
@@ -79,4 +80,55 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 	req.AllowedTools = agentTools[route.Target]
 
 	return agent(ctx, req)
+}
+
+// followUpPrefixes are phrases that signal the message continues a prior thought
+// rather than starting a new topic. Used by isFollowUp to trigger contextCarry
+// for all agent types, not just data queries.
+var followUpPrefixes = []string{
+	"and for", "and the", "and what", "and how",
+	"what about", "how about",
+	"also for", "same for",
+	"for the same", "how about the", "what about the",
+}
+
+// isFollowUp returns true when the message looks like a continuation: it either
+// carries an elevator ID (data follow-up) or starts with a conversational
+// connector (covers RAG and other agent types too).
+func isFollowUp(msg string, c Classification) bool {
+	if len(c.Entities.ElevatorIDs) > 0 {
+		return true
+	}
+	lower := strings.ToLower(strings.TrimSpace(msg))
+	for _, prefix := range followUpPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// contextCarry upgrades a low-confidence advisory classification when the
+// message looks like a follow-up (has an elevator ID or starts with a
+// conversational connector). It scans history for the most recent non-advisory
+// user intent and inherits it, keeping the current entities so the right
+// elevator or topic is used.
+func contextCarry(c Classification, msg string, history []ChatMessage, now time.Time) Classification {
+	if c.Intent != IntentAdvisory || !isFollowUp(msg, c) {
+		return c
+	}
+	for i := len(history) - 1; i >= 0; i-- {
+		if history[i].Role != "user" {
+			continue
+		}
+		prev := ClassifyIntent(history[i].Content, now)
+		if prev.Intent != IntentAdvisory {
+			c.Intent = prev.Intent
+			c.Confidence = prev.Confidence
+			c.Signals = prev.Signals
+			c.Reason = "context-carry from history: " + prev.Reason
+			break
+		}
+	}
+	return c
 }
