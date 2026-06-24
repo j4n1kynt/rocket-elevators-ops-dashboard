@@ -108,6 +108,9 @@ func summarizeForUser(ctx context.Context, dataBlock, msg string) string {
 
 func dataAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	c := ClassifyIntent(req.Message, time.Now())
+	if req.Classification != nil {
+		c = *req.Classification
+	}
 	toolName, mcpArgs := buildMCPArgs(c, req.Message)
 
 	// Scope guard: the data agent may call only the data tools. When the router

@@ -129,10 +129,11 @@ type ChatResponse struct {
 type AgentFunc func(ctx context.Context, req AgentRequest) AgentResponse
 
 type AgentRequest struct {
-	Message       string
-	History       []ChatMessage
-	PendingAction *PendingAction
-	AllowedTools  []string
+	Message        string
+	History        []ChatMessage
+	PendingAction  *PendingAction
+	AllowedTools   []string
+	Classification *Classification // pre-resolved by router; nil = classify fresh
 }
 
 type AgentResponse struct {

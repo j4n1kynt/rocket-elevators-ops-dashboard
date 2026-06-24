@@ -77,7 +77,8 @@ func Route(ctx context.Context, req AgentRequest) (resp AgentResponse) {
 	// and calls no MCP tools. This also covers the scheduling agent — its entry is
 	// {"schedule_inspection"}, which schedulingAgent reads via toolAllowed() — so it
 	// supersedes the earlier action_executor-only gating (AND-109).
-	req.AllowedTools = agentTools[route.Target]
+	req.AllowedTools   = agentTools[route.Target]
+	req.Classification = &c
 
 	return agent(ctx, req)
 }

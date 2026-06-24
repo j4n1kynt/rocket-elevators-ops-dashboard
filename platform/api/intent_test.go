@@ -429,6 +429,60 @@ func TestContextCarry(t *testing.T) {
 	}
 }
 
+func TestContextCarryEndToEnd(t *testing.T) {
+	cases := []struct {
+		name         string
+		msg          string
+		history      []ChatMessage
+		wantTool     string
+		wantElevator int
+	}{
+		{
+			// "And for 20718?" has no sub-topic keywords, so the default is the
+			// elevator overview — not fleet stats. The key is that the carry
+			// preserves the entity so the right elevator is used.
+			name: "short_followup_uses_elevator_not_fleet",
+			msg:  "And for 20718?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 14575"},
+				{Role: "assistant", Content: "Here are the inspections for elevator 14575."},
+			},
+			wantTool:     "get_elevator_risk",
+			wantElevator: 20718,
+		},
+		{
+			name: "generic_followup_with_id",
+			msg:  "And for 20718?",
+			history: []ChatMessage{
+				{Role: "user", Content: "What is the risk for elevator 14575?"},
+				{Role: "assistant", Content: "Elevator 14575 is high risk."},
+			},
+			wantTool:     "get_elevator_risk",
+			wantElevator: 20718,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			base := ClassifyIntent(tc.msg, fixedNow)
+			c := contextCarry(base, tc.msg, tc.history, fixedNow)
+
+			toolName, args := buildMCPArgs(c, tc.msg)
+
+			if toolName != tc.wantTool {
+				t.Errorf("tool: got %s, want %s", toolName, tc.wantTool)
+			}
+			id, ok := args["elevator_id"]
+			if !ok {
+				t.Fatalf("elevator_id missing from args: %v", args)
+			}
+			if id != tc.wantElevator {
+				t.Errorf("elevator_id: got %v, want %d", id, tc.wantElevator)
+			}
+		})
+	}
+}
+
 func TestRouteIntent(t *testing.T) {
 	cases := []struct {
 		intent     Intent
