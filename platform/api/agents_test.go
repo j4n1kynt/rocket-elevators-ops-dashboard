@@ -306,6 +306,10 @@ func TestKnowledgeAgentProcedureUsesMaintenanceDocs(t *testing.T) {
 	if len(calls) == 0 || calls[0] != "search_maintenance_docs" {
 		t.Errorf("primary tool: got %v, want search_maintenance_docs first", calls)
 	}
+	// The reply must carry the source document name so the user can trace the answer.
+	if !strings.Contains(resp.Reply, "Maintenance Document 10078") {
+		t.Errorf("reply must cite source document name\n--- reply ---\n%s", resp.Reply)
+	}
 }
 
 func TestKnowledgeAgentIncidentQueryUsesNarratives(t *testing.T) {
@@ -330,6 +334,10 @@ func TestKnowledgeAgentIncidentQueryUsesNarratives(t *testing.T) {
 	calls := mcp.Calls()
 	if len(calls) == 0 || calls[0] != "search_incident_narratives" {
 		t.Errorf("primary tool: got %v, want search_incident_narratives first", calls)
+	}
+	// The reply must reference the incident ID so the user can verify the source.
+	if !strings.Contains(resp.Reply, "1163652") {
+		t.Errorf("reply must reference incident ID from the tool result\n--- reply ---\n%s", resp.Reply)
 	}
 }
 
@@ -388,6 +396,44 @@ func TestKnowledgeAgentNoResultsAdvisoryOnly(t *testing.T) {
 	calls := mcp.Calls()
 	if len(calls) != 2 {
 		t.Errorf("expected exactly 2 tool calls, got %d: %v", len(calls), calls)
+	}
+}
+
+// TestKnowledgeAgentNoResultsSystemPromptClean verifies that when both corpora
+// return no results, the LLM receives a system message that:
+//   - contains the "no fabrication" instruction from the knowledge prompt, and
+//   - does NOT contain a [DATA SOURCE: ...] tag (no phantom source was injected).
+//
+// This guards against the agent silently claiming to have documentation it did
+// not retrieve.
+func TestKnowledgeAgentNoResultsSystemPromptClean(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{}) // all tools → empty results
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := newCapturingLLMServer(t, "The documentation does not cover this topic.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	knowledgeAgent(context.Background(), AgentRequest{
+		Message: "how do I calibrate the load-weighing device?",
+	})
+
+	systems := llm.SystemMessages()
+	if len(systems) == 0 {
+		t.Fatal("no system message captured — LLM was never called")
+	}
+	sys := systems[0]
+
+	// The base prompt's no-fabrication instruction must be present.
+	if !strings.Contains(sys, "fabricat") {
+		t.Errorf("system message must carry the no-fabrication instruction\ngot: %s", sys)
+	}
+	// No phantom data source must be injected — that would imply the model was
+	// told it had documentation it never retrieved.
+	if strings.Contains(sys, "[DATA SOURCE:") {
+		t.Errorf("system message must not inject a [DATA SOURCE:] tag when no results were found\ngot: %s", sys)
 	}
 }
 
@@ -458,6 +504,46 @@ func TestDataAgentRiskLookupUsesRiskTool(t *testing.T) {
 	// Hybrid: the deterministic Go block must appear in the reply, exactly,
 	// regardless of what the model wrote for the intro line.
 	for _, want := range []string{"Source: live fleet database", "Risk level: HIGH", "Score: 0.82"} {
+		if !strings.Contains(resp.Reply, want) {
+			t.Errorf("reply missing %q\n--- reply ---\n%s", want, resp.Reply)
+		}
+	}
+}
+
+// TestDataAgentFleetStatsBlockInReply verifies that for a fleet-wide query the
+// data agent calls get_fleet_stats and the reply contains the exact deterministic
+// block produced by Go — not a model-generated paraphrase of the numbers.
+//
+// Message scoring: "which" (0.5) + "dangerous" (1.0) + "flagged" (0.5) = 2.0
+// → confidence 0.67 → IntentDataQuery; no elevator ID, no specific sub-keyword
+// → buildMCPArgs falls through to the default → get_fleet_stats.
+func TestDataAgentFleetStatsBlockInReply(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{
+		"get_fleet_stats": `{"total_elevators":1000,"source":"fleet database (aggregate)","risk_distribution":{"low":600,"medium":300,"high":80,"unknown":20},"inspection_pass_rate_pct":87.5,"equipment_type_distribution":{"Passenger Elevator":900,"Freight Elevator":100}}`,
+	})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "Here is the current fleet overview.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	resp := dataAgent(context.Background(), AgentRequest{
+		Message: "Which elevators are flagged as dangerous?",
+	})
+
+	if calls := mcp.Calls(); len(calls) == 0 || calls[0] != "get_fleet_stats" {
+		t.Errorf("tool: got %v, want get_fleet_stats", calls)
+	}
+	// The deterministic Go block must appear verbatim in the reply regardless of
+	// whatever intro sentence the model wrote — it never touches the numbers.
+	for _, want := range []string{
+		"Source: live fleet database — fleet-wide aggregate",
+		"Total elevators: 1000",
+		"Inspection pass rate: 87.5%",
+		"Risk — low: 600, medium: 300, high: 80, unknown: 20",
+	} {
 		if !strings.Contains(resp.Reply, want) {
 			t.Errorf("reply missing %q\n--- reply ---\n%s", want, resp.Reply)
 		}
@@ -915,6 +1001,42 @@ func TestSchedulingAgentNeverCallsForbiddenTools(t *testing.T) {
 				t.Errorf("scheduling agent must not call forbidden tool %q", call)
 			}
 		}
+	}
+}
+
+// TestSchedulingAgentMissingInfoAsksNotFabricates verifies that when the user's
+// request has an elevator ID but no date (one required field missing), the
+// scheduling agent asks for the missing information rather than calling MCP with
+// fabricated values.
+func TestSchedulingAgentMissingInfoAsksNotFabricates(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "Please provide the inspection date so I can complete the scheduling request.")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	resp := schedulingAgent(context.Background(), AgentRequest{
+		Message:      "Schedule an inspection for elevator 12345",
+		AllowedTools: []string{"schedule_inspection"},
+	})
+
+	// No MCP call must be made — fabricating a date and writing it would be wrong.
+	if calls := mcp.Calls(); len(calls) != 0 {
+		t.Errorf("no MCP tools must be called when date is missing, got: %v", calls)
+	}
+	if resp.AgentName != "scheduling" {
+		t.Errorf("agent name: got %q, want %q", resp.AgentName, "scheduling")
+	}
+	// The agent must reply (asking for the missing info), not silently fail.
+	if resp.Reply == "" {
+		t.Error("reply must not be empty — agent should ask for the missing date")
+	}
+	// No pending action must be issued — nothing to confirm yet.
+	if resp.PendingAction != nil {
+		t.Error("PendingAction must be nil when required fields are missing")
 	}
 }
 
