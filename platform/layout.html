@@ -102,6 +102,9 @@
     .chat-md p { margin: 0; }
     .chat-md p + p { margin-top: .4rem; }
     .chat-md strong { font-weight: 600; }
+    /* Preflight resets links to inherit; restore a visible link affordance. */
+    .chat-md a { color: #2563eb; text-decoration: underline; }
+    .chat-md a:hover { color: #1d4ed8; }
   </style>
 </head>
 <body class="flex h-screen bg-slate-100 overflow-hidden">
