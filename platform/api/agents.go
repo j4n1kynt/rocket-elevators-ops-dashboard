@@ -330,15 +330,22 @@ func isLLMFallback(reply string) bool {
 // extractPhase2SuccessMsg builds a plain-language confirmation from the JSON
 // returned by schedule_inspection (confirmed=true). Used as an LLM-independent
 // fallback so the user always learns their inspection was booked.
+// Real production payload: {inspection_id, elevator_id, location, inspection_date, outcome}
 func extractPhase2SuccessMsg(result string) string {
 	var r struct {
 		InspectionID int    `json:"inspection_id"`
-		Message      string `json:"message"`
+		ElevatorID   int    `json:"elevator_id"`
+		Location     string `json:"location"`
+		Date         string `json:"inspection_date"`
+		Outcome      string `json:"outcome"`
 	}
 	if err := json.Unmarshal([]byte(result), &r); err != nil || r.InspectionID == 0 {
 		return "Your inspection has been scheduled successfully."
 	}
-	return fmt.Sprintf("Your inspection has been scheduled (ID: %d). %s", r.InspectionID, r.Message)
+	return fmt.Sprintf(
+		"Your inspection has been scheduled (ID: %d) — elevator %d at %s on %s. Status: %s.",
+		r.InspectionID, r.ElevatorID, r.Location, r.Date, r.Outcome,
+	)
 }
 
 func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {

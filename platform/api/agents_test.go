@@ -1263,7 +1263,7 @@ func TestSchedulingAgentPhase1Preview(t *testing.T) {
 // replies "yes" to a valid pending action, the agent calls schedule_inspection
 // with confirmed=true and returns a non-empty reply with no further PendingAction.
 func TestSchedulingAgentPhase2WritesAfterConfirmation(t *testing.T) {
-	phase2Payload := `{"success":true,"inspection_id":42,"message":"Inspection scheduled successfully."}`
+	phase2Payload := `{"success":true,"confirmed":true,"inspection_id":42,"elevator_id":12345,"location":"123 MAIN ST TORONTO ON CA","inspection_date":"2026-07-01","reason":"test","outcome":"Pending"}`
 
 	mcp := newTrackingMCPServer(t, map[string]string{
 		"schedule_inspection": phase2Payload,
@@ -1496,7 +1496,7 @@ func TestSchedulingAgentLLMDownAcrossPhases(t *testing.T) {
 
 	t.Run("phase 2 write — committed inspection is not lost when the LLM is down", func(t *testing.T) {
 		mcp := newTrackingMCPServer(t, map[string]string{
-			"schedule_inspection": `{"success":true,"inspection_id":42,"message":"Inspection scheduled successfully."}`,
+			"schedule_inspection": `{"success":true,"confirmed":true,"inspection_id":42,"elevator_id":12345,"location":"123 MAIN ST TORONTO ON CA","inspection_date":"2026-07-01","reason":"test","outcome":"Pending"}`,
 		})
 		defer mcp.Close()
 		t.Setenv("MCP_SERVER_URL", mcp.URL)
@@ -1571,7 +1571,7 @@ func TestSchedulingFailuresNeverWriteToDatabase(t *testing.T) {
 	// would look like a successful write — making an accidental confirmed=true call
 	// observable rather than masked by an empty default.
 	writeLikePayload := map[string]string{
-		"schedule_inspection": `{"success":true,"inspection_id":99,"message":"Inspection scheduled successfully."}`,
+		"schedule_inspection": `{"success":true,"confirmed":true,"inspection_id":99,"elevator_id":12345,"location":"123 MAIN ST TORONTO ON CA","inspection_date":"2026-07-01","reason":"test","outcome":"Pending"}`,
 	}
 
 	t.Run("tampered signature on confirmation is rejected without a write", func(t *testing.T) {
@@ -1793,8 +1793,9 @@ func TestSchedulingAgentPhase2MCPFailurePreservesPendingAction(t *testing.T) {
 // user does not know whether their inspection was actually booked and may try to
 // schedule again — risking a duplicate.
 func TestSchedulingAgentPhase2SuccessLLMDownUsesGroundedConfirmation(t *testing.T) {
+	// Payload matches the real write_tools.py Phase 2 response — no "message" field.
 	mcp := newTrackingMCPServer(t, map[string]string{
-		"schedule_inspection": `{"success":true,"inspection_id":42,"message":"Inspection scheduled successfully."}`,
+		"schedule_inspection": `{"success":true,"confirmed":true,"inspection_id":42,"elevator_id":12345,"location":"123 MAIN ST TORONTO ON CA","inspection_date":"2026-07-01","reason":"test","outcome":"Pending"}`,
 	})
 	defer mcp.Close()
 	t.Setenv("MCP_SERVER_URL", mcp.URL)
