@@ -348,7 +348,7 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 				if pa.InspectionType != "" {
 					phase2Args["inspection_type"] = pa.InspectionType
 				}
-				mcpCtx, mcpCancel := context.WithTimeout(ctx, 10*time.Second)
+				mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
 				defer mcpCancel()
 				if result, err := CallMCPTool(mcpCtx, "schedule_inspection", phase2Args); err != nil {
 					log.Printf("[scheduling] phase2 failed: %v", err)
@@ -383,7 +383,7 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			dataContext = "[ACTION NEEDS MORE INFO]\nThe user wants to schedule an inspection but did not provide both an elevator ID and a date. Ask them for whichever is missing before proceeding. Do not invent values."
 		} else {
 			toolName, mcpArgs := buildMCPArgs(c, req.Message)
-			mcpCtx, mcpCancel := context.WithTimeout(ctx, 10*time.Second)
+			mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
 			defer mcpCancel()
 			if !toolAllowed(req.AllowedTools, toolName) {
 				log.Printf("[scheduling] blocked forbidden tool %q — only schedule_inspection is allowed", toolName)
