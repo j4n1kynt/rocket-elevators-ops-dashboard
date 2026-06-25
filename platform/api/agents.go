@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -317,9 +318,33 @@ func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
 
 // ── Scheduling agent ──────────────────────────────────────────────────────────
 
+// isLLMFallback reports whether reply is one of the hardcoded fallback strings
+// that buildReply returns when the LLM is unreachable or its output is
+// unusable. Used by schedulingAgent to detect when a Phase 2 success message
+// was lost due to an LLM outage and substitute a grounded confirmation instead.
+func isLLMFallback(reply string) bool {
+	return strings.HasPrefix(reply, "I'm having trouble") ||
+		strings.HasPrefix(reply, "The model is currently rate-limited")
+}
+
+// extractPhase2SuccessMsg builds a plain-language confirmation from the JSON
+// returned by schedule_inspection (confirmed=true). Used as an LLM-independent
+// fallback so the user always learns their inspection was booked.
+func extractPhase2SuccessMsg(result string) string {
+	var r struct {
+		InspectionID int    `json:"inspection_id"`
+		Message      string `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(result), &r); err != nil || r.InspectionID == 0 {
+		return "Your inspection has been scheduled successfully."
+	}
+	return fmt.Sprintf("Your inspection has been scheduled (ID: %d). %s", r.InspectionID, r.Message)
+}
+
 func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	var dataContext string
 	var pendingAction *PendingAction
+	var phase2Result string // non-empty only after a confirmed Phase 2 MCP write
 
 	if req.PendingAction != nil {
 		isConfirm, isCancel := detectConfirmation(req.Message)
@@ -355,10 +380,18 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 					log.Printf("[scheduling] phase2 failed: %v", err)
 					errMsg := cleanValidationError(err.Error())
 					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+					// Write did not happen — return the original pending action so
+					// the user can retry "yes" without restarting the whole flow.
+					pendingAction = pa
 				} else if errMsg := extractScheduleError(result); errMsg != "" {
 					log.Printf("[scheduling] phase2 error: %s", errMsg)
 					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+					// Write rejected by MCP — safe to let the user retry.
+					pendingAction = pa
 				} else {
+					// Write committed. Capture the result so we can build a grounded
+					// confirmation message even if the LLM is unreachable afterward.
+					phase2Result = result
 					dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
 				}
 			}
@@ -450,6 +483,13 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	}
 
 	reply := buildReply(ctx, schedulingPrompt, dataContext, req.History, req.Message)
+	// If the Phase 2 write succeeded but the LLM is down, the generic fallback
+	// leaves the user uncertain — they may try to reschedule and create a
+	// duplicate. Use a grounded confirmation from the MCP result instead.
+	if phase2Result != "" && isLLMFallback(reply) {
+		log.Printf("[scheduling] llm down after phase2 write — using grounded confirmation")
+		reply = extractPhase2SuccessMsg(phase2Result)
+	}
 	return AgentResponse{
 		AgentName:      "scheduling",
 		Reply:          reply,

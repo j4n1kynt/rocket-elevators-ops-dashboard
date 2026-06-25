@@ -1719,6 +1719,125 @@ func TestSchedulingFailuresNeverWriteToDatabase(t *testing.T) {
 	})
 }
 
+// TestSchedulingAgentPhase2MCPFailurePreservesPendingAction verifies that when
+// the Phase 2 MCP call fails (transport error or application-level error), the
+// original PendingAction is returned so the user can retry "yes" without
+// restarting the whole scheduling flow. Before this fix, pendingAction was nil
+// on any Phase 2 failure, leaving the user stuck with no way to retry.
+func TestSchedulingAgentPhase2MCPFailurePreservesPendingAction(t *testing.T) {
+	cases := []struct {
+		name    string
+		payload map[string]string
+	}{
+		{
+			name:    "transport failure (MCP unreachable)",
+			payload: nil, // mcp will be closed before the call
+		},
+		{
+			name:    "application error (elevator does not exist)",
+			payload: map[string]string{"schedule_inspection": `{"success":false,"error":"Elevator 99999 does not exist."}`},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var mcp *trackingMCPServer
+			if tc.payload == nil {
+				mcp = newTrackingMCPServer(t, map[string]string{})
+				mcp.Close() // down before the call → transport error
+			} else {
+				mcp = newTrackingMCPServer(t, tc.payload)
+				defer mcp.Close()
+			}
+			t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+			llm := fakeLLMServer(t, "The scheduling service is unavailable. Please try again.")
+			defer llm.Close()
+			t.Setenv("OLLAMA_BASE_URL", llm.URL)
+			t.Setenv("OLLAMA_API_KEY", "test-key")
+
+			pa := &PendingAction{
+				ElevatorID:     12345,
+				InspectionDate: "2026-07-01",
+				InspectionType: "Periodic",
+				Reason:         "schedule an inspection for elevator 12345 on 2026-07-01",
+				ExpiresAt:      time.Now().Add(10 * time.Minute).Unix(),
+			}
+			pa.Signature = signPendingAction(pa)
+
+			resp := schedulingAgent(context.Background(), AgentRequest{
+				Message:       "yes",
+				PendingAction: pa,
+			})
+
+			if resp.AgentName != "scheduling" {
+				t.Errorf("agent name: got %q, want %q", resp.AgentName, "scheduling")
+			}
+			// Write failed — the original pending action must be returned so the
+			// user can retry without restarting the scheduling flow from scratch.
+			if resp.PendingAction == nil {
+				t.Fatal("PendingAction must be preserved when Phase 2 MCP call fails")
+			}
+			if resp.PendingAction.ElevatorID != pa.ElevatorID {
+				t.Errorf("preserved PendingAction.ElevatorID: got %d, want %d", resp.PendingAction.ElevatorID, pa.ElevatorID)
+			}
+			assertSafeReply(t, resp.Reply)
+		})
+	}
+}
+
+// TestSchedulingAgentPhase2SuccessLLMDownUsesGroundedConfirmation verifies that
+// when the Phase 2 MCP write succeeds (inspection committed to the database) but
+// the LLM is down, the agent returns the grounded confirmation built from the MCP
+// result rather than the generic "I'm having trouble" fallback. Without this, the
+// user does not know whether their inspection was actually booked and may try to
+// schedule again — risking a duplicate.
+func TestSchedulingAgentPhase2SuccessLLMDownUsesGroundedConfirmation(t *testing.T) {
+	mcp := newTrackingMCPServer(t, map[string]string{
+		"schedule_inspection": `{"success":true,"inspection_id":42,"message":"Inspection scheduled successfully."}`,
+	})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	// LLM is down — buildReply will return the "I'm having trouble" fallback.
+	llm := newFailingLLMServer(t, http.StatusServiceUnavailable)
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	pa := &PendingAction{
+		ElevatorID:     12345,
+		InspectionDate: "2026-07-01",
+		InspectionType: "Periodic",
+		Reason:         "schedule an inspection for elevator 12345 on 2026-07-01",
+		ExpiresAt:      time.Now().Add(10 * time.Minute).Unix(),
+	}
+	pa.Signature = signPendingAction(pa)
+
+	resp := schedulingAgent(context.Background(), AgentRequest{
+		Message:       "yes",
+		PendingAction: pa,
+	})
+
+	if resp.AgentName != "scheduling" {
+		t.Errorf("agent name: got %q, want %q", resp.AgentName, "scheduling")
+	}
+	// Write is done — no pending action needed.
+	if resp.PendingAction != nil {
+		t.Error("PendingAction must be nil after a successful Phase 2 write")
+	}
+	// The reply must NOT be the generic LLM fallback — the user must know
+	// the inspection was booked.
+	if strings.HasPrefix(resp.Reply, "I'm having trouble") {
+		t.Errorf("reply must not be the generic LLM fallback when Phase 2 write succeeded\n--- reply ---\n%s", resp.Reply)
+	}
+	// The grounded confirmation must include the inspection ID from the MCP result.
+	if !strings.Contains(resp.Reply, "42") {
+		t.Errorf("reply must include the inspection ID from the MCP result\n--- reply ---\n%s", resp.Reply)
+	}
+	assertSafeReply(t, resp.Reply)
+}
+
 // TestSchedulingAgentInspectionTypeResponseReroutesThroughPhase1 covers the bug
 // where a user supplies the inspection type in reply to the agent's question
 // (e.g. "Periodic") while a pending action with InspectionType="" is active.
