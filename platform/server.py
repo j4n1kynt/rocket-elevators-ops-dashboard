@@ -24,6 +24,7 @@ import json
 import os
 import re
 
+import mistune
 from flask import Flask, render_template, request, make_response
 import pandas as pd
 import requests
@@ -486,6 +487,15 @@ def elevator_detail(elev_id):
     )
 
 
+# Markdown renderer shared across requests.
+# escape=True: raw HTML in LLM output is neutralised before it reaches the browser.
+# hard_wrap=True: single \n becomes <br />, so Go-formatted plain-text data blocks
+# (which use \n between field lines) keep their line structure after conversion.
+_md = mistune.create_markdown(
+    escape=True,
+    hard_wrap=True,
+)
+
 _RISK_BADGES = {
     "HIGH":   '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700">HIGH</span>',
     "MEDIUM": '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-700">MEDIUM</span>',
@@ -495,18 +505,19 @@ _RISK_BADGES = {
 def _render_reply(text: str) -> str:
     """Render an assistant reply as safe HTML.
 
-    Steps: escape all HTML, bold line-start field labels (e.g. "Risk level:"),
-    then swap risk-level words for coloured badges. Newlines are preserved by the
-    `whitespace-pre-line` class on the chat bubble, so the structured data blocks
-    keep their layout.
+    Steps:
+    1. Convert markdown to HTML (handles **bold**, - bullets, ## headers).
+       escape=True prevents raw HTML injection; hard_wrap=True turns single
+       newlines into <br /> so Go-formatted data blocks keep their line layout.
+    2. Bold short field labels at line or paragraph start (e.g. "Risk level:").
+    3. Swap risk-level words for coloured badges.
     """
-    import re
-    from markupsafe import Markup, escape
-    safe = str(escape(text))
-    # Bold a short label at the start of a line, up to its first colon. Anchored
-    # to the line start so mid-sentence colons and bullet lines are left alone.
-    safe = re.sub(r'(?m)^([ ]*)([A-Za-z][A-Za-z ()/\-]{0,38}):',
-                  r'\1<strong>\2:</strong>', safe)
+    from markupsafe import Markup
+    safe = _md(text)
+    # Bold labels at the start of a physical line (after <br />\n) ...
+    safe = re.sub(r'(?m)^([A-Za-z][A-Za-z ()/\-]{0,38}):', r'<strong>\1:</strong>', safe)
+    # ... and at the start of a paragraph (immediately after <p>).
+    safe = re.sub(r'(<p>)([A-Za-z][A-Za-z ()/\-]{0,38}):', r'\1<strong>\2:</strong>', safe)
     for level, badge in _RISK_BADGES.items():
         safe = re.sub(r'\b' + level + r'\b', badge, safe, flags=re.IGNORECASE)
     return Markup(safe)
@@ -550,16 +561,20 @@ def chat():
             json=api_payload,
             timeout=330,  # the LLM can be slow on free models
         )
-        if api_resp.status_code == 503:
+        if api_resp.status_code in (500, 503):
             try:
                 detail = api_resp.json().get("error", "")
             except Exception:
                 detail = ""
+            if api_resp.status_code == 503:
+                msg_text = detail or "The assistant is currently unavailable. Please try again in a moment."
+            else:
+                msg_text = "The assistant encountered an internal error. Please try again."
             return render_template(
                 "_chat_reply.html",
                 message=message,
                 reply_html=None,
-                error=detail or "The assistant is currently unavailable. Please try again in a moment.",
+                error=msg_text,
                 history=json.dumps(history),
                 pending_action="null",
                 conversation_id=conversation_id,
@@ -840,16 +855,20 @@ def conversation_message(cid):
             json=api_payload,
             timeout=330,
         )
-        if api_resp.status_code == 503:
+        if api_resp.status_code in (500, 503):
             try:
                 detail = api_resp.json().get("error", "")
             except Exception:
                 detail = ""
+            if api_resp.status_code == 503:
+                msg_text = detail or "The assistant is currently unavailable. Please try again."
+            else:
+                msg_text = "The assistant encountered an internal error. Please try again."
             return render_template(
                 "_conversation_reply.html",
                 message=message,
                 reply_html=None,
-                error=detail or "The assistant is currently unavailable. Please try again.",
+                error=msg_text,
                 history=json.dumps(history),
                 conversation_id=conversation_id,
             )
