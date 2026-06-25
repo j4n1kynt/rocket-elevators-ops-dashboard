@@ -42,3 +42,8 @@
 
 </div>
 {% endfor %}
+{% if total > conversations|length %}
+<p class="text-[10px] text-slate-400 text-center py-2.5 border-t border-slate-100">
+  Showing {{ conversations|length }} of {{ total }}
+</p>
+{% endif %}
