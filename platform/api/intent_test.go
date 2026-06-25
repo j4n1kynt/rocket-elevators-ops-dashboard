@@ -438,16 +438,29 @@ func TestContextCarryEndToEnd(t *testing.T) {
 		wantElevator int
 	}{
 		{
-			// "And for 20718?" has no sub-topic keywords, so the default is the
-			// elevator overview — not fleet stats. The key is that the carry
-			// preserves the entity so the right elevator is used.
-			name: "short_followup_uses_elevator_not_fleet",
+			// "And for 20718?" has no sub-topic keywords of its own, so the carry
+			// inherits the previous turn's specific tool (inspection history) via
+			// KeywordSource — not the elevator-risk default. The new elevator ID is
+			// still the one looked up.
+			name: "short_followup_inherits_inspection_history",
 			msg:  "And for 20718?",
 			history: []ChatMessage{
 				{Role: "user", Content: "Show me the inspection history for elevator 14575"},
 				{Role: "assistant", Content: "Here are the inspections for elevator 14575."},
 			},
-			wantTool:     "get_elevator_risk",
+			wantTool:     "get_inspection_history",
+			wantElevator: 20718,
+		},
+		{
+			// Regression for the reported bug: an ID-only "What about NNNNN" after
+			// an inspection-history question must return inspections, not risk.
+			name: "what_about_id_inherits_inspection_history",
+			msg:  "What about 20718",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 20657"},
+				{Role: "assistant", Content: "Here are the inspections for elevator 20657."},
+			},
+			wantTool:     "get_inspection_history",
 			wantElevator: 20718,
 		},
 		{
@@ -478,6 +491,63 @@ func TestContextCarryEndToEnd(t *testing.T) {
 			}
 			if id != tc.wantElevator {
 				t.Errorf("elevator_id: got %v, want %d", id, tc.wantElevator)
+			}
+		})
+	}
+}
+
+// TestContextCarryRAGCorpus locks in a behavior that the data-path fix also
+// changed: on a RAG follow-up, buildMCPArgs picks the corpus (incident
+// narratives vs. maintenance manuals) from the carried turn via KeywordSource,
+// while the search query text still comes from the current message. This keeps
+// the corpus consistent within one thread.
+func TestContextCarryRAGCorpus(t *testing.T) {
+	cases := []struct {
+		name      string
+		msg       string
+		history   []ChatMessage
+		wantTool  string
+		wantQuery string
+	}{
+		{
+			// Previous turn is an experiential "have we seen" question (narrative
+			// corpus). The connector follow-up inherits that corpus, but searches
+			// it with the current words.
+			name: "followup_inherits_narrative_corpus",
+			msg:  "What about the brakes?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Have we seen similar incidents with the door sensors?"},
+				{Role: "assistant", Content: "Yes, there were a few similar incidents."},
+			},
+			wantTool:  "search_incident_narratives",
+			wantQuery: "What about the brakes?",
+		},
+		{
+			// Previous turn is a how-to question (manuals corpus). The follow-up
+			// stays on the manuals, again with the current words.
+			name: "followup_inherits_manuals_corpus",
+			msg:  "And how about the brakes?",
+			history: []ChatMessage{
+				{Role: "user", Content: "How do I replace the governor?"},
+				{Role: "assistant", Content: "Here are the steps to replace the governor."},
+			},
+			wantTool:  "search_maintenance_docs",
+			wantQuery: "And how about the brakes?",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			base := ClassifyIntent(tc.msg, fixedNow)
+			c := contextCarry(base, tc.msg, tc.history, fixedNow)
+
+			toolName, args := buildMCPArgs(c, tc.msg)
+
+			if toolName != tc.wantTool {
+				t.Errorf("tool: got %s, want %s", toolName, tc.wantTool)
+			}
+			if q := args["query"]; q != tc.wantQuery {
+				t.Errorf("query: got %v, want %q (must be the current message, not the carried turn)", q, tc.wantQuery)
 			}
 		})
 	}

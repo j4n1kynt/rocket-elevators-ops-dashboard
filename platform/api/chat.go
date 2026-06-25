@@ -360,7 +360,15 @@ func isIncidentNarrativeQuery(lower string) bool {
 // returned tool against its allowed set (see toolInScope in agents.go and the
 // agentTools map in router.go), so a cross-agent tool is never sent to MCP.
 func buildMCPArgs(c Classification, msg string) (string, map[string]any) {
-	lower := strings.ToLower(msg)
+	// On a follow-up, contextCarry sets KeywordSource to the previous user turn
+	// so we pick the same specific tool. Entities (the elevator ID) still come
+	// from the current message via c.Entities. The RAG query below intentionally
+	// keeps using msg — the user's current words drive the search text.
+	keywordText := msg
+	if c.KeywordSource != "" {
+		keywordText = c.KeywordSource
+	}
+	lower := strings.ToLower(keywordText)
 	hasID := len(c.Entities.ElevatorIDs) > 0
 
 	switch c.Intent {

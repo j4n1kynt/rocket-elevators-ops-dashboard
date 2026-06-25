@@ -58,6 +58,14 @@ type Classification struct {
 	Entities   Entities
 	Signals    []Signal // every keyword that matched, in scan order — the TRACE
 	Reason     string   // one-line explanation, for logs
+
+	// KeywordSource, when non-empty, is the text buildMCPArgs scans for
+	// tool-selection sub-keywords instead of the current message. contextCarry
+	// sets it to the previous user turn so an ID-only follow-up ("what about
+	// 20718") inherits that turn's specific tool (e.g. get_inspection_history)
+	// instead of falling back to the elevator-risk default. Entities still come
+	// from the current message, so the new elevator ID is the one looked up.
+	KeywordSource string
 }
 
 // ── Keyword tables ──────────────────────────────────────────────────────────
