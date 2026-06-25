@@ -127,6 +127,9 @@ func contextCarry(c Classification, msg string, history []ChatMessage, now time.
 			c.Intent = prev.Intent
 			c.Confidence = prev.Confidence
 			c.Signals = prev.Signals
+			// Carry the previous turn's text so buildMCPArgs picks the same
+			// specific tool (e.g. inspection history), not the ID-only default.
+			c.KeywordSource = history[i].Content
 			c.Reason = "context-carry from history: " + prev.Reason
 			break
 		}
