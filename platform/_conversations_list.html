@@ -1,0 +1,49 @@
+{#
+  Conversation list items (spec §8.3). Each item is clickable — loads the thread
+  into #conversationMain. Agent badges are neutral (slate) per spec §8.8.
+  Empty / error states are rendered by the server as inline HTML; this template
+  is only rendered when there are conversations to show.
+#}
+{% for c in conversations %}
+<div
+  hx-get="/conversations/{{ c.conversation_id }}"
+  hx-target="#conversationMain"
+  hx-swap="innerHTML"
+  class="group relative px-4 py-3 cursor-pointer
+         hover:bg-slate-50 transition-colors
+         border-b border-slate-100 last:border-b-0"
+  title="{{ c._exact_time }}"
+>
+  {# Subtle left accent on hover — slate, not blue (blue = interaction only) #}
+  <span
+    class="absolute inset-y-0 left-0 w-0.5 bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity rounded-r"
+    aria-hidden="true"
+  ></span>
+
+  <!-- Title — sans font (language, not data), one-line truncated -->
+  <p class="text-xs font-medium text-slate-700 truncate leading-snug group-hover:text-slate-900 transition-colors">
+    {{ c.title or "New conversation" }}
+  </p>
+
+  <!-- Meta row: relative time (left) + message count (right) -->
+  <div class="flex items-center justify-between mt-1 gap-2">
+    <span class="text-[10px] text-slate-400 truncate">{{ c._rel_time }}</span>
+    <span class="readout text-[10px] text-slate-400 shrink-0 tabular-nums">{{ c.message_count }}&thinsp;msg</span>
+  </div>
+
+  <!-- Agent badges — neutral slate-100 bg, slate-700 text, mono font (spec §8.8) -->
+  {% if c.agents %}
+  <div class="flex flex-wrap gap-1 mt-1.5">
+    {% for agent in c.agents %}
+    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[9px] font-mono font-medium tracking-wide">{{ agent }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endfor %}
+{% if total > conversations|length %}
+<p class="text-[10px] text-slate-400 text-center py-2.5 border-t border-slate-100">
+  Showing {{ conversations|length }} of {{ total }}
+</p>
+{% endif %}

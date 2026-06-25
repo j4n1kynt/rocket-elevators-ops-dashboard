@@ -28,7 +28,7 @@ from flask import Flask, render_template, request, make_response
 import pandas as pd
 import requests
 from pathlib import Path
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 HERE = Path(__file__).resolve().parent
 app  = Flask(__name__, template_folder=str(HERE))
@@ -163,12 +163,14 @@ def build_pagination_oob(page: int, total: int, limit: int, *,
 
 # Top-bar title + subtitle for each navigable page (spec §6.2)
 PAGES = {
-    "overview": ("Operational Fleet Overview",
-                 "Active and by-request licensed devices"),
-    "fleet":    ("Elevator Fleet",
-                 "Search, filter, and inspect individual devices"),
-    "alerts":   ("Critical Alerts",
-                 "HIGH risk devices with a failed most-recent inspection"),
+    "overview":       ("Operational Fleet Overview",
+                       "Active and by-request licensed devices"),
+    "fleet":          ("Elevator Fleet",
+                       "Search, filter, and inspect individual devices"),
+    "alerts":         ("Critical Alerts",
+                       "HIGH risk devices with a failed most-recent inspection"),
+    "conversations":  ("Conversations",
+                       "Chatbot usage and history"),
 }
 
 
@@ -599,6 +601,287 @@ def chat():
 @app.route("/chat/clear")
 def chat_clear():
     return render_template("_chat_clear.html")
+
+
+# ── Conversations helpers ─────────────────────────────────────────────────────
+
+def _relative_time(iso_str: str) -> tuple[str, str]:
+    """Return (relative_label, exact_YYYY-MM-DD HH:MM) from an RFC3339 string.
+
+    relative_label examples: "just now", "5 min ago", "2 hours ago", "3 days ago".
+    Falls back to the date string when parsing fails.
+    """
+    exact = iso_str  # fallback
+    try:
+        # Python 3.10 fromisoformat does not handle trailing Z — replace it
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        exact = dt.strftime("%Y-%m-%d %H:%M")
+        now = datetime.now(timezone.utc)
+        diff = now - dt
+        total_seconds = int(diff.total_seconds())
+        if total_seconds < 60:
+            return "just now", exact
+        if total_seconds < 3600:
+            mins = total_seconds // 60
+            return f"{mins} min ago", exact
+        if total_seconds < 86400:
+            hours = total_seconds // 3600
+            return f"{hours} hour{'s' if hours != 1 else ''} ago", exact
+        days = total_seconds // 86400
+        if days < 30:
+            return f"{days} day{'s' if days != 1 else ''} ago", exact
+        return exact, exact  # old — show date as label too
+    except Exception:
+        return iso_str, iso_str
+
+
+# ── Conversations routes ──────────────────────────────────────────────────────
+
+@app.route("/conversations")
+def conversations_page():
+    """Conversations page (spec §8.1). Passes dynamic agents list for the filter dropdown."""
+    _FALLBACK_AGENTS = ["data", "general", "knowledge", "scheduling"]
+    try:
+        resp = requests.get(f"{GO_API}/api/conversations/stats", timeout=10)
+        resp.raise_for_status()
+        dist = resp.json().get("agent_distribution", {})
+        agents = sorted(dist.keys()) if dist else _FALLBACK_AGENTS
+    except Exception:
+        agents = _FALLBACK_AGENTS
+    return render_page("conversations", "_page_conversations.html", agents=agents)
+
+
+@app.route("/conversations/list")
+def conversations_list():
+    """Sidebar list fragment — fetches GET /api/conversations, renders the list."""
+    q     = request.args.get("q",     "").strip()
+    agent = request.args.get("agent", "").strip()
+    try:
+        page = max(1, int(request.args.get("page", 1) or 1))
+    except (ValueError, TypeError):
+        page = 1
+
+    params: dict = {"page": page, "limit": 20}
+    if q:
+        params["q"] = q
+    if agent:
+        params["agent"] = agent
+
+    try:
+        resp = requests.get(f"{GO_API}/api/conversations", params=params, timeout=10)
+        resp.raise_for_status()
+        data  = resp.json()
+        convs = data.get("conversations", [])
+        total = data.get("total", 0)
+    except Exception:
+        return make_response(
+            '<p class="text-xs text-slate-400 px-3 py-4">Conversations unavailable.</p>'
+        )
+
+    # Annotate each conversation with relative + exact time
+    for c in convs:
+        rel, exact = _relative_time(c.get("last_activity_at", ""))
+        c["_rel_time"]   = rel
+        c["_exact_time"] = exact
+
+    if not convs:
+        return make_response(
+            '<p class="text-xs text-slate-400 px-3 py-4">No conversations yet.</p>'
+        )
+
+    return render_template("_conversations_list.html", conversations=convs, total=total)
+
+
+@app.route("/conversations/stats")
+def conversations_stats():
+    """Global analytics fragment for the main area landing state."""
+    try:
+        resp = requests.get(f"{GO_API}/api/conversations/stats", timeout=10)
+        resp.raise_for_status()
+        stats = resp.json()
+    except Exception:
+        return make_response(
+            '<p class="text-sm text-slate-400 p-6">Statistics unavailable.</p>'
+        )
+
+    if stats.get("total_conversations", 0) == 0:
+        return make_response(
+            '<p class="text-sm text-slate-400 p-6">No conversations yet.</p>'
+        )
+
+    # Compute agent percentages (out of total assistant messages).
+    # Show every agent present in the data: the 4 canonical agents first (always,
+    # even at 0), then any other values (e.g. legacy "advisory", "mcp_data_tool")
+    # sorted by name. This matches the "show all present" decision.
+    dist  = stats.get("agent_distribution", {})
+    total_msgs = sum(dist.values()) or 1
+    canonical = ["data", "knowledge", "scheduling", "general"]
+    extra = sorted(k for k in dist.keys() if k not in canonical)
+    agent_rows = []
+    for name in canonical + extra:
+        count = dist.get(name, 0)
+        pct   = round(count / total_msgs * 100)
+        agent_rows.append({"name": name, "count": count, "pct": pct})
+
+    # Compute bar heights for activity chart (max day = 100%)
+    activity = stats.get("activity_by_day", [])
+    max_day  = max((d["conversations"] for d in activity), default=1) or 1
+    for d in activity:
+        d["_bar_pct"] = round(d["conversations"] / max_day * 100)
+
+    return render_template(
+        "_conversation_stats.html",
+        stats=stats,
+        agent_rows=agent_rows,
+        activity=activity,
+    )
+
+
+@app.route("/conversations/new")
+def conversations_new():
+    """Empty thread for starting a new conversation."""
+    return render_template(
+        "_conversation_thread.html",
+        conversation_id=0,
+        messages=[],
+        history="[]",
+        agents=[],
+        message_count=0,
+        started_rel="",
+        started_exact="",
+        last_rel="",
+        last_exact="",
+        title="Start a new conversation",
+        is_new=True,
+    )
+
+
+@app.route("/conversations/<int:cid>")
+def conversation_thread(cid):
+    """Full thread for a single conversation."""
+    try:
+        resp = requests.get(f"{GO_API}/api/conversations/{cid}", timeout=10)
+        if resp.status_code == 404:
+            return make_response(
+                '<p class="text-sm text-slate-400 p-6">Conversation not found.</p>'
+            )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception:
+        return make_response(
+            '<p class="text-sm text-slate-400 p-6">Conversation unavailable.</p>'
+        )
+
+    messages = data.get("messages", [])
+
+    # Render assistant content through _render_reply; user content plain-escaped
+    from markupsafe import escape, Markup
+    for m in messages:
+        if m["role"] == "assistant":
+            m["_html"] = _render_reply(m.get("content", ""))
+        else:
+            raw = str(escape(m.get("content", "")))
+            m["_html"] = Markup(raw)
+
+    # Build history JSON for the resume form
+    history = json.dumps([
+        {"role": m["role"], "content": m["content"]}
+        for m in messages
+    ])
+
+    started_rel, started_exact = _relative_time(data.get("started_at", ""))
+    last_rel,    last_exact    = _relative_time(data.get("last_activity_at", ""))
+
+    return render_template(
+        "_conversation_thread.html",
+        conversation_id=cid,
+        messages=messages,
+        history=history,
+        agents=data.get("agents", []),
+        message_count=data.get("message_count", 0),
+        started_rel=started_rel,
+        started_exact=started_exact,
+        last_rel=last_rel,
+        last_exact=last_exact,
+        title=data.get("title", ""),
+        is_new=False,
+    )
+
+
+@app.route("/conversations/<int:cid>/message", methods=["POST"])
+def conversation_message(cid):
+    """Resume a conversation — the thread-page equivalent of POST /chat."""
+    message = (request.form.get("message") or "").strip()
+    if not message:
+        return make_response("")
+
+    history_raw = request.form.get("history", "[]")
+    try:
+        history = json.loads(history_raw)
+        if not isinstance(history, list):
+            history = []
+    except Exception:
+        history = []
+
+    try:
+        conversation_id = int(request.form.get("conversation_id", str(cid)))
+    except (TypeError, ValueError):
+        conversation_id = cid
+
+    api_payload = {
+        "message": message,
+        "history": history,
+        "conversation_id": conversation_id,
+    }
+
+    try:
+        api_resp = requests.post(
+            f"{GO_API}/api/chat",
+            json=api_payload,
+            timeout=330,
+        )
+        if api_resp.status_code == 503:
+            try:
+                detail = api_resp.json().get("error", "")
+            except Exception:
+                detail = ""
+            return render_template(
+                "_conversation_reply.html",
+                message=message,
+                reply_html=None,
+                error=detail or "The assistant is currently unavailable. Please try again.",
+                history=json.dumps(history),
+                conversation_id=conversation_id,
+            )
+        api_resp.raise_for_status()
+        data = api_resp.json()
+    except requests.exceptions.Timeout:
+        return render_template(
+            "_conversation_reply.html",
+            message=message,
+            reply_html=None,
+            error="The assistant took too long to respond. Please try again.",
+            history=json.dumps(history),
+            conversation_id=conversation_id,
+        )
+    except Exception:
+        return render_template(
+            "_conversation_reply.html",
+            message=message,
+            reply_html=None,
+            error="Failed to reach the assistant. Please try again.",
+            history=json.dumps(history),
+            conversation_id=conversation_id,
+        )
+
+    return render_template(
+        "_conversation_reply.html",
+        message=message,
+        reply_html=_render_reply(data.get("reply", "")),
+        error=None,
+        history=json.dumps(data.get("history", [])),
+        conversation_id=data.get("conversation_id", conversation_id),
+    )
 
 
 @app.errorhandler(404)

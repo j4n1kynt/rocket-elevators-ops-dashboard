@@ -1,0 +1,129 @@
+{#
+  Global analytics (spec §8.5). Shown in the main area when no thread is open.
+  No JS — horizontal bars use inline width CSS; sparse activity uses a list layout.
+  Design: mono readouts lead, labels small/uppercase/muted, flat surfaces with
+  hairline borders, neutral fills throughout (spec §8.8, §8.9).
+#}
+
+{% if stats.total_conversations == 0 %}
+{# ── Whole-page empty state ── #}
+<div class="flex-1 flex items-center justify-center px-8 py-16">
+  <div class="text-center">
+    <p class="text-sm font-medium text-slate-500">No conversations yet</p>
+    <p class="text-xs text-slate-400 mt-1">Usage will appear here once people chat.</p>
+  </div>
+</div>
+
+{% else %}
+
+<div class="px-8 py-6">
+
+  <!-- Section label -->
+  <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-5">Usage Analytics</p>
+
+  <!-- ── Metric cards — mono readouts as focal point (spec §4.3 pattern) ── -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Conversations</p>
+      <p class="readout text-4xl font-bold text-slate-800 leading-none mt-3 tabular-nums">{{ stats.total_conversations }}</p>
+    </div>
+
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Messages</p>
+      <p class="readout text-4xl font-bold text-slate-800 leading-none mt-3 tabular-nums">{{ stats.total_messages }}</p>
+    </div>
+
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Avg / Conversation</p>
+      <p class="readout text-4xl font-bold text-slate-800 leading-none mt-3 tabular-nums">{{ stats.avg_messages_per_conversation }}</p>
+      <p class="text-xs text-slate-400 mt-2">messages per session</p>
+    </div>
+
+  </div>
+
+  <!-- ── Agent split — horizontal bars, neutral fill (spec §8.8) ── -->
+  {% if agent_rows %}
+  <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5 mb-5">
+    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Agent Split</p>
+    <div class="space-y-3.5">
+      {% for row in agent_rows %}
+      <div class="flex items-center gap-3">
+        {# Left label — fixed width, mono, left-aligned #}
+        <span class="font-mono text-xs text-slate-600 w-20 shrink-0">{{ row.name }}</span>
+        {# Bar track #}
+        <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            class="h-2 bg-slate-400 rounded-full transition-all"
+            style="width: {{ row.pct }}%"
+          ></div>
+        </div>
+        {# Right readout — count and pct, fixed-width mono #}
+        <span class="readout text-xs text-slate-500 w-16 shrink-0 text-right tabular-nums">{{ row.count }}&thinsp;({{ row.pct }}%)</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Activity by day (spec §8.5) ──
+       Sparse-data strategy: when there are <= 7 days of data, render a compact
+       horizontal list ("MM-DD — N conversations") instead of a bar chart. The list
+       is always readable and never produces tiny rotated labels. When there are
+       more days, render a restrained bar strip with readable horizontal date labels,
+       adequate minimum bar height, and a sensible fixed container height.
+  ──────────────────────────────────────────────────────────────────── #}
+  {% if activity %}
+  <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Activity — last 30 days</p>
+
+    {% set day_count = activity | length %}
+
+    {% if day_count <= 7 %}
+    {# Sparse view — readable list, no bars, no rotated labels #}
+    <div class="space-y-2">
+      {% for day in activity %}
+      <div class="flex items-center justify-between">
+        <span class="readout text-xs text-slate-500 tabular-nums">{{ day.date[5:] }}</span>
+        <div class="flex-1 mx-3 h-px bg-slate-100"></div>
+        <span class="readout text-xs font-medium text-slate-700 tabular-nums">
+          {{ day.conversations }}&thinsp;conversation{{ 's' if day.conversations != 1 else '' }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-[10px] text-slate-400 mt-3">Showing all {{ day_count }} active day{{ 's' if day_count != 1 else '' }} in the last 30 days.</p>
+
+    {% else %}
+    {# Denser bar chart for ≥ 8 days of data — horizontal labels, min bar height #}
+    <div class="overflow-x-auto">
+      <div class="flex items-end gap-1 min-w-max pb-5" style="height: 80px;">
+        {% for day in activity %}
+        <div
+          class="flex flex-col items-center justify-end shrink-0"
+          style="width: 20px;"
+          title="{{ day.date }}: {{ day.conversations }} conversation{{ 's' if day.conversations != 1 else '' }}"
+        >
+          <div
+            class="w-3 bg-slate-400 rounded-t"
+            style="height: max(4px, {{ day._bar_pct }}%)"
+          ></div>
+          <span class="readout text-[8px] text-slate-400 mt-1 tabular-nums whitespace-nowrap" style="transform: rotate(-45deg); transform-origin: top right; margin-top: 4px;">{{ day.date[5:] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+  {% else %}
+  {# No activity days at all #}
+  <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Activity — last 30 days</p>
+    <p class="text-sm text-slate-400">No activity recorded in the last 30 days.</p>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endif %}

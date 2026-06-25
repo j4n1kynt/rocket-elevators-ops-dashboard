@@ -38,6 +38,9 @@ func main() {
 	mux.Handle("GET /api/elevators/{id}", route(GetElevatorByID))
 	mux.Handle("GET /api/elevators/{id}/inspections", route(GetElevatorInspections))
 	mux.Handle("GET /api/elevators/{id}/risk", route(GetElevatorRisk))
+	mux.Handle("GET /api/conversations", route(GetConversations))
+	mux.Handle("GET /api/conversations/stats", route(GetConversationStats))
+	mux.Handle("GET /api/conversations/{id}", route(GetConversationByID))
 	mux.HandleFunc("POST /api/chat", PostChat) // manages its own 330s deadline via context
 
 	srv := &http.Server{

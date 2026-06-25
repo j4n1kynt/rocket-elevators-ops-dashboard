@@ -60,6 +60,15 @@
       box-shadow: inset 3px 0 0 0 #2563eb;  /* blue-600 left accent */
     }
 
+    /* The OpsBot entry point lives in the top bar on every page
+       (_page_header.html, "Ask OpsBot"), and the panel opens from the top-right
+       just under it (see #chatPanel position). The old floating bottom-right FAB
+       is removed. While a conversation thread (or new chat) is active on the
+       Conversations page, hide every OpsBot entry point — the in-thread resume
+       box is the only chat input there. Pure CSS via :has() — no JavaScript. */
+    body:has(#conversationThread) #chatPanel,
+    body:has(#conversationThread) #ask-opsbot { display: none !important; }
+
     /* Generic HTMX indicator fade (table, panel, chat). */
     .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
     .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
@@ -125,21 +134,15 @@
 
   <!-- No custom JavaScript. All interactivity is HTMX-driven. -->
 
-  <!-- Chat FAB — spec §5.1 (global, lives in the shell) -->
-  <button
-    hx-on:click="document.getElementById('chatPanel').classList.toggle('hidden')"
-    class="fixed bottom-6 right-6 z-40 w-14 h-14 bg-slate-900 text-white rounded-full shadow-md flex items-center justify-center hover:bg-slate-700 transition-colors border border-slate-700"
-    aria-label="Open Fleet Assistant"
-  >
-    <!-- Paper-plane send icon — directional, task-focused, not decorative -->
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.405Z"/>
-    </svg>
-  </button>
+  <!-- OpsBot entry point is the "Ask OpsBot" button in the top bar
+       (_page_header.html). The floating FAB was removed; the panel below opens
+       from the top-right, just under the top bar. -->
 
-  <!-- Chat Panel — spec §5.2; initially hidden; 380px wide × 520px tall -->
+  <!-- Chat Panel — spec §5.2; initially hidden; 380px wide × 520px tall.
+       Anchored top-right (just under the top bar) so it opens from the same
+       corner as the "Ask OpsBot" button. -->
   <div id="chatPanel"
-       class="hidden fixed bottom-6 right-6 z-50 w-[380px] h-[520px] bg-white flex flex-col border border-slate-200 shadow-sm rounded-lg overflow-hidden">
+       class="hidden fixed top-[5.75rem] right-6 z-50 w-[380px] h-[520px] bg-white flex flex-col border border-slate-200 shadow-sm rounded-lg overflow-hidden">
 
     <!-- Header — dark navy, mono label reads like a physical panel gauge strip -->
     <div class="px-4 py-3 bg-slate-900 flex items-center justify-between shrink-0 border-b border-slate-700">

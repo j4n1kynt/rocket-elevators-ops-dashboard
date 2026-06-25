@@ -1,0 +1,38 @@
+{#
+  Resume reply partial (spec §8.7). Thread analog of _chat_reply.html.
+  Appended to #threadMessages via beforeend swap.
+  OOB swaps refresh the hidden fields and the conversation list.
+  Bubble styling must match _conversation_thread.html exactly.
+#}
+
+{# User bubble — right-aligned, green-600 bg, white text (spec §5.3) #}
+<div class="flex justify-end">
+  <div class="max-w-[75%] sm:max-w-[65%] bg-green-600 text-white rounded-lg px-4 py-2.5 text-sm break-words leading-relaxed whitespace-pre-line shadow-sm">{{ message }}</div>
+</div>
+
+{# Assistant or error bubble — left-aligned (spec §5.3) #}
+{% if error %}
+<div class="flex justify-start">
+  <div class="max-w-[75%] sm:max-w-[65%] bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700 break-words leading-relaxed shadow-sm">{{ error }}</div>
+</div>
+{% else %}
+<div class="flex justify-start flex-col items-start gap-1.5">
+  <div class="max-w-[75%] sm:max-w-[65%] bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 break-words leading-relaxed whitespace-pre-line shadow-sm">{{ reply_html }}</div>
+</div>
+{% endif %}
+
+{# OOB: update hidden history field so the next turn sends the full context #}
+<input id="threadHistory" hx-swap-oob="outerHTML" type="hidden" name="history" value="{{ history }}" />
+
+{# OOB: update conversation_id (the Go API may assign a new id for conversation_id=0) #}
+<input id="threadConversationId" hx-swap-oob="outerHTML" type="hidden" name="conversation_id" value="{{ conversation_id }}" />
+
+{# OOB: refresh the conversation list so new activity appears at the top.
+   Classes match the original #conversationList div in _page_conversations.html.
+   hx-include carries active search/agent filters so the refreshed list stays filtered. #}
+<div id="conversationList" hx-swap-oob="true" hx-get="/conversations/list" hx-trigger="load" hx-swap="innerHTML" hx-include="[name='q'],[name='agent']" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+  <div class="px-4 py-3 space-y-3">
+    <div class="animate-pulse h-3 bg-slate-100 rounded w-full"></div>
+    <div class="animate-pulse h-3 bg-slate-100 rounded w-4/5"></div>
+  </div>
+</div>

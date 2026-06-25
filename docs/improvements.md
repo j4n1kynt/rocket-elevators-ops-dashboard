@@ -446,3 +446,56 @@ Four targeted improvements applied to `platform/api/prompts/system_prompt.md` fo
 
 **Why:**
 The peer review identified improvements in framing, guardrails, and response quality control that were not part of the original PROMPT-1 specification. The output limit in particular addresses a concrete failure mode: local LLMs running on Ollama with no token constraint tend to over-generate on open-ended procedural questions, producing responses that are hard to read and slow to render. The identity framing and multi-part guidance improve the usability of OpsBot as a daily operations tool rather than a one-off query interface.
+
+---
+
+## UX/UI Redesign: "The Instrument Panel" (branch `feat/impeccable-overview-redesign`)
+
+**What was added:**
+A full visual redesign of the dashboard and chat widget into one cohesive design
+system — "The Instrument Panel" — built with the `impeccable` skill. The work is
+documented up front: `PRODUCT.md` holds the strategic intent and `DESIGN.md`
+holds the design tokens, type roles, and components (the single source of truth
+for *how* the dashboard looks). The functional spec (`dashboard_spec.md` §4) was
+updated first, then the templates.
+
+**Where:**
+- New: `DESIGN.md`, `PRODUCT.md`, `.impeccable/design.json`
+- Updated templates: `layout.html`, `_nav.html`, `_page_header.html`,
+  `_page_overview.html`, `_page_fleet.html`, `_page_alerts.html`,
+  `_table_rows.html`, `_alerts_rows.html`, `_alerts_preview.html`,
+  `_fleet_health.html`, `_elevator_detail.html`, `_chat_reply.html`,
+  `_chat_clear.html`
+- Spec: `docs/dashboard_spec.md` §4
+
+**Highlights:**
+- **Design language:** a dark slate shell frames bright white data surfaces, so
+  the data leads and the chrome recedes — a control surface, not a brochure.
+- **Type system:** IBM Plex Sans for all language, IBM Plex Mono (tabular
+  figures) for every data value — counts, scores, IDs, dates — so readouts line
+  up like instrument gauges.
+- **Two-channel color rule:** green / amber / red signal data *state* only; blue
+  signals *interaction* only (focus, selection). The two channels never cross,
+  so colors can be trusted at a glance.
+- **Stronger metric hierarchy:** big mono numerals are the focal point; labels
+  are small, uppercase, tracked, and muted.
+- **Flat by default:** white surfaces, 1 px hairline borders, at most one soft
+  `shadow-sm` — no gradients, no glassmorphism, no stacked shadows.
+- **Consistent system:** one badge component (status / risk / outcome), one
+  spacing scale (8 / 12 / 20 / 28 px), a no-JS CSS risk donut on Fleet Health.
+- **Full state coverage:** every data region handles loading (calm skeletons),
+  empty ("no match" messages), and error ("unavailable") states — not just the
+  happy path.
+- **Accessibility & motion:** WCAG 2.1 AA contrast, a visible keyboard focus
+  ring on every control, a short calm fade on page transitions, and
+  `prefers-reduced-motion` support.
+
+**Why:**
+The earlier dashboard read like a generic admin template — even card grids, heavy
+chrome, weak hierarchy. The redesign makes it read like a calibrated operations
+instrument: data-first, scannable at high density, with color and type that
+carry consistent meaning. Capturing the tokens in `DESIGN.md` (and the intent in
+`PRODUCT.md`) means future UI work stays consistent instead of drifting.
+
+**Constraints kept:** all HTMX contracts and the no-custom-JavaScript rule were
+preserved — the redesign is presentation only, no behavior or data-flow change.

@@ -1,0 +1,139 @@
+{#
+  Conversation thread view (spec §8.6, §8.7). Shows per-chat stat bar,
+  message bubbles (user right / assistant left), and a resume form.
+  No custom JavaScript.
+  Design: mono for all numerals and stat readouts; hairline borders; flat surfaces.
+
+  The root carries id="conversationThread" — a marker the shell uses (via a CSS
+  :has() rule in layout.html) to hide the floating chat widget while a
+  conversation is active. No JS: the marker is present only while this view is
+  loaded, and disappears when the user closes the thread or navigates away.
+#}
+<div id="conversationThread" class="flex flex-col h-full">
+
+  <!-- ── Per-chat stat bar (spec §8.6) ── -->
+  <div class="px-5 py-3 bg-white border-b border-slate-200 shrink-0 flex items-start gap-3">
+    <div class="min-w-0 flex-1">
+      {% if is_new %}
+      <p class="text-sm font-semibold text-slate-700">New conversation</p>
+      <p class="text-xs text-slate-400 mt-0.5">Type a message below to start a new session.</p>
+      {% else %}
+      {# Stat bar — mono readouts, neutral agent badges, clear hierarchy #}
+      <div class="flex items-start justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          {% if title %}
+          <p class="text-sm font-semibold text-slate-700 truncate leading-snug">{{ title }}</p>
+          {% endif %}
+          <div class="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
+            <span class="readout text-xs text-slate-500 tabular-nums">{{ message_count }}&thinsp;message{{ 's' if message_count != 1 else '' }}</span>
+            {% if started_rel %}
+            <span class="text-xs text-slate-400" title="{{ started_exact }}">Started {{ started_rel }}</span>
+            {% endif %}
+            {% if last_rel %}
+            <span class="text-xs text-slate-400" title="{{ last_exact }}">Last activity {{ last_rel }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {# Agent badges — grouped on the right, neutral slate (spec §8.8) #}
+        {% if agents %}
+        <div class="flex flex-wrap gap-1 shrink-0 pt-0.5">
+          {% for agent in agents %}
+          <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[9px] font-mono font-medium tracking-wide">{{ agent }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {# Close — return to the analytics landing (the no-conversation state).
+       Swapping #conversationMain back to the stats fragment removes the
+       #conversationThread marker, so the floating chat widget reappears. #}
+    <button
+      hx-get="/conversations/stats"
+      hx-target="#conversationMain"
+      hx-swap="innerHTML"
+      class="shrink-0 -mr-1 mt-0.5 w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+      aria-label="Close conversation and return to analytics"
+      title="Back to analytics"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ── Thread messages (spec §8.6) ── -->
+  <div id="threadMessages" class="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4 bg-slate-50">
+
+    {% if not is_new and messages %}
+      {% for m in messages %}
+        {% if m.role == 'user' %}
+        {# User bubble — right-aligned, green-600 bg, white text (spec §5.3) #}
+        <div class="flex justify-end">
+          <div class="max-w-[75%] sm:max-w-[65%] bg-green-600 text-white rounded-lg px-4 py-2.5 text-sm break-words leading-relaxed whitespace-pre-line shadow-sm">{{ m._html }}</div>
+        </div>
+        {% else %}
+        {# Assistant bubble — left-aligned, white card with hairline border (spec §5.3) #}
+        <div class="flex justify-start flex-col items-start gap-1.5">
+          <div class="max-w-[75%] sm:max-w-[65%] bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 break-words leading-relaxed whitespace-pre-line shadow-sm">{{ m._html }}</div>
+          {% if m.agent %}
+          <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[9px] font-mono font-medium tracking-wide ml-0.5">{{ m.agent }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+
+    {% elif is_new %}
+    {# New chat empty state — centered, calm #}
+    <div class="flex-1 flex flex-col items-center justify-center py-12 text-center">
+      <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M4.848 2.771A49.144 49.144 0 0 1 12 2.25c2.43 0 4.817.178 7.152.52 1.978.292 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.678-3.348 3.97a48.901 48.901 0 0 1-3.476.383.39.39 0 0 0-.297.17l-2.755 4.133a.75.75 0 0 1-1.248 0l-2.755-4.133a.39.39 0 0 0-.297-.17 48.9 48.9 0 0 1-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97Z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <p class="text-sm font-medium text-slate-500">New conversation</p>
+      <p class="text-xs text-slate-400 mt-1">Ask a question to begin.</p>
+    </div>
+
+    {% else %}
+    {# Existing conversation with no messages #}
+    <p class="text-sm text-slate-400 self-center mt-8">No messages in this conversation.</p>
+    {% endif %}
+
+  </div>
+
+  <!-- ── Resume form (spec §8.7) ── -->
+  <form
+    hx-post="/conversations/{{ conversation_id }}/message"
+    hx-target="#threadMessages"
+    hx-swap="beforeend scroll:bottom"
+    hx-on:htmx:before-request="this.querySelector('#threadInput').disabled=true;this.querySelector('#threadSend').disabled=true"
+    hx-on:htmx:after-request="this.querySelector('#threadInput').disabled=false;this.querySelector('#threadSend').disabled=false;this.querySelector('#threadInput').value=''"
+    class="px-4 py-3 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white"
+  >
+    <input id="threadHistory"        type="hidden" name="history"         value="{{ history }}" />
+    <input id="threadConversationId" type="hidden" name="conversation_id" value="{{ conversation_id }}" />
+
+    <input
+      id="threadInput"
+      type="text"
+      name="message"
+      placeholder="{{ 'Ask anything to start…' if is_new else 'Continue this conversation…' }}"
+      maxlength="500"
+      autocomplete="off"
+      class="flex-1 text-sm text-slate-700 border border-slate-200 rounded-md px-3 py-2 outline-none focus:border-slate-400 placeholder-slate-400 disabled:opacity-50 bg-white transition-colors"
+    />
+    <button
+      id="threadSend"
+      type="submit"
+      class="w-9 h-9 bg-slate-900 text-white rounded-md flex items-center justify-center hover:bg-slate-700 transition-colors shrink-0 disabled:opacity-40"
+      aria-label="Send"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.405Z"/>
+      </svg>
+    </button>
+  </form>
+
+</div>
