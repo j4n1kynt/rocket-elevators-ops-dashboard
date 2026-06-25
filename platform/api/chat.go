@@ -52,6 +52,16 @@ func getOllamaModel() string {
 	return "minimax-m2.5:cloud"
 }
 
+// getOllamaFallbackModel returns the secondary Ollama model tried when the
+// primary (minimax-m2.5:cloud) fails. Design doc §5.3 lists gemma4:31b as the
+// next quality-passing free-tier candidate (T1-accurate, 4.8 s vs 2.7 s).
+func getOllamaFallbackModel() string {
+	if v := os.Getenv("OLLAMA_FALLBACK_MODEL"); v != "" {
+		return v
+	}
+	return "gemma4:31b"
+}
+
 func getOllamaKey() string {
 	return os.Getenv("OLLAMA_API_KEY")
 }
@@ -205,15 +215,61 @@ func callOpenRouter(ctx context.Context, baseURL, apiKey, model string, messages
 
 // ── Provider dispatch ────────────────────────────────────────────────────────
 
-// callChatLLM sends a chat completion using the configured provider. When
-// OPENROUTER_API_KEY is set it uses OpenRouter (the provider the live deployment
-// uses); otherwise it falls back to Ollama cloud. All agents call this, not the
-// per-provider functions directly.
+// callChatLLM sends a chat completion using the configured provider cascade
+// (design doc §5.1 + §5.3):
+//
+//  1. OpenRouter (primary — when OPENROUTER_API_KEY is set)
+//  2. Ollama minimax-m2.5:cloud (primary Ollama — fastest quality-tested model)
+//  3. Ollama gemma4:31b (fallback Ollama — same T1 quality, ~4.8 s vs 2.7 s)
+//
+// Each tier is only tried when the previous one fails AND the request context is
+// still live. Database writes (scheduling Phase 2) complete in the MCP layer
+// before this is called, so retrying only regenerates reply text.
 func callChatLLM(ctx context.Context, messages []llmMsg) (string, error) {
-	if getOpenRouterKey() != "" {
-		return callOpenRouter(ctx, getOpenRouterBaseURL(), getOpenRouterKey(), getOpenRouterModel(), messages)
+	if getOpenRouterKey() == "" {
+		// No OpenRouter key — go straight to the Ollama cascade.
+		return callOllamaCascade(ctx, messages)
 	}
-	return callLLM(ctx, getOllamaBaseURL(), getOllamaKey(), getOllamaModel(), messages)
+
+	reply, err := callOpenRouter(ctx, getOpenRouterBaseURL(), getOpenRouterKey(), getOpenRouterModel(), messages)
+	if err == nil {
+		return reply, nil
+	}
+
+	// OpenRouter failed. Fall through to Ollama cascade if context is still live.
+	if ctx.Err() != nil {
+		return "", err
+	}
+	log.Printf("[llm] openrouter failed (%v) — falling back to ollama cascade", err)
+	fbReply, fbErr := callOllamaCascade(ctx, messages)
+	if fbErr != nil {
+		// All providers failed. Surface the original OpenRouter error so the
+		// existing 429 user-message path in buildReply still applies.
+		log.Printf("[llm] ollama cascade also failed: %v", fbErr)
+		return "", err
+	}
+	return fbReply, nil
+}
+
+// callOllamaCascade tries the primary Ollama model (minimax-m2.5:cloud) and,
+// if that fails, retries with the fallback model (gemma4:31b). Both passed
+// the T1 accuracy benchmark; the fallback is ~2 s slower (design doc §5.3).
+func callOllamaCascade(ctx context.Context, messages []llmMsg) (string, error) {
+	base := getOllamaBaseURL()
+	key := getOllamaKey()
+	primary := getOllamaModel()
+
+	reply, err := callLLM(ctx, base, key, primary, messages)
+	if err == nil {
+		return reply, nil
+	}
+	if ctx.Err() != nil {
+		return "", err
+	}
+
+	fallback := getOllamaFallbackModel()
+	log.Printf("[llm] ollama %s failed (%v) — retrying with %s", primary, err, fallback)
+	return callLLM(ctx, base, key, fallback, messages)
 }
 
 // WarmUpLLM fires a single no-op request to the active provider at server
