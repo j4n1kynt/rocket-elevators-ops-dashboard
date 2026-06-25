@@ -1776,9 +1776,19 @@ func TestSchedulingAgentInspectionTypeResponseReroutesThroughPhase1(t *testing.T
 	if confirmed, ok := args[0]["confirmed"].(bool); !ok || confirmed {
 		t.Errorf("re-run must use confirmed=false, got confirmed=%v (ok=%v)", args[0]["confirmed"], ok)
 	}
-	// The inspection type must be forwarded to MCP.
+	// All three carry-over fields from the pending action must be forwarded so
+	// the MCP tool can re-validate the full inspection record (not just the type).
 	if got, _ := args[0]["inspection_type"].(string); got != "Periodic" {
 		t.Errorf("re-run must forward inspection_type=%q, got %q", "Periodic", got)
+	}
+	if got, _ := args[0]["elevator_id"].(float64); int(got) != 12345 {
+		t.Errorf("re-run must forward elevator_id=12345, got %v", args[0]["elevator_id"])
+	}
+	if got, _ := args[0]["inspection_date"].(string); got != "2026-07-01" {
+		t.Errorf("re-run must forward inspection_date=%q, got %q", "2026-07-01", got)
+	}
+	if got, _ := args[0]["reason"].(string); got == "" {
+		t.Error("re-run must forward a non-empty reason")
 	}
 
 	// A fresh pending action must be returned so the user can confirm on the next turn.

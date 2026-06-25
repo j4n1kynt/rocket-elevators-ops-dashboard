@@ -393,6 +393,9 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 					log.Printf("[scheduling] re-phase1 validation error: %s", errMsg)
 					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt."
 				} else {
+					// buildPendingAction expects Entities (the same shape the intent
+					// classifier produces), so we reconstruct it from the pending
+					// action's fields rather than building PendingAction directly.
 					updatedEnts := Entities{
 						ElevatorIDs:    []string{strconv.Itoa(pa.ElevatorID)},
 						Dates:          []string{pa.InspectionDate},
