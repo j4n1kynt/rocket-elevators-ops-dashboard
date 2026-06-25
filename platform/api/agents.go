@@ -28,8 +28,19 @@ func toolAllowed(allowed []string, name string) bool {
 // error string rather than a natural-language answer.
 func looksLikeRawError(reply string) bool {
 	lower := strings.ToLower(reply)
-	for _, marker := range []string{"mcp ", "dial tcp", "connection refused", "connectex:", "llm returned status"} {
-		if strings.HasPrefix(lower, marker) {
+	// Prefix-only marker: "mcp " is ambiguous — it appears legitimately mid-answer
+	// ("the MCP server exposes..."), so it only signals a leak when the reply
+	// *starts* with it.
+	if strings.HasPrefix(lower, "mcp ") {
+		return true
+	}
+	// Substring markers: pure transport/infrastructure fragments that never occur
+	// in a plain-language fleet-ops answer. They must match anywhere because the
+	// canonical Go HTTP error leads with the method verb —
+	// `Post "URL": dial tcp ...: connectex/connection refused` — so a prefix check
+	// alone would miss it and leak the raw error to the user (contract §4.3).
+	for _, marker := range []string{"dial tcp", "connectex:", "connection refused", "mcp server unreachable", "llm returned status"} {
+		if strings.Contains(lower, marker) {
 			return true
 		}
 	}
@@ -145,6 +156,15 @@ func summarizeForUser(ctx context.Context, dataBlock, msg string) string {
 	line := strings.TrimSpace(reply)
 	if i := strings.IndexByte(line, '\n'); i >= 0 {
 		line = strings.TrimSpace(line[:i])
+	}
+	// The intro is unguarded LLM output sitting above a trusted, Go-built data
+	// block. If the model echoed a raw infrastructure error or a JSON blob instead
+	// of a sentence, drop it — the caller then shows the deterministic block alone,
+	// which is the real answer. Without this the data path would leak exactly what
+	// buildReply already guards against on the fallback path.
+	if looksLikeRawError(line) || looksLikeJSON(line) {
+		log.Printf("[data] summary intro looks malformed — dropping, showing data block only: %.80s", line)
+		return ""
 	}
 	return line
 }

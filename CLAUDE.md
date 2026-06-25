@@ -19,6 +19,27 @@
 ## Commands
 
 ```bash
+# Self-contained suite: Go + isolated Python (no live services needed)
+make test
+
+# Go tests only
+make test-go
+
+# Isolated Python tests only (mocked DB/LLM/MCP — no live services needed)
+make test-python
+
+# DB-backed integration tests (requires PostgreSQL running)
+export DATABASE_URL=postgresql://rocketuser:rocketpass@localhost:5432/rocket_elevators
+make test-integration
+
+# Chatbot eval harnesses (requires full stack: PostgreSQL + Go API + MCP server)
+make eval
+
+# See all available make targets
+make help
+```
+
+```bash
 # Start full stack (PostgreSQL + Go API)
 docker-compose up
 
