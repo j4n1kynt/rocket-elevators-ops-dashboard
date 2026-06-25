@@ -24,6 +24,7 @@ import json
 import os
 import re
 
+import mistune
 from flask import Flask, render_template, request, make_response
 import pandas as pd
 import requests
@@ -486,14 +487,11 @@ def elevator_detail(elev_id):
     )
 
 
-import re as _re
-import mistune as _mistune
-
 # Markdown renderer shared across requests.
 # escape=True: raw HTML in LLM output is neutralised before it reaches the browser.
 # hard_wrap=True: single \n becomes <br />, so Go-formatted plain-text data blocks
 # (which use \n between field lines) keep their line structure after conversion.
-_md = _mistune.create_markdown(
+_md = mistune.create_markdown(
     escape=True,
     hard_wrap=True,
 )
@@ -517,11 +515,11 @@ def _render_reply(text: str) -> str:
     from markupsafe import Markup
     safe = _md(text)
     # Bold labels at the start of a physical line (after <br />\n) ...
-    safe = _re.sub(r'(?m)^([A-Za-z][A-Za-z ()/\-]{0,38}):', r'<strong>\1:</strong>', safe)
+    safe = re.sub(r'(?m)^([A-Za-z][A-Za-z ()/\-]{0,38}):', r'<strong>\1:</strong>', safe)
     # ... and at the start of a paragraph (immediately after <p>).
-    safe = _re.sub(r'(<p>)([A-Za-z][A-Za-z ()/\-]{0,38}):', r'\1<strong>\2:</strong>', safe)
+    safe = re.sub(r'(<p>)([A-Za-z][A-Za-z ()/\-]{0,38}):', r'\1<strong>\2:</strong>', safe)
     for level, badge in _RISK_BADGES.items():
-        safe = _re.sub(r'\b' + level + r'\b', badge, safe, flags=_re.IGNORECASE)
+        safe = re.sub(r'\b' + level + r'\b', badge, safe, flags=re.IGNORECASE)
     return Markup(safe)
 
 

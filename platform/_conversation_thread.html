@@ -76,7 +76,7 @@
         {% else %}
         {# Assistant bubble — left-aligned, white card with hairline border (spec §5.3) #}
         <div class="flex justify-start flex-col items-start gap-1.5">
-          <div class="max-w-[75%] sm:max-w-[65%] bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 break-words leading-relaxed whitespace-pre-line shadow-sm">{{ m._html }}</div>
+          <div class="max-w-[75%] sm:max-w-[65%] bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 break-words leading-relaxed chat-md shadow-sm">{{ m._html }}</div>
           {% if m.agent %}
           <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[9px] font-mono font-medium tracking-wide ml-0.5">{{ m.agent }}</span>
           {% endif %}

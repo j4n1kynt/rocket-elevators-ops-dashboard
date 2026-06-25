@@ -234,12 +234,3 @@ AND-107 Business Document.txt
 Current_Status.md
 SchemaStructure.md
 
-# Local scratch / runtime artefacts — never commit
-temp_cred_in.txt
-api_out.txt
-api_err.txt
-platform_mcp_out.txt
-audit-and-107.txt
-test_stress.py
-# "copy of" duplicates (e.g. "rag_preprocessing - copia.py")
-* - copia.py
