@@ -1719,6 +1719,83 @@ func TestSchedulingFailuresNeverWriteToDatabase(t *testing.T) {
 	})
 }
 
+// TestSchedulingAgentInspectionTypeResponseReroutesThroughPhase1 covers the bug
+// where a user supplies the inspection type in reply to the agent's question
+// (e.g. "Periodic") while a pending action with InspectionType="" is active.
+// Before the fix, detectConfirmation("Periodic") returned false/false, which
+// triggered the default re-dispatch branch and sent the message through Route(),
+// where ClassifyIntent("Periodic") scored it as advisory → the general agent
+// refused scheduling entirely. The fix re-runs Phase 1 with the supplied type
+// and rebuilds the pending action so the user sees a fresh confirmation summary
+// that includes the inspection type.
+func TestSchedulingAgentInspectionTypeResponseReroutesThroughPhase1(t *testing.T) {
+	phase1WithType := `{"pending_confirmation":true,"summary":"Elevator 12345 — ED-Periodic Inspection — 2026-07-01"}`
+
+	mcp := newTrackingMCPServer(t, map[string]string{
+		"schedule_inspection": phase1WithType,
+	})
+	defer mcp.Close()
+	t.Setenv("MCP_SERVER_URL", mcp.URL)
+
+	llm := fakeLLMServer(t, "I'll schedule a Periodic inspection for elevator 12345 on 2026-07-01. Would you like to confirm?")
+	defer llm.Close()
+	t.Setenv("OLLAMA_BASE_URL", llm.URL)
+	t.Setenv("OLLAMA_API_KEY", "test-key")
+
+	// Pending action with InspectionType="" — the state produced by Phase 1 when
+	// the user did not include the inspection type in the original request.
+	pa := &PendingAction{
+		ElevatorID:     12345,
+		InspectionDate: "2026-07-01",
+		InspectionType: "", // missing — this is the bug trigger
+		Reason:         "schedule an inspection for elevator 12345 on 2026-07-01",
+		ExpiresAt:      time.Now().Add(10 * time.Minute).Unix(),
+	}
+	pa.Signature = signPendingAction(pa)
+
+	resp := schedulingAgent(context.Background(), AgentRequest{
+		Message:       "Periodic",
+		PendingAction: pa,
+	})
+
+	if resp.AgentName != "scheduling" {
+		t.Errorf("agent name: got %q, want %q", resp.AgentName, "scheduling")
+	}
+
+	// Phase 1 must have been re-run exactly once with the supplied type.
+	calls := mcp.Calls()
+	if len(calls) != 1 || calls[0] != "schedule_inspection" {
+		t.Errorf("tool calls: got %v, want [schedule_inspection]", calls)
+	}
+
+	args := mcp.CallArgs()
+	if len(args) != 1 {
+		t.Fatalf("expected 1 call args entry, got %d", len(args))
+	}
+	// Must be a Phase 1 preview (confirmed=false) — not a write.
+	if confirmed, ok := args[0]["confirmed"].(bool); !ok || confirmed {
+		t.Errorf("re-run must use confirmed=false, got confirmed=%v (ok=%v)", args[0]["confirmed"], ok)
+	}
+	// The inspection type must be forwarded to MCP.
+	if got, _ := args[0]["inspection_type"].(string); got != "Periodic" {
+		t.Errorf("re-run must forward inspection_type=%q, got %q", "Periodic", got)
+	}
+
+	// A fresh pending action must be returned so the user can confirm on the next turn.
+	if resp.PendingAction == nil {
+		t.Fatal("PendingAction must be non-nil after re-running Phase 1 with the supplied type")
+	}
+	if resp.PendingAction.InspectionType != "Periodic" {
+		t.Errorf("PendingAction.InspectionType: got %q, want %q", resp.PendingAction.InspectionType, "Periodic")
+	}
+	if resp.PendingAction.Signature == "" {
+		t.Error("fresh PendingAction must carry a new HMAC signature")
+	}
+
+	// The reply must be safe — no raw errors or JSON blobs.
+	assertSafeReply(t, resp.Reply)
+}
+
 // ── General agent ─────────────────────────────────────────────────────────────
 
 // TestGeneralAgentNeverCallsMCPTools verifies that the general agent makes zero

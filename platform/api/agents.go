@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -367,13 +368,52 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			dataContext = "[ACTION CANCELLED]\nThe user cancelled the inspection scheduling. Confirm that no action was taken and no database write occurred."
 
 		default:
-			// Confirmation abandoned — clear pending state and re-dispatch through
-			// Route so the correct agent and prompt handle the message (spec §7.2).
-			log.Printf("[scheduling] confirmation=abandoned elevator=%d — re-dispatching", pa.ElevatorID)
-			return Route(ctx, AgentRequest{
-				Message: req.Message,
-				History: req.History,
-			})
+			// If the pending action has no inspection type yet and the user's
+			// message names one (e.g. "Periodic"), re-run Phase 1 with the
+			// corrected type so the LLM shows a fresh confirmation summary that
+			// includes it. Without this the type response is mis-routed to the
+			// general agent, which refuses scheduling entirely.
+			newType := extractInspectionType(req.Message)
+			if newType != "" && pa.InspectionType == "" {
+				log.Printf("[scheduling] type %q provided for pending elevator=%d — re-running phase1", newType, pa.ElevatorID)
+				phase1Args := map[string]any{
+					"confirmed":       false,
+					"elevator_id":     pa.ElevatorID,
+					"inspection_date": pa.InspectionDate,
+					"reason":          pa.Reason,
+					"inspection_type": newType,
+				}
+				mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
+				result, err := CallMCPTool(mcpCtx, "schedule_inspection", phase1Args)
+				mcpCancel()
+				if err != nil {
+					log.Printf("[scheduling] re-phase1 failed: %v", err)
+					dataContext = "[ACTION VALIDATION ERROR]\n" + cleanValidationError(err.Error()) + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+				} else if errMsg := extractScheduleError(result); errMsg != "" {
+					log.Printf("[scheduling] re-phase1 validation error: %s", errMsg)
+					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt."
+				} else {
+					updatedEnts := Entities{
+						ElevatorIDs:    []string{strconv.Itoa(pa.ElevatorID)},
+						Dates:          []string{pa.InspectionDate},
+						InspectionType: newType,
+					}
+					pendingAction = buildPendingAction(result, updatedEnts, pa.Reason)
+					if pendingAction != nil {
+						pendingAction.ExpiresAt = time.Now().Add(pendingActionTTL).Unix()
+						pendingAction.Signature = signPendingAction(pendingAction)
+					}
+					dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+				}
+			} else {
+				// Confirmation abandoned — clear pending state and re-dispatch through
+				// Route so the correct agent and prompt handle the message (spec §7.2).
+				log.Printf("[scheduling] confirmation=abandoned elevator=%d — re-dispatching", pa.ElevatorID)
+				return Route(ctx, AgentRequest{
+					Message: req.Message,
+					History: req.History,
+				})
+			}
 		}
 	} else {
 		// Phase 1 scheduling
