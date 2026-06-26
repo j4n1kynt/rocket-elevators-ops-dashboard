@@ -225,6 +225,7 @@
           hx-post="/chat"
           hx-target="#chatMessages"
           hx-swap="beforeend scroll:bottom"
+          hx-include="#chatHistory, #chatPendingAction, #chatConversationId"
           hx-indicator="#chatIndicator"
           hx-on:htmx:before-request="this.querySelector('#chatInput').disabled=true;this.querySelector('#chatSend').disabled=true"
           hx-on:htmx:after-request="this.querySelector('#chatInput').disabled=false;this.querySelector('#chatSend').disabled=false;this.querySelector('#chatInput').value=''"
