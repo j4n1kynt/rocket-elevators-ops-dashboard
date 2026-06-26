@@ -262,11 +262,16 @@ func TestFormatToolResult(t *testing.T) {
 			},
 		},
 		{
+			// A single "Fail" outcome is a non-passing result but neither a
+			// shutdown nor a follow-up, so it lands in the "Other non-passing"
+			// bucket. The header no longer calls every row a "TSSA shutdown" —
+			// that conflation was the D3 quality regression (see agent-evaluation.md).
 			name:    "tssa shutdown keeps note",
 			tool:    "get_tssa_shutdown_elevators",
 			payload: `{"count":1,"source":"inspections table (most-recent inspection per elevator)","note":"No explicit shutdown flag exists in the database.","elevators":[{"elevator_id":777,"location":"Ottawa","status":"Active","latest_inspection_date":"2024-12-01","outcome":"Fail","inspection_type":"ED-Periodic Inspection"}]}`,
 			want: []string{
-				"Elevators flagged for TSSA shutdown: 1",
+				"Elevators with non-passing outcomes: 1",
+				"Other non-passing: 1",
 				"Note: No explicit shutdown flag exists in the database.",
 				"- Elevator 777 — Ottawa — Fail (last inspection 2024-12-01)",
 			},
@@ -637,7 +642,7 @@ func TestDataAgentNoResultsReportsNoRecordsNotInvented(t *testing.T) {
 			message:     "Which elevators are shut down by TSSA?",
 			wantTool:    "get_tssa_shutdown_elevators",
 			toolPayload: `{"count":0,"source":"inspections table","note":"","elevators":[]}`,
-			wantInReply: "Elevators flagged for TSSA shutdown: 0",
+			wantInReply: "Elevators with non-passing outcomes: 0",
 		},
 	}
 

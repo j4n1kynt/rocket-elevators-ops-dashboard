@@ -329,8 +329,14 @@ func formatShutdown(jsonText string) (string, bool) {
 	b.WriteString(sourceLine("most recent inspection per elevator"))
 	b.WriteString("\n\n")
 	fmt.Fprintf(&b, "Elevators with non-passing outcomes: %d\n", p.Count)
-	fmt.Fprintf(&b, "  Voluntarily shut down: %d\n", shutdownCount)
-	fmt.Fprintf(&b, "  Requiring follow-up: %d\n", followupCount)
+	// Only show a sub-line when its category has entries — a single "Fail" or an
+	// empty list should not print three zero-count lines of noise.
+	if shutdownCount > 0 {
+		fmt.Fprintf(&b, "  Voluntarily shut down: %d\n", shutdownCount)
+	}
+	if followupCount > 0 {
+		fmt.Fprintf(&b, "  Requiring follow-up: %d\n", followupCount)
+	}
 	if otherCount > 0 {
 		fmt.Fprintf(&b, "  Other non-passing: %d\n", otherCount)
 	}
