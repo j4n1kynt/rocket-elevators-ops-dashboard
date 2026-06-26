@@ -53,10 +53,18 @@ Several AI-generated code paths included `if err != nil` guards for errors that 
 
 ---
 
-## [Team member 2 — add your name here]
+## Emmanuel Rendon (erg)
 
-> Add your individual AI playbook section following the template above.
-> Include: 2–3 things AI helped you with, and 1–2 pitfalls you hit.
+**What AI helped with:**
+
+- **Root-cause analysis of the two-phase scheduling bug**: I had a bug where the scheduling confirmation ("yes") worked in the chat widget but not in the conversations-page thread chat. I described both symptoms and Claude Code traced the cause: the thread chat never round-tripped `pending_action`, so the router read "yes" as advisory and the advisory agent sometimes faked a "scheduled" reply. It named the exact files and templates (`server.py`, `_conversation_thread.html`, `_conversation_reply.html`). The fix worked on the first try.
+- **Writing the deterministic data formatters (`data_format.go`)**: the data agent needs one exact formatter per MCP tool — seven in total. Claude Code wrote the formatter scaffolding and the test cases, which is slow to do by hand. I reviewed each formatter for exact field names and added the cases it missed.
+- **Designing the conversation logging (S3-7)**: I asked for a best-effort, fire-and-forget logging design so a database error never breaks the chat. Claude Code produced migration `004_conversations.sql` and `conversation_log.go` with that exact property, plus the `conversation_id` round-trip through the Flask UI.
+
+**Pitfalls I ran into:**
+
+- **Committing a temporary diagnostic log**: while we were chasing the `pending_action` bug, I added a `print()` debug log to `server.py` and committed it as its own commit. AI is happy to add a quick log to diagnose a problem, but I should keep that local and never commit it. **Fix**: keep debug prints on my machine, or use the `logging` module at debug level, and commit only the real fix.
+- **Trusting an AI-written prompt that did not match the architecture**: Claude Code wrote the scheduling prompt telling the model to "call" the tool. In our system Go calls the tools and the model only narrates, so the model leaked raw `[TOOL_CALL]` markup into the reply. **Fix**: when AI writes a prompt, check that it matches how the system really executes tools, not just that it reads well.
 
 ---
 
