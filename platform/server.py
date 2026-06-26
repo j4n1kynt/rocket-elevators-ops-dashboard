@@ -538,11 +538,18 @@ def chat():
         history = []
 
     pending_action_raw = request.form.get("pending_action", "null")
+    # TEMP DIAGNOSTIC (scheduling round-trip): log what the browser actually sends.
+    print(
+        f"[chat-diag] msg={message[:40]!r} form_keys={list(request.form.keys())} "
+        f"pa_len={len(pending_action_raw)} pa_head={pending_action_raw[:100]!r}",
+        flush=True,
+    )
     try:
         pending_action = json.loads(pending_action_raw)
         if not isinstance(pending_action, dict):
             pending_action = None
-    except Exception:
+    except Exception as exc:
+        print(f"[chat-diag] pending_action json.loads FAILED: {exc}", flush=True)
         pending_action = None
 
     try:
