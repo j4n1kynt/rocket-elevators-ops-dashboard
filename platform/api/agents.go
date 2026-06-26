@@ -64,9 +64,38 @@ func looksLikeJSON(reply string) bool {
 	return false
 }
 
+// looksLikeToolCall reports whether reply is a fabricated tool-call block rather
+// than a natural-language answer. Some chat models (notably minimax) try to "call"
+// the schedule_inspection tool by emitting tool-call syntax as plain text — but
+// this architecture orchestrates every MCP call deterministically in Go, never via
+// model function-calling. So such text is always a hallucination: it must never
+// reach the user, and it never implies a real database write happened.
+func looksLikeToolCall(reply string) bool {
+	lower := strings.ToLower(reply)
+	for _, marker := range []string{"[tool_call]", "tool_call]", "tool =>", "<tool_call>", "\"tool_calls\"", "\"tool\":", "\"name\": \"schedule_inspection\""} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 // buildReply assembles the message list and calls the LLM. Returns the reply
 // text or a plain-language error string — never a Go error (§4.3).
 func buildReply(ctx context.Context, systemPrompt string, dataContext string, history []ChatMessage, msg string) string {
+	return buildReplyWithFallback(ctx, systemPrompt, dataContext, history, msg, "")
+}
+
+// buildReplyWithFallback is buildReply with one addition: when fallback is
+// non-empty and the chat model is unavailable OR returns an unusable response (a
+// raw error, a JSON blob, or a fabricated tool-call block), it returns fallback
+// instead of a generic apology. The scheduling agent always holds a deterministic,
+// user-ready string (the MCP confirmation summary, the write outcome, a validation
+// error, or a missing-info prompt), so a flaky or tool-call-hallucinating model can
+// never leave the workflow with the wrong text — the same graceful-degradation
+// guarantee the data agent gets from its Go-built block. An empty fallback keeps
+// the original generic-apology behaviour for the general/knowledge agents.
+func buildReplyWithFallback(ctx context.Context, systemPrompt, dataContext string, history []ChatMessage, msg, fallback string) string {
 	systemContent := systemPrompt
 	if dataContext != "" {
 		systemContent += "\n\n## Live Data Context\n" + dataContext
@@ -80,6 +109,10 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 	reply, err := callChatLLM(ctx, messages)
 	if err != nil {
 		log.Printf("[agent] llm call failed: %v", err)
+		if fallback != "" {
+			log.Printf("[agent] llm unavailable — returning deterministic fallback")
+			return fallback
+		}
 		if strings.Contains(err.Error(), "status 429") {
 			return "The model is currently rate-limited. Please wait a moment and try again."
 		}
@@ -88,12 +121,11 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 	// Trim first so leading whitespace/newlines don't cause the sanity checks
 	// below (all prefix-based) to miss a malformed reply.
 	reply = strings.TrimSpace(reply)
-	if looksLikeRawError(reply) {
-		log.Printf("[agent] llm reply looks like a raw error — discarding: %.120s", reply)
-		return "I'm having trouble generating a response right now. Please try again."
-	}
-	if looksLikeJSON(reply) {
-		log.Printf("[agent] llm reply looks like an unparsed JSON blob — discarding: %.120s", reply)
+	if looksLikeRawError(reply) || looksLikeJSON(reply) || looksLikeToolCall(reply) {
+		log.Printf("[agent] llm reply unusable (raw error / JSON / tool-call hallucination) — discarding: %.120s", reply)
+		if fallback != "" {
+			return fallback
+		}
 		return "I'm having trouble generating a response right now. Please try again."
 	}
 	if len(reply) < 20 {
@@ -112,8 +144,38 @@ func appendHistory(history []ChatMessage, msg, reply string) []ChatMessage {
 
 // ── General agent ─────────────────────────────────────────────────────────────
 
+// looksLikeFakeScheduling reports whether a general-agent reply is pretending to
+// have scheduled an inspection or to be presenting a confirmation preview. The
+// general agent has no scheduling tool — scheduling only happens in the scheduling
+// agent behind a signed confirmation — so this phrasing is always a hallucination
+// and must never reach the user as if a write occurred. Markers are kept tight to
+// avoid flagging a legitimate explanation of how scheduling works.
+func looksLikeFakeScheduling(reply string) bool {
+	lower := strings.ToLower(reply)
+	for _, marker := range []string{
+		"scheduled successfully",
+		"inspection id 9", // MCP-generated inspection ids start at 9,000,000
+		"your inspection has been scheduled",
+		"you are about to schedule an inspection",
+		"you're about to schedule an inspection",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 func generalAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	reply := buildReply(ctx, generalPrompt, "", req.History, req.Message)
+	// Backstop: with scheduling context in the history the model sometimes
+	// fabricates a confirmation or a fake "scheduled successfully — Inspection ID …",
+	// which misleads the user into thinking a write happened when it did not.
+	// Never let that surface; redirect into the real scheduling flow instead.
+	if looksLikeFakeScheduling(reply) {
+		log.Printf("[general] reply fabricated a scheduling action — replacing with a safe redirect")
+		reply = "I can't schedule inspections myself. To schedule one, tell me the elevator ID and a date (YYYY-MM-DD) and I'll set it up for you."
+	}
 	return AgentResponse{
 		AgentName:      "general",
 		Reply:          reply,
@@ -163,7 +225,7 @@ func summarizeForUser(ctx context.Context, dataBlock, msg string) string {
 	// of a sentence, drop it — the caller then shows the deterministic block alone,
 	// which is the real answer. Without this the data path would leak exactly what
 	// buildReply already guards against on the fallback path.
-	if looksLikeRawError(line) || looksLikeJSON(line) {
+	if looksLikeRawError(line) || looksLikeJSON(line) || looksLikeToolCall(line) {
 		log.Printf("[data] summary intro looks malformed — dropping, showing data block only: %.80s", line)
 		return ""
 	}
@@ -319,6 +381,11 @@ func knowledgeAgent(ctx context.Context, req AgentRequest) AgentResponse {
 
 func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 	var dataContext string
+	// fallback is a deterministic, user-ready rendering of the same outcome the
+	// dataContext describes. buildReplyWithFallback shows it verbatim when the chat
+	// model is unreachable OR hallucinates a tool call — so a flaky or
+	// tool-call-faking model can never block the workflow or falsely claim a write.
+	var fallback string
 	var pendingAction *PendingAction
 
 	if req.PendingAction != nil {
@@ -335,9 +402,11 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			if !verifyPendingAction(pa) {
 				log.Printf("[scheduling] confirmation rejected: invalid signature elevator=%d", pa.ElevatorID)
 				dataContext = "[ACTION VALIDATION ERROR]\nThe pending scheduling request could not be verified — it may have expired or been altered. No action was taken and nothing was written. Ask the user to start the scheduling request again."
+				fallback = "This scheduling request could not be verified — it may have expired or been altered. No inspection was booked. Please start the scheduling request again."
 			} else if pa.ExpiresAt > 0 && time.Now().Unix() > pa.ExpiresAt {
 				log.Printf("[scheduling] confirmation rejected: expired elevator=%d", pa.ElevatorID)
 				dataContext = "[ACTION VALIDATION ERROR]\nThis scheduling confirmation has expired. No action was taken and nothing was written. Ask the user to start the scheduling request again."
+				fallback = "This scheduling confirmation has expired. No inspection was booked. Please start the scheduling request again."
 			} else {
 				log.Printf("[scheduling] confirmation=yes elevator=%d date=%s", pa.ElevatorID, pa.InspectionDate)
 				phase2Args := map[string]any{
@@ -355,17 +424,21 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 					log.Printf("[scheduling] phase2 failed: %v", err)
 					errMsg := cleanValidationError(err.Error())
 					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+					fallback = errMsg
 				} else if errMsg := extractScheduleError(result); errMsg != "" {
 					log.Printf("[scheduling] phase2 error: %s", errMsg)
 					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+					fallback = errMsg
 				} else {
 					dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+					fallback = scheduleSuccessLine(result)
 				}
 			}
 
 		case isCancel:
 			log.Printf("[scheduling] confirmation=cancelled elevator=%d", pa.ElevatorID)
 			dataContext = "[ACTION CANCELLED]\nThe user cancelled the inspection scheduling. Confirm that no action was taken and no database write occurred."
+			fallback = "The inspection scheduling has been cancelled. No inspection was booked."
 
 		default:
 			// If the pending action has no inspection type yet and the user's
@@ -389,9 +462,11 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 				if err != nil {
 					log.Printf("[scheduling] re-phase1 failed: %v", err)
 					dataContext = "[ACTION VALIDATION ERROR]\n" + cleanValidationError(err.Error()) + "\nDo NOT show a confirmation prompt. Tell the user what is wrong."
+					fallback = cleanValidationError(err.Error())
 				} else if errMsg := extractScheduleError(result); errMsg != "" {
 					log.Printf("[scheduling] re-phase1 validation error: %s", errMsg)
 					dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt."
+					fallback = errMsg
 				} else {
 					// buildPendingAction expects Entities (the same shape the intent
 					// classifier produces), so we reconstruct it from the pending
@@ -407,6 +482,7 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 						pendingAction.Signature = signPendingAction(pendingAction)
 					}
 					dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+					fallback = schedulingPreviewMessage(result, pendingAction)
 				}
 			} else {
 				// Confirmation abandoned — clear pending state and re-dispatch through
@@ -419,11 +495,16 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			}
 		}
 	} else {
-		// Phase 1 scheduling
-		c := ClassifyIntent(req.Message, time.Now())
+		// Phase 1 scheduling. Every message that reaches the scheduling agent is a
+		// scheduling action; assemble the slots (elevator ID, date, type) across
+		// recent turns so the user can give them separately ("...elevator 10054"
+		// then "next tuesday, periodic").
+		ents := collectSchedulingEntities(req.Message, req.History, time.Now())
+		c := Classification{Intent: IntentAction, Entities: ents}
 
-		if len(c.Entities.ElevatorIDs) == 0 || len(c.Entities.Dates) == 0 {
+		if len(ents.ElevatorIDs) == 0 || len(ents.Dates) == 0 {
 			dataContext = "[ACTION NEEDS MORE INFO]\nThe user wants to schedule an inspection but did not provide both an elevator ID and a date. Ask them for whichever is missing before proceeding. Do not invent values."
+			fallback = schedulingNeedsInfoMessage(ents)
 		} else {
 			toolName, mcpArgs := buildMCPArgs(c, req.Message)
 			mcpCtx, mcpCancel := context.WithTimeout(ctx, 25*time.Second)
@@ -431,13 +512,16 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 			if !toolAllowed(req.AllowedTools, toolName) {
 				log.Printf("[scheduling] blocked forbidden tool %q — only schedule_inspection is allowed", toolName)
 				dataContext = "[ACTION VALIDATION ERROR]\nThat request cannot be handled through the scheduling workflow. No action was taken — please try again."
+				fallback = "That request can't be handled through the scheduling workflow. No action was taken."
 			} else if result, err := CallMCPTool(mcpCtx, toolName, mcpArgs); err != nil {
 				log.Printf("[scheduling] mcp tool %s failed: %v", toolName, err)
 				errMsg := cleanValidationError(err.Error())
 				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
+				fallback = errMsg
 			} else if errMsg := extractScheduleError(result); errMsg != "" {
 				log.Printf("[scheduling] mcp tool %s validation error: %s", toolName, errMsg)
 				dataContext = "[ACTION VALIDATION ERROR]\n" + errMsg + "\nDo NOT show a confirmation prompt. Tell the user what is wrong and ask them to correct it."
+				fallback = errMsg
 			} else {
 				pendingAction = buildPendingAction(result, c.Entities, capReason(req.Message))
 				if pendingAction != nil {
@@ -445,15 +529,114 @@ func schedulingAgent(ctx context.Context, req AgentRequest) AgentResponse {
 					pendingAction.Signature = signPendingAction(pendingAction)
 				}
 				dataContext = "[DATA SOURCE: PostgreSQL — live fleet data]\n" + result
+				fallback = schedulingPreviewMessage(result, pendingAction)
 			}
 		}
 	}
 
-	reply := buildReply(ctx, schedulingPrompt, dataContext, req.History, req.Message)
+	// Scheduling is a high-stakes, structured, DB-writing interaction, so the reply
+	// is the exact Go-built summary/outcome — never model prose. Across testing the
+	// chat model repeatedly mishandled this turn (vague "let me validate", false
+	// "scheduled" claims, fabricated tool-call blocks, re-asking after a write), so
+	// trusting it to phrase confirmations was the wrong design. The deterministic
+	// text guarantees a clear, consistent "...Reply yes to confirm or no to cancel"
+	// prompt and an accurate outcome. The model is only used if a branch produced no
+	// deterministic text (shouldn't happen for the branches above).
+	reply := fallback
+	if reply == "" {
+		reply = buildReply(ctx, schedulingPrompt, dataContext, req.History, req.Message)
+	}
 	return AgentResponse{
 		AgentName:      "scheduling",
 		Reply:          reply,
 		PendingAction:  pendingAction,
 		UpdatedHistory: appendHistory(req.History, req.Message, reply),
 	}
+}
+
+// collectSchedulingEntities extracts the scheduling slots (elevator ID, date,
+// inspection type) from the current message, then backfills any still-missing
+// slot from recent user turns — so the ID can be given in one turn and the date
+// or type in the next. Scanning is newest-first and capped to the recent window;
+// the Phase 1 confirmation step lets the user catch any wrong carry-over before a
+// write happens.
+func collectSchedulingEntities(msg string, history []ChatMessage, now time.Time) Entities {
+	ents := extractEntities(msg, now)
+	const maxLookback = 10
+	for i, scanned := len(history)-1, 0; i >= 0 && scanned < maxLookback; i, scanned = i-1, scanned+1 {
+		if len(ents.ElevatorIDs) > 0 && len(ents.Dates) > 0 && ents.InspectionType != "" {
+			break
+		}
+		// Stop at the boundary of a finished scheduling transaction (a completed or
+		// cancelled one) so a NEW request never inherits the elevator/date/type of a
+		// previous one. Slots are borrowed only within the current, still-open
+		// collection — e.g. an ID given just before the date, with no completion in
+		// between.
+		if isSchedulingTransactionBoundary(history[i].Content) {
+			break
+		}
+		if history[i].Role != "user" {
+			continue
+		}
+		prev := extractEntities(history[i].Content, now)
+		if len(ents.ElevatorIDs) == 0 && len(prev.ElevatorIDs) > 0 {
+			ents.ElevatorIDs = prev.ElevatorIDs
+		}
+		if len(ents.Dates) == 0 && len(prev.Dates) > 0 {
+			ents.Dates = prev.Dates
+		}
+		if ents.InspectionType == "" && prev.InspectionType != "" {
+			ents.InspectionType = prev.InspectionType
+		}
+	}
+	return ents
+}
+
+// isSchedulingTransactionBoundary reports whether a conversation turn marks the
+// end of a scheduling transaction — a confirmed write or a cancellation. Slot
+// backfill (collectSchedulingEntities) stops here so the next scheduling request
+// starts clean instead of inheriting the previous elevator, date, or type.
+func isSchedulingTransactionBoundary(content string) bool {
+	lower := strings.ToLower(content)
+	for _, m := range []string{
+		"scheduled successfully", "successfully scheduled", "inspection id",
+		"written to the database", "has been cancelled", "scheduling has been cancelled",
+		"no inspection was booked",
+	} {
+		if strings.Contains(lower, m) {
+			return true
+		}
+	}
+	return false
+}
+
+// schedulingNeedsInfoMessage renders the deterministic "tell me what's missing"
+// prompt shown when the chat model is down or hallucinating on a Phase 1 request
+// that lacks an elevator ID, a date, or both.
+func schedulingNeedsInfoMessage(ents Entities) string {
+	hasID := len(ents.ElevatorIDs) > 0
+	hasDate := len(ents.Dates) > 0
+	switch {
+	case !hasID && !hasDate:
+		return "To schedule an inspection I need the elevator ID and a date (YYYY-MM-DD). Please provide both."
+	case !hasID:
+		return "To schedule an inspection I need the elevator ID. Please provide it."
+	default:
+		return "To schedule an inspection I need a date (in YYYY-MM-DD form). Please provide it."
+	}
+}
+
+// schedulingPreviewMessage renders the deterministic Phase 1 confirmation prompt
+// from the MCP tool's own summary, so the user can still review and confirm a
+// pending inspection when the model output is unusable. Returns "" only if no
+// summary is present (then buildReplyWithFallback uses its generic apology).
+func schedulingPreviewMessage(result string, pa *PendingAction) string {
+	summary := scheduleSummary(result)
+	if summary == "" && pa != nil {
+		summary = pa.Summary
+	}
+	if summary == "" {
+		return ""
+	}
+	return summary + "\n\nReply \"yes\" to confirm or \"no\" to cancel."
 }
