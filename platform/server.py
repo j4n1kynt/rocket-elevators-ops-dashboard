@@ -838,6 +838,14 @@ def conversation_message(cid):
     except Exception:
         history = []
 
+    pending_action_raw = request.form.get("pending_action", "null")
+    try:
+        pending_action = json.loads(pending_action_raw)
+        if not isinstance(pending_action, dict):
+            pending_action = None
+    except Exception:
+        pending_action = None
+
     try:
         conversation_id = int(request.form.get("conversation_id", str(cid)))
     except (TypeError, ValueError):
@@ -848,6 +856,8 @@ def conversation_message(cid):
         "history": history,
         "conversation_id": conversation_id,
     }
+    if pending_action is not None:
+        api_payload["pending_action"] = pending_action
 
     try:
         api_resp = requests.post(
@@ -870,6 +880,7 @@ def conversation_message(cid):
                 reply_html=None,
                 error=msg_text,
                 history=json.dumps(history),
+                pending_action=pending_action_raw,
                 conversation_id=conversation_id,
             )
         api_resp.raise_for_status()
@@ -881,6 +892,7 @@ def conversation_message(cid):
             reply_html=None,
             error="The assistant took too long to respond. Please try again.",
             history=json.dumps(history),
+            pending_action=pending_action_raw,
             conversation_id=conversation_id,
         )
     except Exception:
@@ -890,6 +902,7 @@ def conversation_message(cid):
             reply_html=None,
             error="Failed to reach the assistant. Please try again.",
             history=json.dumps(history),
+            pending_action=pending_action_raw,
             conversation_id=conversation_id,
         )
 
@@ -899,6 +912,7 @@ def conversation_message(cid):
         reply_html=_render_reply(data.get("reply", "")),
         error=None,
         history=json.dumps(data.get("history", [])),
+        pending_action=json.dumps(data.get("pending_action")),
         conversation_id=data.get("conversation_id", conversation_id),
     )
 

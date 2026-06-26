@@ -99,11 +99,11 @@ var keywordGroups = []keywordGroup{
 		{"overdue", 1.0},
 		{"status of", 1.0},
 		{"last inspected", 1.0},
-		{"risk level",  1.0},
-		{"dangerous",   1.0},
-		{"risk",        1.0},
-		{"rated high",  1.0},
-		{"flagged",     0.5},
+		{"risk level", 1.0},
+		{"dangerous", 1.0},
+		{"risk", 1.0},
+		{"rated high", 1.0},
+		{"flagged", 0.5},
 		{"how many", 0.5},
 		{"list", 0.5},
 		{"which", 0.5},
@@ -157,7 +157,11 @@ var (
 	// Standalone long digit runs — 5+ digits avoids matching a 4-digit year.
 	idStandaloneRe = regexp.MustCompile(`\b(\d{5,8})\b`)
 
-	isoDateRe   = regexp.MustCompile(`\b(\d{4}-\d{2}-\d{2})\b`)
+	isoDateRe = regexp.MustCompile(`\b(\d{4}-\d{2}-\d{2})\b`)
+	// Numeric dates with the day/month first and a 4-digit year last, separated by
+	// "-" or "/". Covers DD-MM-YYYY, MM-DD-YYYY, DD/MM/YYYY and MM/DD/YYYY. The
+	// year is required at the end, so this never overlaps isoDateRe (year-first).
+	numDateRe   = regexp.MustCompile(`\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b`)
 	monthDateRe = regexp.MustCompile(`(?i)\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:,?\s+(\d{4}))?\b`)
 )
 
@@ -193,6 +197,27 @@ func extractDates(msg string, now time.Time) []string {
 	}
 	for _, m := range isoDateRe.FindAllStringSubmatch(msg, -1) {
 		if t, err := time.Parse("2006-01-02", m[1]); err == nil {
+			add(t.Format("2006-01-02"))
+		}
+	}
+	for _, m := range numDateRe.FindAllStringSubmatch(msg, -1) {
+		a, _ := strconv.Atoi(m[1])
+		b, _ := strconv.Atoi(m[2])
+		year := m[3]
+		var day, month int
+		switch {
+		case a > 12 && b <= 12:
+			day, month = a, b // first part must be the day (DD-MM / DD/MM)
+		case b > 12 && a <= 12:
+			month, day = a, b // second part must be the day (MM-DD / MM/DD)
+		default:
+			// Ambiguous (both <= 12): default to month-first to match the source
+			// data convention (inspection.csv uses M/D/YYYY). The Phase 1 preview
+			// shows the resolved date, so the user can catch a wrong guess.
+			month, day = a, b
+		}
+		cand := fmt.Sprintf("%s-%02d-%02d", year, month, day)
+		if t, err := time.Parse("2006-01-02", cand); err == nil {
 			add(t.Format("2006-01-02"))
 		}
 	}
