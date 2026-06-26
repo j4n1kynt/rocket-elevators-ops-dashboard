@@ -230,3 +230,103 @@ Based on these results, the following additions and weight adjustments should be
 - Verify that `past incidents` is matched as a phrase rather than split tokens; if it is split, add `narratives` or `incident narrative` as a knowledge keyword.
 - Increase the weight of `TSSA requirement` or `regulation` relative to `shutdown` when no numeric ID is present, so regulatory-framing questions route to the knowledge agent rather than the data agent.
 - Investigate why `how` overrides a numeric elevator ID in B2 — entity signals should generally outweigh a single keyword match when the query contains a specific device reference.
+
+---
+
+## Part 4 — Cross-Eval: Sprint-2 vs. Multi-Agent (2026-06-26)
+
+Five queries were selected that appear in both this matrix and the Sprint-2 chatbot evaluation (`docs/chatbot-evaluation.md`). They were re-run against the deployed Render endpoints using `tests/chatbot/run_crosseval.py`. Results are compared side-by-side below.
+
+**Note on `agent_name`:** the field is `null` in all five responses. The `AgentName` field was added to `ChatResponse` in `platform/api/models.go` and `chat.go` during this sprint but has not yet been deployed — the binary on Render still serves the pre-change build. Routing was inferred from reply content (data agent: `Source: live fleet database` prefix; knowledge agent: document citations; scheduling agent: preview block; general agent: no attribution line).
+
+---
+
+### D3 / Sprint-2 D1 — TSSA shutdown list
+
+**Question (agent-eval D3):** "How many elevators are currently flagged for TSSA shutdown?"
+**Sprint-2 question (D1):** "Which elevators shut down by TSSA?"
+*Same tool: `get_tssa_shutdown_elevators`. Questions differ only in framing — count vs. list.*
+
+| | Sprint-2 | Multi-agent (this run) |
+|---|---|---|
+| **Reply summary** | Honoured the "no explicit shutdown flag" caveat; reported only the two `Vol Shut Down` entries (81102 Niagara Falls, 1883 Cardinal) by name; did not call the 18 `Follow up` entries "TSSA shutdowns." | Reported 20 elevators as "flagged for TSSA shutdown," listed all 20 with outcome labels, and included the caveat ("No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes"). 81102 and 1883 appear in the list with `Vol Shut Down` labels. |
+| **Accuracy** | 3/3 — only named the genuine shutdowns | 2/3 — the count of 20 is numerically correct but calling all 20 "flagged for TSSA shutdown" overstates what the data says about the 18 `Follow up` entries |
+| **Groundedness** | 3/3 | 3/3 — every entry is real and matches the tool result |
+| **Citation** | 3/3 | 3/3 — "Source: live fleet database" prefix present |
+| **Verdict** | ✅ PASS (exemplary) | 🟡 PARTIAL — caveat present but framing inflates the severity of 18 follow-up entries into "TSSA shutdowns" |
+| **Quality change** | — | **Slight regression in framing.** The raw data is accurate and the caveat is present, but Sprint-2's reply was more precise: it distinguished between devices that were voluntarily shut down and devices with outstanding follow-ups. The multi-agent reply uses "flagged for TSSA shutdown" as the heading for all 20, which a reader could reasonably interpret as every device having been formally shut down by TSSA. |
+
+---
+
+### D5 / Sprint-2 D3 — Incident count (exact overlap)
+
+**Question (both evals):** "How many incidents were reported in the last year?" / "How many incidents last year?"
+*Same tool: `get_incident_count_last_year`. Questions are near-identical. Ground truth: 506 total / 142 injury / 2 fatal, year 2015.*
+
+| | Sprint-2 | Multi-agent (this run) |
+|---|---|---|
+| **Reply summary** | "506 total incidents, 142 involving injuries, 2 fatal." Correctly surfaced that "last year" resolves to 2015 in the dataset. | "Year: 2015. Total incidents: 506. With injury: 142. Fatal: 2." Same numbers, same year caveat, tighter formatting. |
+| **Accuracy** | 3/3 | 3/3 |
+| **Groundedness** | 3/3 | 3/3 |
+| **Citation** | 3/3 | 3/3 — "Source: live fleet database — incidents (aggregate)" |
+| **Verdict** | ✅ PASS | ✅ PASS |
+| **Quality change** | — | **Same.** Numbers match ground truth exactly. The multi-agent reply is more compact (table-like format vs. prose) but carries the same information. No regression, no improvement in substance. |
+
+---
+
+### K1 / Sprint-2 K1 — Hydraulic procedure (near-identical phrasing)
+
+**Question (agent-eval K1):** "What is the procedure for hydraulic pressure loss?"
+**Sprint-2 question (K1):** "Maintenance procedure for hydraulic pressure loss"
+*Same tool: `search_maintenance_docs`. Ground truth this run: documents 10078, 10082, 10083 (same as Sprint-2).*
+
+| | Sprint-2 | Multi-agent (this run) |
+|---|---|---|
+| **Reply summary** | Stepped through the procedure in a single section, cited docs 10078 / 10082 / 10083, with spot-checked claims: static-pressure test (gradual drop = seal leak), running pressure (below rated = worn pump), active-failure response (shut off pump, contain oil, contact KONE, report TSSA). One mild note: the model "occasionally broadens context," merging routine monitoring and emergency response. | Two clearly labelled sections: **Response to Hydraulic Failure** (citing 10083) and **Diagnostic Pressure Testing** (citing 10078). Covers the same ground as Sprint-2: shut off pump, contain oil, entrapment check, contact KONE, report TSSA if uncontrolled descent or injury. Static and running pressure tests. |
+| **Accuracy** | 3/3 | 3/3 |
+| **Groundedness** | 3/3 — every claim traces to retrieved chunks | 3/3 — verified against retrieved chunks in `results_crosseval.json` |
+| **Citation** | 3/3 — docs named in text | 3/3 — docs 10083 and 10078 named per section; doc 10082 was in the top-5 but not cited (rope wear content, less relevant to pressure loss) |
+| **Verdict** | ✅ PASS (exemplary) | ✅ PASS |
+| **Quality change** | — | **Same or marginally improved in structure.** The two-section layout (failure response / diagnostic testing) is clearer than Sprint-2's single-section prose. Content fidelity is identical. The one mild regression from Sprint-2 (context blending) is also absent here — the two sections are distinct. |
+
+---
+
+### SA1 / Sprint-2 S3 — Explicit-date scheduling (Phase 1)
+
+**Question (agent-eval SA1):** "Schedule a periodic inspection for elevator 55123 on 2026-07-20."
+**Sprint-2 question (S3):** "Schedule … for elevator 37180 on 2026-06-23."
+*Same path: `schedule_inspection` Phase 1, explicit date. The elevator IDs differ — this is the key divergence.*
+
+| | Sprint-2 (S3, elevator 37180) | Multi-agent (this run, elevator 55123) |
+|---|---|---|
+| **Reply summary** | Returned a signed `pending_action` (HMAC + 10-min expiry), showed the real DB location (75 Waterloo St, Stratford), and asked yes/no. | "The elevator ID 55123 was not found in the database… Could you please verify the elevator ID?" No `pending_action` issued. |
+| **Verdict** | ✅ PASS (signed preview) | N/A — elevator 55123 does not exist in the fleet |
+| **Quality change** | — | **Not comparable.** Elevator 55123 is one of the "illustrative IDs" from the eval matrix — it is not in the deployed database. The multi-agent system correctly declined to issue a preview for a non-existent device rather than fabricating a location. The reply is grounded and correct for this ID. To reproduce the Sprint-2 S3 result, re-run with elevator 37180 on a future date. The "not found" response is also notably more explicit than the vague clarifying question observed in Sprint-2 G2/R3 — a separate improvement. |
+
+---
+
+### G1 / Sprint-2 G1 — Advisory boundary
+
+**Question (agent-eval G1):** "What does TSSA stand for?"
+**Sprint-2 question (G1):** "What is the capital of France?"
+*Both route to the general/advisory agent. The questions differ by design: Sprint-2 tested out-of-domain refusal; this tests in-domain advisory with no data signal.*
+
+| | Sprint-2 (G1, "capital of France") | Multi-agent (this run, "TSSA stand for") |
+|---|---|---|
+| **Reply summary** | Clean refusal with a redirect to elevator topics. No leakage. | "TSSA stands for the Technical Standards and Safety Authority. It's the non-profit corporation in Ontario responsible for overseeing technical safety… The TSSA administers the *Technical Standards and Safety Act* and O. Reg. 209/01 — Elevating Devices, which sets the rules for inspection, licensing, and operation of elevators in the province." |
+| **Verdict** | ✅ PASS (clean refusal) | ✅ PASS (correct definition, in-domain) |
+| **Quality change** | — | **Different question type, same quality tier.** Sprint-2 G1 tested boundary enforcement (reject out-of-domain). Agent-eval G1 tests in-domain advisory depth (no tool, answer from training knowledge). Both pass. The TSSA definition is factually correct, cites the right Ontario regulation, and does not invoke any data tool — the routing to the general agent was appropriate since no keyword clears the confidence floor for this phrasing. |
+
+---
+
+### Cross-eval summary
+
+| Pair | Sprint-2 verdict | Multi-agent verdict | Change |
+|---|---|---|---|
+| D3 / D1 — TSSA shutdown | ✅ PASS (exemplary) | 🟡 PARTIAL | **Slight regression** — count is correct, caveat present, but framing calls all 20 entries "TSSA shutdowns" rather than separating `Vol Shut Down` (2) from `Follow up` (18) |
+| D5 / D3 — Incident count | ✅ PASS | ✅ PASS | **Same** |
+| K1 / K1 — Hydraulic procedure | ✅ PASS (exemplary) | ✅ PASS | **Same** — marginally better structure (two labelled sections); identical document fidelity |
+| SA1 / S3 — Scheduling Phase 1 | ✅ PASS | N/A (non-existent elevator ID) | **Not comparable** — bot correctly reported "not found"; use elevator 37180 to reproduce the Sprint-2 result |
+| G1 / G1 — Advisory boundary | ✅ PASS | ✅ PASS | **Same** — different question types but both answered correctly for their intent |
+
+The multi-agent system holds at Sprint-2 quality on four of the five directly comparable scenarios. The one regression (D3) is a reply-framing issue, not a routing or fabrication issue: the data is correct and the caveat is present, but the headline count groups follow-up flagged devices with voluntary shutdowns under a single "TSSA shutdown" label. Fixing this requires a prompt-level instruction to the data agent to distinguish the two outcome categories in its summary line, not a change to `intent.go`.
