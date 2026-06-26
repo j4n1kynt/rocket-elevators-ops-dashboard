@@ -329,6 +329,40 @@ func extractScheduleError(jsonText string) string {
 	return ""
 }
 
+// scheduleSummary returns the human-readable confirmation summary from a Phase 1
+// schedule_inspection result (the pending_confirmation preview), or "" if the
+// payload carries none. Used to render the deterministic confirmation prompt when
+// the model output is unusable.
+func scheduleSummary(jsonText string) string {
+	var probe struct {
+		Summary string `json:"summary"`
+	}
+	_ = json.Unmarshal([]byte(jsonText), &probe)
+	return probe.Summary
+}
+
+// scheduleSuccessLine renders a successful Phase 2 (confirmed write) result as a
+// single plain sentence, for use as a deterministic reply when the model output is
+// unusable. Returns "" when the payload is not a confirmed success.
+func scheduleSuccessLine(jsonText string) string {
+	var probe struct {
+		Success        bool   `json:"success"`
+		InspectionID   int    `json:"inspection_id"`
+		ElevatorID     int    `json:"elevator_id"`
+		InspectionDate string `json:"inspection_date"`
+		Outcome        string `json:"outcome"`
+	}
+	if err := json.Unmarshal([]byte(jsonText), &probe); err != nil || !probe.Success {
+		return ""
+	}
+	outcome := probe.Outcome
+	if outcome == "" {
+		outcome = "Pending"
+	}
+	return fmt.Sprintf("Inspection scheduled successfully. Inspection ID %d for elevator %d on %s (status: %s).",
+		probe.InspectionID, probe.ElevatorID, probe.InspectionDate, outcome)
+}
+
 // buildPendingAction checks whether a schedule_inspection tool result is a
 // successful Phase 1 response (pending_confirmation=true) and, if so, builds
 // the PendingAction that must be stored client-side until the user confirms.
@@ -369,6 +403,11 @@ func cleanValidationError(raw string) string {
 	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if after, ok := strings.CutPrefix(line, "Value error, "); ok {
+			// Strip the Pydantic suffix "[type=value_error, input_value=..., input_type=...]"
+			// so the user sees only the human-readable message.
+			if i := strings.Index(after, " [type="); i >= 0 {
+				after = after[:i]
+			}
 			return after
 		}
 	}
@@ -595,6 +634,15 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 		history = history[2:]
 	}
 
+	// Restore the pending action from the server-side store when the client did
+	// not echo one back. The UI hidden-field round-trip can drop it across agent
+	// switches; without this a "yes" would route to the general agent and the
+	// confirmation (and the write) would be lost. The signature is still verified
+	// downstream, so this only restores delivery — it does not bypass security.
+	if chatReq.PendingAction == nil {
+		chatReq.PendingAction = loadPending(chatReq.ConversationID, time.Now())
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 330*time.Second)
 	defer cancel()
 
@@ -610,6 +658,14 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 	// multi-agent router vocabulary (general/data/knowledge/scheduling).
 	convID := EnsureConversation(r.Context(), chatReq.ConversationID)
 	LogTurn(convID, msg, agentResp.Reply, agentResp.AgentName)
+
+	// Mirror the resulting pending state for the next turn: a Phase 1 preview sets
+	// it; a completed write, a cancellation, or any non-scheduling turn clears it.
+	if agentResp.PendingAction != nil {
+		storePending(convID, agentResp.PendingAction, time.Now())
+	} else {
+		clearPending(convID)
+	}
 
 	writeJSON(w, 200, ChatResponse{
 		Reply:          agentResp.Reply,

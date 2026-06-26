@@ -927,11 +927,13 @@ func assertNoRawErrorLeak(t *testing.T, sys string) {
 // message, never leak the raw transport error, and still return a safe reply.
 func TestAgentsMCPUnreachableRecoverGracefully(t *testing.T) {
 	cases := []struct {
-		name       string
-		req        AgentRequest
-		agent      func(context.Context, AgentRequest) AgentResponse
-		wantName   string
-		wantNotice string // must appear in the system message sent to the LLM
+		name          string
+		req           AgentRequest
+		agent         func(context.Context, AgentRequest) AgentResponse
+		wantName      string
+		deterministic bool   // scheduling bypasses the LLM — assert on the reply, not the system message
+		wantNotice    string // must appear in the system message sent to the LLM (LLM-backed agents)
+		wantInReply   string // must appear in the reply (deterministic agents)
 	}{
 		{
 			name:       "knowledge: both corpora unreachable",
@@ -943,12 +945,14 @@ func TestAgentsMCPUnreachableRecoverGracefully(t *testing.T) {
 		{
 			// Phase 1 with a valid ID + date so the agent reaches the MCP call;
 			// the closed server yields a transport error that cleanValidationError
-			// must scrub down to a generic message.
-			name:       "scheduling: schedule_inspection unreachable",
-			req:        AgentRequest{Message: "schedule an inspection for elevator 12345 on 2026-07-01", AllowedTools: []string{"schedule_inspection"}},
-			agent:      schedulingAgent,
-			wantName:   "scheduling",
-			wantNotice: "ACTION VALIDATION ERROR",
+			// must scrub to a generic message. Scheduling replies deterministically,
+			// so the scrubbed message must reach the user directly (no LLM call).
+			name:          "scheduling: schedule_inspection unreachable",
+			req:           AgentRequest{Message: "schedule an inspection for elevator 12345 on 2026-07-01", AllowedTools: []string{"schedule_inspection"}},
+			agent:         schedulingAgent,
+			wantName:      "scheduling",
+			deterministic: true,
+			wantInReply:   "could not be processed",
 		},
 	}
 
@@ -968,15 +972,23 @@ func TestAgentsMCPUnreachableRecoverGracefully(t *testing.T) {
 			if resp.AgentName != tc.wantName {
 				t.Errorf("agent name: got %q, want %q", resp.AgentName, tc.wantName)
 			}
-			systems := llm.SystemMessages()
-			if len(systems) == 0 {
-				t.Fatal("no system message captured — LLM was never called")
+			if tc.deterministic {
+				// LLM is intentionally bypassed for scheduling: the scrubbed,
+				// user-facing message must be the reply itself, and it must be safe.
+				if !strings.Contains(resp.Reply, tc.wantInReply) {
+					t.Errorf("reply must contain %q\n--- reply ---\n%s", tc.wantInReply, resp.Reply)
+				}
+			} else {
+				systems := llm.SystemMessages()
+				if len(systems) == 0 {
+					t.Fatal("no system message captured — LLM was never called")
+				}
+				sys := systems[0]
+				if !strings.Contains(sys, tc.wantNotice) {
+					t.Errorf("system message must contain %q\n--- system ---\n%s", tc.wantNotice, sys)
+				}
+				assertNoRawErrorLeak(t, sys)
 			}
-			sys := systems[0]
-			if !strings.Contains(sys, tc.wantNotice) {
-				t.Errorf("system message must contain %q\n--- system ---\n%s", tc.wantNotice, sys)
-			}
-			assertNoRawErrorLeak(t, sys)
 			assertSafeReply(t, resp.Reply)
 			// A scheduling failure must never leave a pending write outstanding.
 			if resp.PendingAction != nil {
@@ -992,13 +1004,15 @@ func TestAgentsMCPUnreachableRecoverGracefully(t *testing.T) {
 // never forward the raw error payload to the model.
 func TestAgentsToolErrorPayloadRecoverGracefully(t *testing.T) {
 	cases := []struct {
-		name       string
-		req        AgentRequest
-		agent      func(context.Context, AgentRequest) AgentResponse
-		payloads   map[string]string
-		wantName   string
-		wantNotice string
-		mustHide   string // raw payload text that must NOT reach the system message
+		name          string
+		req           AgentRequest
+		agent         func(context.Context, AgentRequest) AgentResponse
+		payloads      map[string]string
+		wantName      string
+		deterministic bool   // scheduling bypasses the LLM — assert on the reply, not the system message
+		wantNotice    string // must appear in the system message (LLM-backed agents)
+		wantInReply   string // must appear in the reply (deterministic agents)
+		mustHide      string // raw payload text that must NOT reach the system message
 	}{
 		{
 			name:       "data: tool returns error envelope",
@@ -1010,16 +1024,16 @@ func TestAgentsToolErrorPayloadRecoverGracefully(t *testing.T) {
 			mustHide:   "internal database failure",
 		},
 		{
-			// success=false + error string → extractScheduleError → ACTION VALIDATION
-			// ERROR. The clean validation message is allowed in the system message;
-			// only raw infrastructure text is forbidden.
-			name:       "scheduling: schedule_inspection validation failure",
-			req:        AgentRequest{Message: "schedule an inspection for elevator 99999 on 2026-07-01", AllowedTools: []string{"schedule_inspection"}},
-			agent:      schedulingAgent,
-			payloads:   map[string]string{"schedule_inspection": `{"success":false,"error":"Elevator 99999 does not exist in the fleet."}`},
-			wantName:   "scheduling",
-			wantNotice: "ACTION VALIDATION ERROR",
-			mustHide:   "", // the validation message itself is user-appropriate
+			// success=false + error string → extractScheduleError. Scheduling replies
+			// deterministically, so the validation message must reach the user as the
+			// reply (it is user-appropriate), with no raw infrastructure text.
+			name:          "scheduling: schedule_inspection validation failure",
+			req:           AgentRequest{Message: "schedule an inspection for elevator 99999 on 2026-07-01", AllowedTools: []string{"schedule_inspection"}},
+			agent:         schedulingAgent,
+			payloads:      map[string]string{"schedule_inspection": `{"success":false,"error":"Elevator 99999 does not exist in the fleet."}`},
+			wantName:      "scheduling",
+			deterministic: true,
+			wantInReply:   "does not exist in the fleet",
 		},
 	}
 
@@ -1039,18 +1053,24 @@ func TestAgentsToolErrorPayloadRecoverGracefully(t *testing.T) {
 			if resp.AgentName != tc.wantName {
 				t.Errorf("agent name: got %q, want %q", resp.AgentName, tc.wantName)
 			}
-			systems := llm.SystemMessages()
-			if len(systems) == 0 {
-				t.Fatal("no system message captured — LLM was never called")
+			if tc.deterministic {
+				if !strings.Contains(resp.Reply, tc.wantInReply) {
+					t.Errorf("reply must contain %q\n--- reply ---\n%s", tc.wantInReply, resp.Reply)
+				}
+			} else {
+				systems := llm.SystemMessages()
+				if len(systems) == 0 {
+					t.Fatal("no system message captured — LLM was never called")
+				}
+				sys := systems[0]
+				if !strings.Contains(sys, tc.wantNotice) {
+					t.Errorf("system message must contain %q\n--- system ---\n%s", tc.wantNotice, sys)
+				}
+				if tc.mustHide != "" && strings.Contains(sys, tc.mustHide) {
+					t.Errorf("system message must not forward raw payload text %q\n--- system ---\n%s", tc.mustHide, sys)
+				}
+				assertNoRawErrorLeak(t, sys)
 			}
-			sys := systems[0]
-			if !strings.Contains(sys, tc.wantNotice) {
-				t.Errorf("system message must contain %q\n--- system ---\n%s", tc.wantNotice, sys)
-			}
-			if tc.mustHide != "" && strings.Contains(sys, tc.mustHide) {
-				t.Errorf("system message must not forward raw payload text %q\n--- system ---\n%s", tc.mustHide, sys)
-			}
-			assertNoRawErrorLeak(t, sys)
 			assertSafeReply(t, resp.Reply)
 			if resp.PendingAction != nil {
 				t.Error("PendingAction must be nil when the tool returned an error")
@@ -1093,12 +1113,16 @@ func TestAgentsLLMFailureRecoverGracefully(t *testing.T) {
 		},
 		{
 			// Missing-info path needs no MCP — isolates the LLM failure cleanly.
-			name:        "scheduling: LLM down → graceful fallback",
+			// Scheduling now holds a deterministic, user-ready string (here, the
+			// missing-info prompt), so — like the data agent — it shows that instead
+			// of the generic "trouble reaching the assistant" apology when the model
+			// is unavailable. The message has an ID but no date, so it asks for the date.
+			name:        "scheduling: LLM down → deterministic fallback (no chat model needed)",
 			req:         AgentRequest{Message: "Schedule an inspection for elevator 12345", AllowedTools: []string{"schedule_inspection"}},
 			agent:       schedulingAgent,
 			payloads:    map[string]string{},
 			wantName:    "scheduling",
-			wantInReply: "trouble",
+			wantInReply: "I need a date",
 		},
 		{
 			name:        "general: LLM down → graceful fallback",

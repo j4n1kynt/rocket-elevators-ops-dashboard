@@ -139,9 +139,16 @@ var keywordGroups = []keywordGroup{
 		{"maintenance", 0.5},
 	}},
 	{IntentAction, []keyword{
-		{"schedule", 1.0},
-		{"book", 1.0},
-		{"set up", 1.0},
+		// Weight 1.5 so a single scheduling verb clears the confidence floor
+		// (1.5/2.5 = 0.60) on its own. A scheduling request with no elevator ID
+		// (e.g. "schedule a follow-up inspection") must still reach the scheduling
+		// agent, which then asks for the missing details. At weight 1.0 it scored
+		// only 0.50 and fell through to the general/advisory agent, which cannot
+		// schedule — so the request was silently dropped (and the model sometimes
+		// hallucinated a fake scheduling confirmation).
+		{"schedule", 1.5},
+		{"book", 1.5},
+		{"set up", 1.5},
 	}},
 }
 
@@ -159,7 +166,27 @@ var (
 
 	isoDateRe   = regexp.MustCompile(`\b(\d{4}-\d{2}-\d{2})\b`)
 	monthDateRe = regexp.MustCompile(`(?i)\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:,?\s+(\d{4}))?\b`)
+	// ISO with slashes (2026/07/15) and numeric day/month/year (15-06-2026,
+	// 15/06/2026). The numeric form is disambiguated in extractDates by the >12
+	// rule; a truly ambiguous all-≤12 value is skipped so the bot asks rather than
+	// silently misparsing.
+	ymdSlashRe   = regexp.MustCompile(`\b(\d{4})/(\d{1,2})/(\d{1,2})\b`)
+	numericDMYRe = regexp.MustCompile(`\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b`)
+
+	// Relative / natural-language dates: "today", "tomorrow", "in 2 weeks",
+	// "next tuesday", "on friday". Resolved against now in extractDates.
+	relDayRe    = regexp.MustCompile(`(?i)\b(today|tomorrow)\b`)
+	relInNRe    = regexp.MustCompile(`(?i)\bin\s+(\d{1,3})\s+(days?|weeks?)\b`)
+	relWeekdayRe = regexp.MustCompile(`(?i)\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b`)
 )
+
+// weekdayByName maps a lowercase weekday word to its time.Weekday. Used to
+// resolve "next tuesday" etc. to a concrete date in extractDates.
+var weekdayByName = map[string]time.Weekday{
+	"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday,
+	"wednesday": time.Wednesday, "thursday": time.Thursday,
+	"friday": time.Friday, "saturday": time.Saturday,
+}
 
 // extractElevatorIDs returns all elevator IDs found, in order, de-duplicated.
 func extractElevatorIDs(msg string) []string {
@@ -205,6 +232,63 @@ func extractDates(msg string, now time.Time) []string {
 		cand := fmt.Sprintf("%s %s %s", monthTitle, day, year)
 		if t, err := time.Parse("January 2 2006", cand); err == nil {
 			add(t.Format("2006-01-02"))
+		}
+	}
+
+	// ISO with slashes: 2026/07/15.
+	for _, m := range ymdSlashRe.FindAllStringSubmatch(msg, -1) {
+		if t, err := time.Parse("2006-01-02", fmt.Sprintf("%s-%02s-%02s", m[1], m[2], m[3])); err == nil {
+			add(t.Format("2006-01-02"))
+		}
+	}
+	// Numeric day/month/year: 15-06-2026, 15/06/2026. Disambiguate by the >12 rule
+	// (a value 13–31 must be the day); skip the truly ambiguous all-≤12 case so the
+	// agent asks for an explicit date instead of guessing day-vs-month order.
+	for _, m := range numericDMYRe.FindAllStringSubmatch(msg, -1) {
+		a, _ := strconv.Atoi(m[1])
+		b, _ := strconv.Atoi(m[2])
+		var day, mon int
+		switch {
+		case a > 12 && b >= 1 && b <= 12:
+			day, mon = a, b // DD-MM-YYYY
+		case b > 12 && a >= 1 && a <= 12:
+			mon, day = a, b // MM-DD-YYYY
+		default:
+			continue // ambiguous (both ≤12) or invalid → don't guess
+		}
+		if t, err := time.Parse("2006-01-02", fmt.Sprintf("%s-%02d-%02d", m[3], mon, day)); err == nil {
+			add(t.Format("2006-01-02"))
+		}
+	}
+
+	// Relative / natural-language dates, resolved against now (keeps this function
+	// pure and tests deterministic). Explicit dates above are added first, so they
+	// remain Dates[0] when both forms appear. Scheduling is always future-dated, so
+	// a weekday name resolves to its next occurrence strictly after today
+	// ("tuesday" on a Tuesday → the following Tuesday).
+	low := strings.ToLower(msg)
+	for _, m := range relDayRe.FindAllStringSubmatch(low, -1) {
+		switch m[1] {
+		case "today":
+			add(now.Format("2006-01-02"))
+		case "tomorrow":
+			add(now.AddDate(0, 0, 1).Format("2006-01-02"))
+		}
+	}
+	for _, m := range relInNRe.FindAllStringSubmatch(low, -1) {
+		n, _ := strconv.Atoi(m[1])
+		if strings.HasPrefix(m[2], "week") {
+			n *= 7
+		}
+		add(now.AddDate(0, 0, n).Format("2006-01-02"))
+	}
+	for _, m := range relWeekdayRe.FindAllStringSubmatch(low, -1) {
+		if wd, ok := weekdayByName[m[1]]; ok {
+			delta := (int(wd) - int(now.Weekday()) + 7) % 7
+			if delta == 0 {
+				delta = 7 // today is that weekday → mean next week's occurrence
+			}
+			add(now.AddDate(0, 0, delta).Format("2006-01-02"))
 		}
 	}
 	return out

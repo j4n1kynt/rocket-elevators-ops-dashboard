@@ -93,11 +93,12 @@ var followUpPrefixes = []string{
 	"for the same", "how about the", "what about the",
 }
 
-// isFollowUp returns true when the message looks like a continuation: it either
-// carries an elevator ID (data follow-up) or starts with a conversational
-// connector (covers RAG and other agent types too).
+// isFollowUp returns true when the message looks like a continuation: it carries
+// an elevator ID (data follow-up), a date or inspection type (a scheduling
+// continuation, e.g. answering "what date?" with "next tuesday, periodic"), or it
+// starts with a conversational connector (covers RAG and other agent types too).
 func isFollowUp(msg string, c Classification) bool {
-	if len(c.Entities.ElevatorIDs) > 0 {
+	if len(c.Entities.ElevatorIDs) > 0 || len(c.Entities.Dates) > 0 || c.Entities.InspectionType != "" {
 		return true
 	}
 	lower := strings.ToLower(strings.TrimSpace(msg))
