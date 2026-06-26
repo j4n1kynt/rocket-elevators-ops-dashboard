@@ -297,6 +297,11 @@ func formatFollowup(jsonText string) (string, bool) {
 
 // formatShutdown formats a get_tssa_shutdown_elevators payload. It keeps the
 // tool's "note" because it explains how shutdown status is derived.
+//
+// The header splits the count by outcome type so the model's intro sentence
+// cannot conflate "Follow up" entries (compliance issue, not a shutdown order)
+// with genuine "Vol Shut Down" / "Shutdown" entries. All rows are still listed
+// below so operators can see the full set.
 func formatShutdown(jsonText string) (string, bool) {
 	var p struct {
 		Count     int            `json:"count"`
@@ -307,10 +312,34 @@ func formatShutdown(jsonText string) (string, bool) {
 		return "", false
 	}
 
+	var shutdownCount, followupCount, otherCount int
+	for _, r := range p.Elevators {
+		outcome := strings.ToLower(strOr(r.Outcome, ""))
+		switch {
+		case strings.Contains(outcome, "shut down") || outcome == "shutdown":
+			shutdownCount++
+		case strings.Contains(outcome, "follow up") || outcome == "follow-up":
+			followupCount++
+		default:
+			otherCount++
+		}
+	}
+
 	var b strings.Builder
 	b.WriteString(sourceLine("most recent inspection per elevator"))
 	b.WriteString("\n\n")
-	fmt.Fprintf(&b, "Elevators flagged for TSSA shutdown: %d\n", p.Count)
+	fmt.Fprintf(&b, "Elevators with non-passing outcomes: %d\n", p.Count)
+	// Only show a sub-line when its category has entries — a single "Fail" or an
+	// empty list should not print three zero-count lines of noise.
+	if shutdownCount > 0 {
+		fmt.Fprintf(&b, "  Voluntarily shut down: %d\n", shutdownCount)
+	}
+	if followupCount > 0 {
+		fmt.Fprintf(&b, "  Requiring follow-up: %d\n", followupCount)
+	}
+	if otherCount > 0 {
+		fmt.Fprintf(&b, "  Other non-passing: %d\n", otherCount)
+	}
 	if strings.TrimSpace(p.Note) != "" {
 		fmt.Fprintf(&b, "Note: %s\n", strings.TrimSpace(p.Note))
 	}

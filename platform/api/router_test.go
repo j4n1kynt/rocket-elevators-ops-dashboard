@@ -165,10 +165,12 @@ func TestRouteSelectsCorrectAgent(t *testing.T) {
 			mcpPayloads: nil,
 		},
 		{
-			// Pure advisory content — no keyword matches → score 0 → confidence 0.
-			name:        "general: open-ended advisory query",
+			// "regulation" (RAG 2.5) fires → knowledge agent.
+			// This query was previously advisory when no regulatory keyword existed;
+			// now that "regulation" is a RAG anchor it correctly routes to knowledge.
+			name:        "knowledge: open-ended regulatory query",
 			message:     "Tell me about elevator safety regulations",
-			wantAgent:   "general",
+			wantAgent:   "knowledge",
 			mcpPayloads: nil,
 		},
 		{

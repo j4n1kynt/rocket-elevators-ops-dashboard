@@ -613,6 +613,7 @@ func PostChat(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, 200, ChatResponse{
 		Reply:          agentResp.Reply,
+		AgentName:      agentResp.AgentName,
 		History:        agentResp.UpdatedHistory,
 		PendingAction:  agentResp.PendingAction,
 		ConversationID: convID,
