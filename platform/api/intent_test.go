@@ -106,6 +106,13 @@ func TestExtractDates(t *testing.T) {
 		{"natural_with_year", "July 15, 2027", []string{"2027-07-15"}},
 		{"invalid_date", "February 30", nil},
 		{"no_date", "schedule an inspection", nil},
+		// Numeric day/month-first formats with "-" or "/" separators.
+		{"dd_mm_yyyy_dash", "in 25-07-2026", []string{"2026-07-25"}},
+		{"dd_mm_yyyy_slash", "on 25/07/2026", []string{"2026-07-25"}},
+		{"mm_dd_yyyy_dash", "on 07-25-2026", []string{"2026-07-25"}},
+		{"mm_dd_yyyy_slash", "by 07/25/2026", []string{"2026-07-25"}},
+		{"ambiguous_defaults_month_first", "on 03/04/2026", []string{"2026-03-04"}},
+		{"numeric_invalid", "on 25-13-2026", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -364,11 +371,11 @@ func TestBuildMCPArgsRouting(t *testing.T) {
 
 func TestContextCarry(t *testing.T) {
 	cases := []struct {
-		name        string
-		msg         string
-		history     []ChatMessage
-		wantIntent  Intent
-		wantEntity  string // first elevator ID expected, "" if none required
+		name       string
+		msg        string
+		history    []ChatMessage
+		wantIntent Intent
+		wantEntity string // first elevator ID expected, "" if none required
 	}{
 		{
 			// data follow-up: elevator ID triggers carry

@@ -5,10 +5,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// toolCallMarkupRe matches a `[TOOL_CALL] ... [/TOOL_CALL]` block the model may
+// emit when it tries to "call" a tool in text. In this architecture Go calls
+// every tool and injects the result, so this markup is never wanted in a reply.
+// (?is): . spans newlines and the tags are case-insensitive.
+var toolCallMarkupRe = regexp.MustCompile(`(?is)\[tool_call\].*?\[/tool_call\]`)
+
+// stripToolCallMarkup removes tool-call blocks and any stray open/close markers,
+// then trims surrounding whitespace. A reply that is only markup collapses to "".
+func stripToolCallMarkup(reply string) string {
+	out := toolCallMarkupRe.ReplaceAllString(reply, "")
+	out = strings.ReplaceAll(out, "[TOOL_CALL]", "")
+	out = strings.ReplaceAll(out, "[/TOOL_CALL]", "")
+	return strings.TrimSpace(out)
+}
 
 // toolAllowed reports whether name appears in the allowed list.
 // Returns true when allowed is empty so agents without an explicit list remain
@@ -89,6 +105,16 @@ func buildReply(ctx context.Context, systemPrompt string, dataContext string, hi
 	// Trim first so leading whitespace/newlines don't cause the sanity checks
 	// below (all prefix-based) to miss a malformed reply.
 	reply = strings.TrimSpace(reply)
+	// The model sometimes emits a fake [TOOL_CALL] block instead of prose — it has
+	// no real tool access, since Go calls every tool and injects the result. Strip
+	// it. If that leaves nothing, the reply was only markup, so treat it as a misfire.
+	if stripped := stripToolCallMarkup(reply); stripped != reply {
+		if stripped == "" {
+			log.Printf("[agent] llm reply was only tool-call markup — discarding: %.120s", reply)
+			return "I'm having trouble generating a response right now. Please try again."
+		}
+		reply = stripped
+	}
 	if looksLikeRawError(reply) {
 		log.Printf("[agent] llm reply looks like a raw error — discarding: %.120s", reply)
 		return "I'm having trouble generating a response right now. Please try again."

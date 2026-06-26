@@ -2022,3 +2022,24 @@ func TestGeneralAgentNoFallbackOnSubstantiveMessage(t *testing.T) {
 		t.Errorf("general agent must not fall back to MCP after S3-6, got %d calls: %v", len(calls), calls)
 	}
 }
+
+func TestStripToolCallMarkup(t *testing.T) {
+	cases := []struct {
+		name  string
+		reply string
+		want  string
+	}{
+		{"plain_text", "The inspection was scheduled.", "The inspection was scheduled."},
+		{"only_markup", "[TOOL_CALL]\n{tool => \"schedule_inspection\"}\n[/TOOL_CALL]", ""},
+		{"prose_then_markup", "Let me validate this.\n\n[TOOL_CALL]\n{x}\n[/TOOL_CALL]", "Let me validate this."},
+		{"lowercase_tags", "[tool_call]{x}[/tool_call]", ""},
+		{"stray_markers", "Done [TOOL_CALL] here", "Done  here"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := stripToolCallMarkup(c.reply); got != c.want {
+				t.Fatalf("stripToolCallMarkup(%q) = %q; want %q", c.reply, got, c.want)
+			}
+		})
+	}
+}
