@@ -1,0 +1,148 @@
+{
+  "ground_truth": {
+    "tssa_shutdowns": {
+      "_error": "TimeoutError('The read operation timed out')"
+    },
+    "incident_count": {
+      "source": "incidents table (aggregate)",
+      "total_incidents": 506,
+      "fatal_incidents": 2,
+      "injury_incidents": 142,
+      "year_queried": 2015
+    },
+    "rag_hydraulic": {
+      "query": "What is the procedure for hydraulic pressure loss?",
+      "message": null,
+      "total_returned": 5,
+      "results": [
+        {
+          "text": "2. Connect the pressure gauge to the test port. 3. Allow the system to stabilize for at least 2 minutes after the car has stopped. 4. Record the static pressure reading. 5. Monitor the pressure for 5 minutes. A stable reading indicates good seal integrity. A gradual drop\nindicates an internal leak, either at the cylinder seals or the control valve. Normal static pressure depends on the system design and rated load, but most passenger elevators in our\nfleet operate in the 200 to 500 psi range (14 to 35 bar). The system's design pressure is on the data plate. Running Pressure Test\nThe running pressure test measures system pressure while the car is traveling upward under load:\n1. With the gauge still connected, send the car on a full up-run under load. 2. Record the peak pressure during the run. 5\n3. Compare to the rated working pressure on the data plate. Running pressure should be within 10% of the rated working pressure. Pressure significantly below rated may\nindicate a worn pump, internal valve bypass, or low fluid. Pressure significantly above rated may indicate a\nrestriction in the hydraulic line or an improperly adjusted relief valve. Relief Valve Test\nThe relief valve is a critical safety device that prevents dangerous overpressure. It should open (bypass fluid\nback to the reservoir) at a pressure set above the normal working pressure but below the system's maximum\nrated pressure. Relief valve settings are specified on the data plate. 1. With the car at the lowest landing, place a load in the car exceeding the rated capacity by approximately\n25% (coordinate with the building owner for test weights). 2. Initiate an up-run. The relief valve should prevent the car from lifting the excessive load by bypassing\nfluid. 3. Record the pressure at which the relief valve activates. 4. Compare to the specified relief valve setting. If the relief valve activates at a pressure significantly different from the specification (more than 5%\ndeviation), escalate to KONE for adjustment. Our technicians do not adjust relief valves. A relief valve that fails\nto activate is a critical safety issue; tag the device out of service and contact KONE immediately. See the\noperations handbook for the TSSA shutdown response procedure.",
+          "source_name": "Maintenance Document 10078",
+          "similarity_score": 0.7269
+        },
+        {
+          "text": "Fluid level changes as the car moves; it drops when the\ncar is at the top floor and rises when the car is at the bottom\n\u2022 Piping and fittings: connect the pump unit, control valve, and jack. Leaks at fittings are one of the most\ncommon maintenance issues\nHoled vs. Holeless Configurations\nOur fleet includes two hydraulic configurations, and the distinction matters for maintenance:\nHoled (in-ground) hydraulic elevators have the cylinder buried in a borehole beneath the elevator pit. The\npiston extends upward from underground to push the car. These are the older, more common design in our\nfleet. The underground cylinder introduces corrosion risk, environmental contamination potential, and\ndifficulty inspecting without excavation. See the Underground Cylinder Monitoring section for our protocols. 1\nHoleless hydraulic elevators mount the cylinder(s) above ground in the hoistway. No borehole is required. These are easier to inspect and maintain, and are standard in newer installations. Holeless configurations are\nthe preferred option when building owners undertake modernization. Some units use a roped hydraulic design, where the jack connects to the car through ropes and sheaves\nrather than pushing directly. This multiplies travel distance, allowing hydraulic systems to serve slightly taller\nbuildings. Roped hydraulic elevators require additional maintenance on ropes and sheaves. Hydraulic elevators have different failure modes than traction systems. The fluid is the lifeblood:\ncontaminated, degraded, or low fluid causes most problems. Seals wear and leak. Underground cylinders\ncorrode invisibly. Ontario temperature extremes affect fluid viscosity. Every section of this document traces\nback to these characteristics. Routine Maintenance Schedule\nOur technicians follow a tiered maintenance schedule for every hydraulic elevator. This does not replace\nTSSA-mandated inspections (see Inspection Types and What They Check), but ensures we catch problems\nearly between inspections. All visits must be logged (see Record-Keeping). Monthly Checks\nEvery hydraulic elevator gets a monthly visit from the assigned zone technician (approximately 30 to 45\nminutes per device):\n1. Fluid level check: with the car at the lowest landing, check the reservoir sight glass or dipstick. Record the\nlevel and compare to last month. A gradual decline indicates a leak. Note whether the reading is hot or\ncold (see Hydraulic Fluid Management). 2.",
+          "source_name": "Maintenance Document 10078",
+          "similarity_score": 0.7268
+        },
+        {
+          "text": "Operating with damaged ropes invalidates those margins. Hydraulic System Failure\nHydraulic failures range from minor leaks to catastrophic events. The most serious is rapid oil loss (blowout),\nwhere the car descends uncontrollably. Safety devices (check valves, restrictor valves) should limit descent\nspeed, but effectiveness depends on the specific devices installed. Response to a hydraulic failure:\n1. Approach with caution. Oil may be on the floor (slip hazard). Oil under pressure can spray from failed\nfittings (burn and injection hazard; high-pressure oil can penetrate skin). 2. Shut off the pump motor if still running. A running pump with a failed line continues pumping fluid onto\nthe floor and can overheat. 3. Check for entrapments. Passengers may be trapped, potentially at the lowest floor or in the pit area. 4. Contain the oil spill. Hydraulic oil is a regulated waste and environmental contamination risk. Use\nabsorbent materials. Prevent oil from reaching floor drains (may connect to the storm sewer). 5. Contact KONE immediately. KONE handles all hydraulic system repairs. 6. Report to TSSA if the failure caused injury or uncontrolled descent. 7. Document everything: photographs of the failure point, oil spread, damage, and conditions observed. See the Hydraulic Elevator Maintenance Procedures for hydraulic system details. Governor Activation\nThe overspeed governor monitors car speed. If the car exceeds a preset speed (typically 115% of rated\nspeed), the governor activates the car safety, which clamps onto the guide rails and stops the car. When the governor activates:\n1. The car is stopped on the rails. The safety device will not release without manual intervention. 2. Perform passenger rescue as needed. 3. Do NOT attempt to reset the safety device. The overspeed cause must be determined first; resetting\nwithout addressing the cause could allow the dangerous condition to recur. 4. Common causes: brake failure (car accelerates under gravity), drive malfunction (controller or motor\ndrives car too fast), governor rope tangled or caught (false activation). 5. Contact ThyssenKrupp (traction systems) or the appropriate contractor. 10\n6. Report to TSSA. An overspeed event is reportable regardless of whether passengers were present.",
+          "source_name": "Maintenance Document 10083",
+          "similarity_score": 0.7262
+        },
+        {
+          "text": "Software glitches, failed relays, or communication errors can stop the elevator mid-\ntravel. Regular controller diagnostics by the contractor help identify failing components. Always document the cause of an entrapment so we can track patterns across the fleet. If a building or\ndevice type shows a pattern, escalate to the Field Operations Manager. Flooding Response\nFlooding is a recurring problem across our fleet, particularly in older buildings and during Ontario's spring\nthaw and heavy summer storms. Water in an elevator pit, hoistway, or machine room creates immediate\nelectrical hazards and can cause extensive long-term damage. Pit Flooding\nPit flooding is the most common type. Water enters from broken pipes, failed sump pumps, rising water\ntables, or external surface water. Immediate risk assessment:\n1. Do NOT enter a flooded pit. Assume the water is electrically energized until confirmed safe. Elevator pits\ncontain electrical components (pit stop switch, buffer contacts, traveling cable terminations) that can\nenergize the water if insulation is compromised. 2. Assess the water level from above. If water is at or above the buffer springs, shut down the device\nimmediately. 3. Shut down from the main disconnect in the machine room. Do not rely on the pit stop switch; it may be\nsubmerged and compromised. Identifying and stopping the water source:\n1. Contact the building owner or manager immediately. Common sources: broken domestic water pipes,\nfailed fire suppression piping, blocked floor drains, rising groundwater, and external water from\nconstruction or landscaping. 2. Stopping the source is the building owner's responsibility, but communicate the urgency clearly. Water removal and assessment:\n1. Once the source is stopped, activate the pit sump pump or arrange for a portable pump. 2. Allow the pit to dry (24 to 72 hours depending on volume and ventilation). 3. Post-flood inspection is mandatory. The device must not return to service until a technician has\ninspected:\n5\n4. All electrical components in the pit for water damage, corrosion, or short circuits\n5. The buffer assembly for rust, seized components, or misalignment\n6. The traveling cable and connections at the pit termination\n7. The pit structure for erosion, cracking, or settling\n8. For hydraulic elevators: the cylinder base and visible jack portions for water intrusion\n9. Document everything with photographs.",
+          "source_name": "Maintenance Document 10083",
+          "similarity_score": 0.7152
+        },
+        {
+          "text": "\u2022 Leaking valve: the valve does not seat fully, allowing fluid to bypass. The car drifts down slowly when it\nshould be stationary. This is the most common valve failure and a frequent source of leveling complaints. \u2022 Solenoid failure: the electrical solenoid that actuates the valve burns out or loses its magnetic strength. The valve fails to respond to controller commands. Underground Cylinder Corrosion\nMany older hydraulic elevators use in-ground cylinders that extend into a bore hole beneath the pit. In direct\ncontact with soil and groundwater, they corrode over time, leading to fluid loss into the ground (an\nenvironmental contamination issue), cylinder wall thinning, and inconsistent car movement. Ontario\nenvironmental regulations require reporting fluid releases into soil. Remediation options (cylinder lining,\nreplacement, or conversion to holeless) are all major alterations requiring TSSA approval. This is a fleet-wide\nconcern for our older hydraulic installations. Hose Failure\nHigh-pressure hydraulic hoses connect the power unit to the cylinder. Burst hose failure is rare but dangerous\n(hot, high-pressure oil release). Hoses should be inspected for cracking, bulging, and fitting corrosion, and\nreplaced on a schedule. Risk level: moderate overall. The exceptions are hose burst and in-ground cylinder failure. Action: field technicians can check fluid levels, inspect for leaks, and report abnormal sounds. All hydraulic\nrepairs beyond basic monitoring require a contractor, typically KONE for our fleet. See the Hydraulic Elevator\nMaintenance Procedures for preventive maintenance schedules. 5\nTraction System Failures\nTraction elevators serve our mid- and high-rise installations: passenger elevators, Freight Elevator-E units,\nand observation elevators. ThyssenKrupp Elevator handles most traction maintenance, including MRL\ninstallations. Rope Wear\nHoist ropes (wire ropes) suspend the car and counterweight, typically 4 to 8 ropes in parallel. Failure modes:\n\u2022 Broken wires: individual wires break from fatigue. CSA B44 specifies the maximum broken wires per lay\nlength before replacement. \u2022 Diameter reduction: rope thins as wires break and core compresses. \u2022 Corrosion: moisture from pit flooding, roof leaks, or condensation weakens rope wires. \u2022 Unequal tension: unevenly stretched ropes overload some strands, accelerating wear and causing\nvibration. Risk level: high.",
+          "source_name": "Maintenance Document 10082",
+          "similarity_score": 0.7143
+        }
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "D3",
+      "label": "TSSA shutdown \u2014 count vs list phrasing",
+      "message": "How many elevators are currently flagged for TSSA shutdown?",
+      "sprint2_counterpart": "D1",
+      "reply": "Based on the most recent inspections, 20 elevators have non-passing outcomes that may require TSSA follow-up or shutdown.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)",
+      "agent_name": null,
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "How many elevators are currently flagged for TSSA shutdown?"
+        },
+        {
+          "role": "assistant",
+          "content": "Based on the most recent inspections, 20 elevators have non-passing outcomes that may require TSSA follow-up or shutdown.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)"
+        }
+      ],
+      "elapsed_s": 6.9
+    },
+    {
+      "id": "D5",
+      "label": "Incident count last year \u2014 exact overlap",
+      "message": "How many incidents were reported in the last year?",
+      "sprint2_counterpart": "D3",
+      "reply": "The most recent year on record shows incident reports.\n\nSource: live fleet database \u2014 incidents (aggregate)\n\nYear: 2015\nTotal incidents: 506\nWith injury: 142\nFatal: 2",
+      "agent_name": null,
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "How many incidents were reported in the last year?"
+        },
+        {
+          "role": "assistant",
+          "content": "The most recent year on record shows incident reports.\n\nSource: live fleet database \u2014 incidents (aggregate)\n\nYear: 2015\nTotal incidents: 506\nWith injury: 142\nFatal: 2"
+        }
+      ],
+      "elapsed_s": 7.2
+    },
+    {
+      "id": "K1",
+      "label": "RAG hydraulic procedure \u2014 near-identical phrasing",
+      "message": "What is the procedure for hydraulic pressure loss?",
+      "sprint2_counterpart": "K1",
+      "reply": "Depending on whether you are performing a diagnostic test or responding to a system failure, the procedures for hydraulic pressure loss are as follows:\n\n### Response to Hydraulic Failure\nIn the event of a failure (such as rapid oil loss or a blowout), follow these safety and containment steps:\n*   **Safety Approach:** Approach with caution due to slip hazards from oil on the floor and injection hazards from high-pressure oil sprays.\n*   **Power Down:** Shut off the pump motor if it is still running to prevent overheating and further fluid loss.\n*   **Passenger Safety:** Check for any trapped passengers, specifically in the pit area or at the lowest floor.\n*   **Containment:** Use absorbent materials to contain the oil spill and prevent it from reaching floor drains or storm sewers.\n*   **Escalation:** Contact KONE immediately for all repairs and report the incident to the TSSA if the failure resulted in an uncontrolled descent or injury.\n*   **Documentation:** Take photographs of the failure point, the extent of the oil spread, and the observed conditions.\n\nSource: **Maintenance Document 10083**\n\n### Diagnostic Pressure Testing\nTo identify the cause of pressure loss (such as internal leaks or worn components), technicians perform the following tests:\n\n**Static Pressure Test**\n1. Connect a pressure gauge to the test port.\n2. Let the system stabilize for at least 2 minutes after the car stops.\n3. Record the static pressure and monitor it for 5 minutes. A gradual drop indicates an internal leak at the control valve or cylinder seals.\n\n**Running Pressure Test**\n1. With the gauge connected, send the car on a full up-run under load.\n2. Record the peak pressure and compare it to the rated working pressure on the data plate.\n3. If pressure is significantly below rated, it may indicate low fluid, an internal valve bypass, or a worn pump.\n\nSource: **Maintenance Document 10078**",
+      "agent_name": null,
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What is the procedure for hydraulic pressure loss?"
+        },
+        {
+          "role": "assistant",
+          "content": "Depending on whether you are performing a diagnostic test or responding to a system failure, the procedures for hydraulic pressure loss are as follows:\n\n### Response to Hydraulic Failure\nIn the event of a failure (such as rapid oil loss or a blowout), follow these safety and containment steps:\n*   **Safety Approach:** Approach with caution due to slip hazards from oil on the floor and injection hazards from high-pressure oil sprays.\n*   **Power Down:** Shut off the pump motor if it is still running to prevent overheating and further fluid loss.\n*   **Passenger Safety:** Check for any trapped passengers, specifically in the pit area or at the lowest floor.\n*   **Containment:** Use absorbent materials to contain the oil spill and prevent it from reaching floor drains or storm sewers.\n*   **Escalation:** Contact KONE immediately for all repairs and report the incident to the TSSA if the failure resulted in an uncontrolled descent or injury.\n*   **Documentation:** Take photographs of the failure point, the extent of the oil spread, and the observed conditions.\n\nSource: **Maintenance Document 10083**\n\n### Diagnostic Pressure Testing\nTo identify the cause of pressure loss (such as internal leaks or worn components), technicians perform the following tests:\n\n**Static Pressure Test**\n1. Connect a pressure gauge to the test port.\n2. Let the system stabilize for at least 2 minutes after the car stops.\n3. Record the static pressure and monitor it for 5 minutes. A gradual drop indicates an internal leak at the control valve or cylinder seals.\n\n**Running Pressure Test**\n1. With the gauge connected, send the car on a full up-run under load.\n2. Record the peak pressure and compare it to the rated working pressure on the data plate.\n3. If pressure is significantly below rated, it may indicate low fluid, an internal valve bypass, or a worn pump.\n\nSource: **Maintenance Document 10078**"
+        }
+      ],
+      "elapsed_s": 46.8
+    },
+    {
+      "id": "SA1",
+      "label": "Scheduling Phase 1 \u2014 signed preview (no confirm)",
+      "message": "Schedule a periodic inspection for elevator 55123 on 2026-07-20.",
+      "sprint2_counterpart": "S3",
+      "reply": "The elevator ID 55123 was not found in the database. This means either the ID is incorrect or the elevator doesn't exist in our system.\n\nCould you please verify the elevator ID and try again with the correct number? You can find the correct ID on the elevator panel or in the operations dashboard.",
+      "agent_name": null,
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Schedule a periodic inspection for elevator 55123 on 2026-07-20."
+        },
+        {
+          "role": "assistant",
+          "content": "The elevator ID 55123 was not found in the database. This means either the ID is incorrect or the elevator doesn't exist in our system.\n\nCould you please verify the elevator ID and try again with the correct number? You can find the correct ID on the elevator panel or in the operations dashboard."
+        }
+      ],
+      "elapsed_s": 3.5
+    },
+    {
+      "id": "G1",
+      "label": "Advisory boundary \u2014 in-domain acronym, no data signal",
+      "message": "What does TSSA stand for?",
+      "sprint2_counterpart": "G1",
+      "reply": "TSSA stands for the Technical Standards and Safety Authority. It's the non-profit corporation in Ontario responsible for overseeing technical safety across several sectors, including elevating devices like elevators and escalators. The TSSA administers the *Technical Standards and Safety Act* and O. Reg. 209/01 \u2014 Elevating Devices, which sets the rules for inspection, licensing, and operation of elevators in the province.",
+      "agent_name": null,
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What does TSSA stand for?"
+        },
+        {
+          "role": "assistant",
+          "content": "TSSA stands for the Technical Standards and Safety Authority. It's the non-profit corporation in Ontario responsible for overseeing technical safety across several sectors, including elevating devices like elevators and escalators. The TSSA administers the *Technical Standards and Safety Act* and O. Reg. 209/01 \u2014 Elevating Devices, which sets the rules for inspection, licensing, and operation of elevators in the province."
+        }
+      ],
+      "elapsed_s": 3.0
+    }
+  ]
+}

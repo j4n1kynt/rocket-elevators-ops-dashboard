@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rocket Elevators — Operations Dashboard</title>
+<meta name="description" content="Final project presentation: an AI-assisted operations dashboard for Ontario's elevator fleet.">
+<style>
+  :root{
+    --ground:#F5F7FA;
+    --surface:#FFFFFF;
+    --ink:#0E1726;
+    --ink-2:#334155;
+    --muted:#64748B;
+    --line:#E2E8F0;
+    --line-strong:#CBD5E1;
+    --navy:#0C1A2E;
+    --navy-2:#15273F;
+    --blue:#1E50C8;
+    --blue-ink:#173F9E;
+    --blue-soft:#EAF0FF;
+    --good:#16A34A;
+    --warn:#C2740B;
+    --crit:#DC2626;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", "SF Mono", Menlo, Consolas, monospace;
+    --maxw: 1120px;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    color:var(--ink);
+    background:var(--ground);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- Deck mechanics ---------- */
+  .deck{position:fixed;inset:0;overflow:hidden;}
+  .slide{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:clamp(28px,5vw,80px);
+    opacity:0;visibility:hidden;
+    transform:translateY(14px);
+    transition:opacity .45s ease, transform .45s ease, visibility .45s;
+    overflow-y:auto;
+  }
+  .slide.active{opacity:1;visibility:visible;transform:none;z-index:2;}
+  .inner{width:100%;max-width:var(--maxw);margin:0 auto;}
+
+  @media (prefers-reduced-motion: reduce){
+    .slide{transition:opacity .2s ease;transform:none;}
+  }
+
+  /* ---------- Type ---------- */
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--blue);font-weight:600;
+    display:inline-flex;align-items:center;gap:10px;
+    margin:0 0 18px;
+  }
+  .eyebrow::before{
+    content:"";width:26px;height:2px;background:var(--blue);display:inline-block;
+  }
+  h1{
+    font-size:clamp(34px,6vw,68px);line-height:1.02;letter-spacing:-.02em;
+    margin:0;font-weight:700;text-wrap:balance;
+  }
+  h2{
+    font-size:clamp(26px,3.6vw,44px);line-height:1.06;letter-spacing:-.018em;
+    margin:0 0 8px;font-weight:680;text-wrap:balance;
+  }
+  .lede{
+    font-size:clamp(16px,1.7vw,20px);line-height:1.5;color:var(--ink-2);
+    max-width:64ch;margin:14px 0 0;
+  }
+  p{margin:0;}
+  .mono{font-family:var(--mono);}
+
+  /* ---------- Cover ---------- */
+  #cover{
+    background:
+      radial-gradient(140% 100% at 85% -10%, #1b375c 0, transparent 60%),
+      linear-gradient(160deg,#0C1A2E 0%, #102338 60%, #0A1626 100%);
+    color:#fff;
+    background-color:var(--navy);
+  }
+  #cover::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(120% 90% at 70% 20%, #000 30%, transparent 80%);
+    -webkit-mask-image:radial-gradient(120% 90% at 70% 20%, #000 30%, transparent 80%);
+  }
+  #cover .inner{position:relative;}
+  #cover h1{color:#fff;font-size:clamp(40px,7.4vw,86px);}
+  #cover .eyebrow{color:#7FA6FF;}
+  #cover .eyebrow::before{background:#7FA6FF;}
+  .cover-sub{
+    font-family:var(--mono);color:#A9C0E6;font-size:clamp(14px,1.6vw,18px);
+    margin-top:22px;letter-spacing:.01em;line-height:1.7;
+  }
+  .cover-meta{
+    display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:40px;
+    font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:#8FA8CE;
+    border-top:1px solid rgba(255,255,255,.12);padding-top:22px;
+  }
+  .cover-meta b{color:#E6EEFB;font-weight:600;}
+  .brandmark{
+    display:inline-flex;align-items:center;gap:12px;
+    font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;font-size:13px;color:#9FB7DD;
+    margin-bottom:34px;
+  }
+  .brandmark .rk{
+    width:30px;height:30px;border:1.5px solid #3C5C8C;border-radius:7px;
+    display:grid;place-items:center;color:#9FC2FF;font-size:15px;
+  }
+
+  /* ---------- Section divider ---------- */
+  .divider{background:var(--navy);color:#fff;}
+  .divider .eyebrow{color:#7FA6FF;}
+  .divider .eyebrow::before{background:#7FA6FF;}
+  .div-head{display:flex;align-items:baseline;gap:clamp(16px,3vw,30px);flex-wrap:wrap;}
+  .div-num{
+    font-family:var(--mono);font-weight:700;line-height:.82;letter-spacing:-.04em;
+    font-size:clamp(56px,13vw,150px);color:rgba(127,166,255,.22);
+  }
+  .divider h2{color:#fff;}
+  .div-topics{display:flex;flex-wrap:wrap;gap:10px;margin-top:clamp(26px,4vw,42px);}
+  .div-topics span{
+    font-family:var(--mono);font-size:13px;letter-spacing:.04em;color:#C9D7EE;
+    border:1px solid rgba(255,255,255,.20);border-radius:999px;padding:8px 16px;
+  }
+
+  /* ---------- Generic layout helpers ---------- */
+  .grid{display:grid;gap:18px;}
+  .cols-2{grid-template-columns:repeat(2,1fr);}
+  .cols-3{grid-template-columns:repeat(3,1fr);}
+  .cols-4{grid-template-columns:repeat(4,1fr);}
+  @media (max-width:860px){
+    .cols-2,.cols-3,.cols-4{grid-template-columns:1fr;}
+  }
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;
+  }
+  .card h3{
+    margin:0 0 8px;font-size:16px;font-weight:660;letter-spacing:-.01em;
+    display:flex;align-items:center;gap:9px;
+  }
+  .card p{font-size:14.5px;line-height:1.55;color:var(--ink-2);}
+  .tag{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  /* ---------- Readout (metric) ---------- */
+  .readout-row{display:flex;flex-wrap:wrap;gap:14px;margin-top:26px;}
+  .readout{
+    flex:1 1 0;min-width:150px;
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;
+  }
+  .readout .num{
+    font-family:var(--mono);font-variant-numeric:tabular-nums;
+    font-size:clamp(26px,3.4vw,40px);font-weight:600;letter-spacing:-.02em;line-height:1;
+    color:var(--ink);
+  }
+  .readout .lbl{
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);margin-top:12px;
+  }
+  .readout .sub{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
+
+  /* signal dots */
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none;}
+  .dot.good{background:var(--good);}
+  .dot.warn{background:var(--warn);}
+  .dot.crit{background:var(--crit);}
+  .dot.blue{background:var(--blue);}
+
+  ul.clean{margin:10px 0 0;padding:0;list-style:none;}
+  ul.clean li{
+    position:relative;padding-left:20px;margin:9px 0;font-size:14.5px;line-height:1.5;color:var(--ink-2);
+  }
+  ul.clean li::before{
+    content:"";position:absolute;left:0;top:.62em;width:7px;height:7px;border-radius:2px;
+    background:var(--blue);
+  }
+  ul.clean li b{color:var(--ink);font-weight:640;}
+
+  .kbd{font-family:var(--mono);font-size:12px;background:var(--blue-soft);color:var(--blue-ink);
+    border:1px solid #d6e1fb;border-radius:6px;padding:2px 7px;}
+
+  .twocol{display:grid;grid-template-columns:1.05fr 1fr;gap:34px;align-items:start;}
+  @media (max-width:920px){.twocol{grid-template-columns:1fr;gap:20px;}}
+
+  /* ---------- Architecture diagram ---------- */
+  .arch{display:flex;flex-direction:column;gap:0;margin-top:18px;}
+  .node{
+    background:var(--surface);border:1px solid var(--line-strong);border-radius:11px;
+    padding:13px 18px;text-align:center;position:relative;
+  }
+  .node .nname{font-weight:640;font-size:15px;}
+  .node .nmeta{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em;margin-top:3px;}
+  .node.dark{background:var(--navy);border-color:var(--navy);color:#fff;}
+  .node.dark .nmeta{color:#9FB7DD;}
+  .node.blue{background:var(--blue-soft);border-color:#cdddfb;}
+  .arrow{height:24px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+  .arrow span{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--muted);
+    background:var(--ground);padding:0 8px;}
+  .arch-split{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media (max-width:720px){.arch-split{grid-template-columns:1fr;}}
+
+  .agentchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:center;}
+  .chip{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;
+    border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:5px 12px;
+    color:#D9E4F7;
+  }
+
+  /* ---------- Pipeline flow ---------- */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin-top:22px;}
+  .stage{
+    flex:1 1 150px;background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:16px;min-width:140px;
+  }
+  .stage .si{font-family:var(--mono);font-size:11px;color:var(--blue);letter-spacing:.1em;}
+  .stage .st{font-weight:640;font-size:15px;margin-top:8px;}
+  .stage .sd{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.45;}
+  .flowarrow{display:flex;align-items:center;justify-content:center;color:var(--line-strong);
+    font-size:22px;padding:0 4px;}
+  @media (max-width:860px){.flowarrow{transform:rotate(90deg);width:100%;height:22px;}}
+
+  .funnel{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;align-items:center;}
+  .fstep{
+    font-family:var(--mono);font-size:13px;border:1px solid var(--line);background:var(--surface);
+    border-radius:9px;padding:9px 13px;display:flex;flex-direction:column;gap:3px;
+  }
+  .fstep b{font-size:17px;font-variant-numeric:tabular-nums;}
+  .fstep span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .fsep{color:var(--line-strong);font-family:var(--mono);}
+
+  /* ---------- DB schema ---------- */
+  .schema{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px;}
+  @media (max-width:860px){.schema{grid-template-columns:1fr 1fr;}}
+  @media (max-width:560px){.schema{grid-template-columns:1fr;}}
+  .table-card{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--surface);}
+  .table-card .th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:13px;
+    padding:9px 13px;letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center;}
+  .table-card .th .rel{font-size:10px;color:#9FB7DD;}
+  .table-card ul{margin:0;padding:9px 13px;list-style:none;}
+  .table-card li{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);padding:2.5px 0;
+    display:flex;justify-content:space-between;gap:10px;}
+  .table-card li .pk{color:var(--blue);}
+  .table-card.central .th{background:var(--blue);}
+
+  /* endpoint list */
+  .eplist{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin-top:14px;}
+  @media (max-width:720px){.eplist{grid-template-columns:1fr;}}
+  .ep{font-family:var(--mono);font-size:12.5px;display:flex;gap:10px;align-items:baseline;
+    padding:6px 0;border-bottom:1px solid var(--line);}
+  .ep .verb{color:var(--blue);font-weight:600;min-width:46px;}
+  .ep .path{color:var(--ink);}
+  .ep .note{color:var(--muted);font-size:11px;margin-left:auto;font-family:var(--sans);}
+
+  a{color:var(--blue);}
+
+  /* ---------- Chrome: progress + nav ---------- */
+  .progress{position:fixed;top:0;left:0;height:3px;background:var(--blue);width:0;z-index:50;
+    transition:width .35s ease;}
+  .topbar{position:fixed;top:0;left:0;right:0;height:54px;display:flex;align-items:center;
+    justify-content:space-between;padding:0 clamp(18px,4vw,40px);z-index:40;pointer-events:none;}
+  .topbar .b{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);display:flex;align-items:center;gap:9px;}
+  .topbar .b .rk{width:20px;height:20px;border:1.4px solid var(--line-strong);border-radius:5px;
+    display:grid;place-items:center;color:var(--blue);font-size:11px;}
+  .counter{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  body.on-dark .topbar .b{color:#9FB7DD;}
+  body.on-dark .topbar .b .rk{border-color:#3C5C8C;color:#9FC2FF;}
+  body.on-dark .counter{color:#9FB7DD;}
+
+  .nav{position:fixed;bottom:0;left:0;right:0;height:56px;display:flex;align-items:center;
+    justify-content:center;gap:18px;z-index:40;padding:0 18px;}
+  .dots{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .dots button{width:8px;height:8px;border-radius:50%;border:0;background:var(--line-strong);
+    padding:0;cursor:pointer;transition:transform .2s,background .2s;}
+  .dots button.on{background:var(--blue);transform:scale(1.35);}
+  .dots button:focus-visible{outline:2px solid var(--blue);outline-offset:3px;}
+  .navbtn{
+    pointer-events:auto;border:1px solid var(--line-strong);background:var(--surface);
+    width:38px;height:38px;border-radius:9px;display:grid;place-items:center;cursor:pointer;
+    color:var(--ink);font-size:16px;transition:border-color .15s,background .15s;flex:none;
+  }
+  .navbtn:hover{border-color:var(--blue);color:var(--blue);}
+  .navbtn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+  .navbtn[disabled]{opacity:.35;cursor:default;}
+  body.on-dark .navbtn{background:rgba(255,255,255,.06);border-color:#33507A;color:#D9E4F7;}
+  body.on-dark .dots button{background:#33507A;}
+  body.on-dark .dots button.on{background:#7FA6FF;}
+
+  .hint{position:fixed;bottom:16px;right:20px;font-family:var(--mono);font-size:10.5px;
+    letter-spacing:.08em;color:var(--muted);z-index:40;text-transform:uppercase;}
+  body.on-dark .hint{color:#6E89B5;}
+  @media (max-width:680px){.hint{display:none;}}
+
+  /* ---------- Print ---------- */
+  @media print{
+    .progress,.topbar,.nav,.hint{display:none !important;}
+    .deck{position:static;overflow:visible;}
+    .slide{position:static;opacity:1 !important;visibility:visible !important;transform:none !important;
+      height:100vh;page-break-after:always;border-bottom:1px solid #ccc;}
+    body{background:#fff;}
+    #cover,.divider{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+</style>
+</head>
+<body class="on-dark">
+
+<div class="progress" id="progress"></div>
+
+<div class="topbar">
+  <div class="b"><span class="rk">▲</span> Rocket Elevators · AND‑2</div>
+  <div class="counter" id="counter">01 / 23</div>
+</div>
+
+<main class="deck" id="deck">
+
+  <!-- 1 — COVER -->
+  <section class="slide active" data-dark="1" id="cover">
+    <div class="inner">
+      <div class="brandmark"><span class="rk">▲</span> Operations Intelligence Platform</div>
+      <div class="eyebrow">Final Project Presentation</div>
+      <h1>Rocket Elevators<br>Operations Dashboard</h1>
+      <p class="cover-sub">
+        A live operations view of Ontario's elevator fleet —<br>
+        built end‑to‑end with an AI‑assisted engineering workflow.
+      </p>
+      <div class="cover-meta">
+        <span><b>Stack</b> · Flask · Go · PostgreSQL · MCP · RAG · ML</span>
+        <span><b>Fleet</b> · 43,002 active devices</span>
+        <span><b>Today</b> · 2026‑06‑26</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 1 ===================== -->
+  <section class="slide divider" data-dark="1">
+    <div class="inner">
+      <div class="eyebrow">Section 01</div>
+      <div class="div-head"><span class="div-num">01</span><h2>Introduction</h2></div>
+      <div class="div-topics">
+        <span>Context of the project</span>
+        <span>The problem</span>
+        <span>System architecture</span>
+        <span>Project pipeline</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Context of the project -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Introduction · Context of the project</div>
+      <h2>What we set out to build.</h2>
+      <p class="lede">Rocket Elevators is an operations dashboard and data pipeline that analyzes the status
+        of Ontario's elevator fleet. The whole project was built with an AI‑assisted workflow — spec‑first,
+        reviewed on every change, and shipped as a small set of independent services.</p>
+      <div class="grid cols-3" style="margin-top:24px;">
+        <div class="card"><h3>The domain</h3><p>Ontario's TSSA‑regulated elevating devices — licenses, inspections, incidents, and alterations.</p></div>
+        <div class="card"><h3>The user</h3><p>An operations manager who needs fleet status, compliance risk, and safety history at a glance.</p></div>
+        <div class="card"><h3>The goal</h3><p>One operational picture, plus a natural‑language assistant to help understand what's on screen.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The problem -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Introduction · The problem</div>
+      <h2>The data was true, but unusable.</h2>
+      <p class="lede">Everything the operations team needed already existed — scattered across five separate
+        government datasets that didn't share a clean key, a date format, or a single source of truth.</p>
+      <div class="readout-row">
+        <div class="readout"><div class="num">5</div><div class="lbl">Disconnected datasets</div><div class="sub">License, inspection, installed, incident, altered</div></div>
+        <div class="readout"><div class="num">45,383</div><div class="lbl">Raw license rows</div><div class="sub">Mixed statuses, mixed date formats</div></div>
+        <div class="readout"><div class="num">0</div><div class="lbl">Unified views</div><div class="sub">No single screen, no risk signal, no history</div></div>
+      </div>
+      <p class="lede" style="margin-top:20px;">Answering "which elevators need attention this week?" meant
+        manually cross‑referencing spreadsheets. We set out to make that one click.</p>
+    </div>
+  </section>
+
+  <!-- System architecture -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Introduction · System architecture</div>
+      <h2>Five services, one HTTP conversation.</h2>
+      <p class="lede">No message broker, no shared memory — every component talks over plain HTTP, so each
+        layer can be reasoned about, tested, and deployed on its own.</p>
+      <div class="arch">
+        <div class="node"><div class="nname">Browser</div><div class="nmeta">HTMX partial‑page swaps · no custom JavaScript</div></div>
+        <div class="arrow"><span>HTML fragments ↓</span></div>
+        <div class="node blue"><div class="nname">Flask Dashboard · :5000</div><div class="nmeta">Jinja2 templates · Tailwind · API proxy</div></div>
+        <div class="arrow"><span>REST (JSON) · POST /chat ↓</span></div>
+        <div class="node dark">
+          <div class="nname">Go REST API · :8080</div>
+          <div class="nmeta">Fleet endpoints + multi‑agent chat router</div>
+          <div class="agentchips"><span class="chip">general</span><span class="chip">data</span><span class="chip">knowledge</span><span class="chip">scheduling</span></div>
+        </div>
+        <div class="arrow"><span>SQL ↓ &nbsp;&nbsp; JSON‑RPC (MCP) ↓</span></div>
+        <div class="arch-split">
+          <div class="node"><div class="nname">PostgreSQL 16</div><div class="nmeta">elevators · inspections · incidents · predictions · conversations</div></div>
+          <div class="node"><div class="nname">MCP Server · :8765</div><div class="nmeta">FastMCP · 10 tools · ChromaDB vector search</div></div>
+        </div>
+        <div class="arrow"><span>all agents → LLM · OpenRouter (prod) / Ollama (dev)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Project pipeline -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Introduction · Project pipeline</div>
+      <h2>From a raw registry to a working tool.</h2>
+      <p class="lede">The project moves through five stages. Each one is a self‑contained piece of work that
+        hands a clean output to the next.</p>
+      <div class="flow">
+        <div class="stage"><div class="si">01 · INGEST</div><div class="st">Unify</div><div class="sd">Five datasets merged into one schema on a shared key</div></div>
+        <div class="flowarrow">→</div>
+        <div class="stage"><div class="si">02 · LEARN</div><div class="st">Intelligence</div><div class="sd">ML risk model + NLP incident clustering</div></div>
+        <div class="flowarrow">→</div>
+        <div class="stage"><div class="si">03 · SERVE</div><div class="st">Go API</div><div class="sd">REST endpoints over PostgreSQL</div></div>
+        <div class="flowarrow">→</div>
+        <div class="stage"><div class="si">04 · PRESENT</div><div class="st">Dashboard</div><div class="sd">Flask + HTMX, no‑JS interface</div></div>
+        <div class="flowarrow">→</div>
+        <div class="stage"><div class="si">05 · ASSIST</div><div class="st">Chatbot</div><div class="sd">MCP‑tooled multi‑agent assistant</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 2 ===================== -->
+  <section class="slide divider" data-dark="1">
+    <div class="inner">
+      <div class="eyebrow">Section 02</div>
+      <div class="div-head"><span class="div-num">02</span><h2>Data Processing</h2></div>
+      <div class="div-topics">
+        <span>Context</span>
+        <span>Data pipeline</span>
+        <span>Data preprocessing</span>
+        <span>NLP</span>
+        <span>ML</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data Processing · Context -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Data Processing · Context</div>
+      <h2>What we were working with.</h2>
+      <p class="lede">Five source files, one shared identifier — the device number — but spelled differently
+        in every dataset, with dates in several formats and dozens of sparse columns. Processing turns this
+        into clean fleet data, ML features, and text corpora.</p>
+      <div class="grid cols-3" style="margin-top:22px;">
+        <div class="card"><h3>license.csv</h3><p>The core list — every device, its status, location, and license expiry.</p></div>
+        <div class="card"><h3>inspection.csv</h3><p>143,181 inspections — many per elevator, with dates and outcomes.</p></div>
+        <div class="card"><h3>installed.json</h3><p>Equipment type and classification for each device.</p></div>
+        <div class="card"><h3>incident.json</h3><p>Safety events with free‑text narratives — the raw material for NLP.</p></div>
+        <div class="card"><h3>altered.json</h3><p>Modification and alteration history per device.</p></div>
+        <div class="card" style="background:var(--blue-soft);border-color:#cdddfb;"><h3>Join key</h3><p><span class="mono">ElevatingDevicesNumber</span> → normalized to <span class="mono">elevator_id</span>.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data Processing · Data pipeline -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Data Processing · Data pipeline</div>
+      <h2>One idempotent run rebuilds everything.</h2>
+      <p class="lede"><span class="mono">etl_to_database.py</span> reads the source files, filters and joins
+        them, and loads PostgreSQL — safe to re‑run at any time without creating duplicates.</p>
+      <div class="flow">
+        <div class="stage"><div class="si">SOURCE</div><div class="st">/data</div><div class="sd">Five raw CSV / JSON files</div></div>
+        <div class="flowarrow">→</div>
+        <div class="stage"><div class="si">TRANSFORM</div><div class="st">ETL</div><div class="sd">Filter · join · normalize · dedupe</div></div>
+        <div class="flowarrow">→</div>
+        <div class="stage"><div class="si">LOAD</div><div class="st">PostgreSQL</div><div class="sd">Foreign keys + indexes, idempotent upserts</div></div>
+        <div class="flowarrow">→</div>
+        <div class="stage"><div class="si">EXPOSE</div><div class="st">Go API</div><div class="sd">Read models for the dashboard</div></div>
+      </div>
+      <p class="tag" style="margin-top:28px;">The merge, by record count</p>
+      <div class="funnel">
+        <div class="fstep"><b>45,383</b><span>All licenses</span></div><span class="fsep">→</span>
+        <div class="fstep"><b>43,002</b><span>Active + by request</span></div><span class="fsep">→</span>
+        <div class="fstep"><b>42,927</b><span>Location validated</span></div><span class="fsep">→</span>
+        <div class="fstep"><b>52,031</b><span>+ alteration history</span></div><span class="fsep">→</span>
+        <div class="fstep"><b>latest</b><span>Inspection per device</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data Processing · Data preprocessing -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Data Processing · Data preprocessing</div>
+      <h2>Making five datasets agree.</h2>
+      <p class="lede">Most of the real work is cleaning. Every transform is deliberate and documented, so the
+        same input always produces the same database.</p>
+      <div class="twocol" style="margin-top:8px;">
+        <ul class="clean">
+          <li><b>Status filter</b> — keep only ACTIVE and BY REQUEST devices (45,383 → 43,002)</li>
+          <li><b>Key normalization</b> — every dataset's device number cast to one integer <span class="mono">elevator_id</span></li>
+          <li><b>Location validation</b> — drop 75 rows where license and installed records disagree</li>
+        </ul>
+        <ul class="clean">
+          <li><b>Date parsing</b> — many formats normalized to <span class="mono">YYYY‑MM‑DD</span></li>
+          <li><b>Deduplication</b> — keep only the most recent inspection per elevator</li>
+          <li><b>Column collapsing</b> — ~30 sparse injury flags reduced to one <span class="mono">injury_severity</span> value</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data Processing · NLP -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Data Processing · NLP</div>
+      <h2>Turning 2,446 incident stories into priorities.</h2>
+      <p class="lede">Incident narratives are short — about 12 words each — so we cleaned them with NLTK and
+        used TF‑IDF + K‑means rather than topic modelling, which needs longer text. The clusters consolidate
+        into four hazard families.</p>
+      <div class="grid cols-4" style="margin-top:22px;">
+        <div class="card"><h3><span class="dot crit"></span> Falls & injuries</h3><p class="mono" style="font-size:22px;color:var(--ink);">43.4%</p><p>The dominant hazard</p></div>
+        <div class="card"><h3><span class="dot blue"></span> Water & flooding</h3><p class="mono" style="font-size:22px;color:var(--ink);">29.2%</p><p>Pits, sumps, drainage</p></div>
+        <div class="card"><h3><span class="dot warn"></span> Doors & entrapment</h3><p class="mono" style="font-size:22px;color:var(--ink);">24.5%</p><p>Largely preventable</p></div>
+        <div class="card"><h3><span class="dot good"></span> Mechanical</h3><p class="mono" style="font-size:22px;color:var(--ink);">2.9%</p><p>Hydraulic / controller</p></div>
+      </div>
+      <p class="lede" style="margin-top:18px;">The same embedding approach later powers the assistant's
+        search over incident history.</p>
+    </div>
+  </section>
+
+  <!-- Data Processing · ML -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Data Processing · ML</div>
+      <h2>Predicting which inspections will fail — honestly.</h2>
+      <div class="twocol">
+        <div>
+          <p class="lede" style="margin-top:0;">A Random Forest scores each elevator's failure risk from
+            engineered inspection‑history and order‑risk features. It's evaluated on a <b>time‑based split</b>
+            — trained on 2011–2015, tested on 2015–2017 — with every feature gated to data that pre‑dates the
+            inspection, so there is no leakage.</p>
+          <ul class="clean">
+            <li><b>Risk levels</b> — HIGH ≥ 0.70 · MEDIUM ≥ 0.40 · LOW below</li>
+            <li><b>Plain‑English why</b> — a language model turns each HIGH score into a short explanation grounded only in that elevator's record</li>
+            <li><b>Surfaced everywhere</b> — table badge, alerts feed, and detail panel</li>
+          </ul>
+        </div>
+        <div>
+          <div class="readout" style="margin-bottom:12px;">
+            <div class="num">0.77</div><div class="lbl">ROC‑AUC · Random Forest</div>
+            <div class="sub">vs. 0.50 majority‑class baseline</div>
+          </div>
+          <div class="readout">
+            <div class="num">0.52</div><div class="lbl">F1‑macro · primary metric</div>
+            <div class="sub">Both classes weighted equally — accuracy alone would hide the minority class</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 3 ===================== -->
+  <section class="slide divider" data-dark="1">
+    <div class="inner">
+      <div class="eyebrow">Section 03</div>
+      <div class="div-head"><span class="div-num">03</span><h2>Front‑end</h2></div>
+      <div class="div-topics">
+        <span>The assistant</span>
+        <span>General</span>
+        <span>Data</span>
+        <span>Knowledge</span>
+        <span>Scheduling</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Front-end overview -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Front‑end · The interface</div>
+      <h2>A dashboard you operate, not a page you read.</h2>
+      <p class="lede">HTMX 2 + Tailwind + Jinja2, and <b>zero custom JavaScript</b>. Every filter, sort, search,
+        page, and chat turn is a server round‑trip swapped into place — the client holds no state.</p>
+      <div class="grid cols-3" style="margin-top:22px;">
+        <div class="card"><h3>Four pages</h3><p>Overview, Fleet, Alerts, and Conversations — one persistent shell, only the main area swaps.</p></div>
+        <div class="card"><h3>The instrument panel</h3><p>Monospaced numerals everywhere; green / amber / red mean <i>state</i>, blue means <i>interaction</i>.</p></div>
+        <div class="card"><h3>No‑JS visuals</h3><p>A CSS conic‑gradient donut shows the risk split; status and outcome render as colored badges.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The assistant -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Front‑end · The assistant</div>
+      <h2>One chat box, the right specialist.</h2>
+      <p class="lede">A floating Fleet Assistant sits on every page. The user asks one way; behind the scenes
+        the message is routed to one of four agents — the routing is invisible.</p>
+      <div class="grid cols-4" style="margin-top:22px;">
+        <div class="card"><h3><span class="dot blue"></span> General</h3><p>Definitions, terminology, and greetings — answered from the assistant's knowledge, no tools.</p></div>
+        <div class="card"><h3><span class="dot blue"></span> Data</h3><p>Live fleet stats, lookups, inspection history, risk, and incidents — read from the database.</p></div>
+        <div class="card"><h3><span class="dot blue"></span> Knowledge</h3><p>Procedural and technical questions answered from maintenance docs and incident narratives.</p></div>
+        <div class="card"><h3><span class="dot blue"></span> Scheduling</h3><p>Books an inspection through a guarded, two‑step confirmation before anything is written.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 4 ===================== -->
+  <section class="slide divider" data-dark="1">
+    <div class="inner">
+      <div class="eyebrow">Section 04</div>
+      <div class="div-head"><span class="div-num">04</span><h2>Backend</h2></div>
+      <div class="div-topics">
+        <span>Go API</span>
+        <span>Flask</span>
+        <span>Chatbot</span>
+        <span>Endpoints</span>
+        <span>LLM</span>
+        <span>RAG</span>
+        <span>MCP</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Backend · Go API -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Backend · Go API</div>
+      <h2>The single source of truth.</h2>
+      <p class="lede">A Go service on port 8080 over a pooled PostgreSQL connection. Every elevator,
+        inspection, risk score, and conversation the dashboard shows comes from here — with parameterized
+        queries, validated filters, pagination, and fleet‑wide aggregates.</p>
+      <div class="grid cols-3" style="margin-top:22px;">
+        <div class="card"><h3>Fast & typed</h3><p>Compiled Go with the <span class="mono">pgx</span> driver; a 15‑second budget per request.</p></div>
+        <div class="card"><h3>Safe by default</h3><p>All filters validated; queries parameterized — no string‑built SQL.</p></div>
+        <div class="card"><h3>Read & aggregate</h3><p>Joins inspections and predictions per elevator; computes the fleet stats and alerts.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Backend · Endpoints -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Backend · Endpoints</div>
+      <h2>Eleven JSON endpoints.</h2>
+      <p class="lede">A small, predictable REST surface — fleet data, single‑elevator detail, conversation
+        history, and the chat entry point.</p>
+      <div class="eplist">
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/fleet/stats</span><span class="note">totals · risk split · pass rate</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/fleet/alerts</span><span class="note">HIGH risk + failed</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/elevators</span><span class="note">paginated · filter · sort</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/elevators/{id}</span><span class="note">single profile</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/elevators/{id}/inspections</span><span class="note">history</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/elevators/{id}/risk</span><span class="note">ML assessment</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/conversations</span><span class="note">list</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/conversations/{id}</span><span class="note">thread</span></div>
+        <div class="ep"><span class="verb">GET</span><span class="path">/api/conversations/stats</span><span class="note">analytics</span></div>
+        <div class="ep"><span class="verb">POST</span><span class="path">/api/chat</span><span class="note">agent router</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Backend · Flask -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Backend · Flask</div>
+      <h2>A thin renderer in front of Go.</h2>
+      <p class="lede">Flask on port 5000 is the only thing the browser talks to. It turns the Go API's JSON
+        into the HTML fragments HTMX expects — it does not own any fleet data.</p>
+      <div class="grid cols-3" style="margin-top:22px;">
+        <div class="card"><h3>One rendering rule</h3><p>An <span class="mono">HX‑Request</span> check decides: full page shell on a direct visit, partial fragment on a swap.</p></div>
+        <div class="card"><h3>Safe markdown</h3><p>LLM replies become safe HTML — risk words turn into colored badges, field labels are bolded.</p></div>
+        <div class="card"><h3>Proxy, not owner</h3><p>Reads CSV only for incident & alteration counts in the detail panel; everything else is the Go API.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Backend · Chatbot -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Backend · Chatbot</div>
+      <h2>How a message becomes an answer.</h2>
+      <p class="lede">The chatbot lives inside the Go API. A <b>deterministic, keyword‑based classifier</b>
+        reads each message — no extra LLM call — and routes it to the right agent.</p>
+      <div class="arch" style="max-width:780px;">
+        <div class="node">Browser → Flask <span class="mono" style="color:var(--muted);">POST /chat</span></div>
+        <div class="arrow"><span>↓</span></div>
+        <div class="node dark"><div class="nname">Router · classify intent</div><div class="nmeta">general · data · knowledge · scheduling</div></div>
+        <div class="arrow"><span>agent calls its allowed tools ↓</span></div>
+        <div class="node blue"><div class="nname">MCP tools + LLM</div><div class="nmeta">data / search / schedule, then phrased by the model</div></div>
+      </div>
+      <p class="lede" style="margin-top:18px;"><b>Scheduling is two‑phase:</b> the model proposes, the user
+        confirms, and only then is the write committed — protected by an HMAC signature and a 10‑minute expiry.</p>
+    </div>
+  </section>
+
+  <!-- Backend · LLM -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Backend · LLM</div>
+      <h2>The language model, chosen by environment.</h2>
+      <p class="lede">All four agents call one chat endpoint through a provider cascade, so the same code runs
+        locally and in production without changes.</p>
+      <div class="grid cols-2" style="margin-top:22px;">
+        <div class="card"><h3><span class="dot blue"></span> Provider cascade</h3><p><b>Production</b> runs on OpenRouter; when its key is absent the code falls back to <b>Ollama</b> cloud. Model and provider are picked from environment variables.</p></div>
+        <div class="card"><h3><span class="dot good"></span> Numbers never hallucinated</h3><p>For data answers, Go formats the exact figures and the model writes only the surrounding sentence — so a wrong number can't be invented.</p></div>
+      </div>
+      <p class="lede" style="margin-top:18px;">The system prompt is embedded into the Go binary at build
+        time and used verbatim, keeping the assistant's boundaries fixed.</p>
+    </div>
+  </section>
+
+  <!-- Backend · RAG + MCP -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Backend · RAG &amp; MCP</div>
+      <h2>Grounded knowledge, behind a guarded tool layer.</h2>
+      <div class="grid cols-2" style="margin-top:8px;">
+        <div class="card">
+          <h3><span class="dot blue"></span> RAG</h3>
+          <p>Two committed ChromaDB collections — <span class="mono">maintenance_docs</span> (six manuals, chunked and embedded with <span class="mono">bge‑small‑en‑v1.5</span>) and <span class="mono">incident_narratives</span>. The knowledge agent answers over what it retrieves, so replies cite real text.</p>
+          <p class="tag" style="margin-top:10px;">Index committed with the repo · ~3 MB</p>
+        </div>
+        <div class="card">
+          <h3><span class="dot blue"></span> MCP</h3>
+          <p>A FastMCP server on port 8765 exposes <b>10 tools</b> over JSON‑RPC — <span class="mono">7 read · 2 RAG · 1 write</span>. Each agent has a strict allowlist, so the model can only do what it's permitted to.</p>
+          <p class="tag" style="margin-top:10px;">The only path to live data and writes</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 5 ===================== -->
+  <section class="slide divider" data-dark="1">
+    <div class="inner">
+      <div class="eyebrow">Section 05</div>
+      <div class="div-head"><span class="div-num">05</span><h2>Database</h2></div>
+      <div class="div-topics"><span>PostgreSQL</span></div>
+    </div>
+  </section>
+
+  <!-- Database · PostgreSQL -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Database · PostgreSQL</div>
+      <h2>One central entity, everything anchored to it.</h2>
+      <p class="lede">PostgreSQL 16 holds the relational schema. Every dataset joins on the device number,
+        normalized to <span class="mono">elevator_id</span>, and foreign keys keep it honest — no orphaned
+        inspection, incident, or prediction can exist.</p>
+      <div class="schema">
+        <div class="table-card central">
+          <div class="th">elevators <span class="rel">central</span></div>
+          <ul><li><span class="pk">elevator_id</span><span>PK</span></li><li>location<span></span></li><li>status<span>active/req</span></li><li>license_expiry<span>date</span></li><li>elevator_type<span></span></li></ul>
+        </div>
+        <div class="table-card">
+          <div class="th">inspections <span class="rel">1 : N</span></div>
+          <ul><li><span class="pk">inspection_id</span><span>PK</span></li><li>elevator_id<span>FK</span></li><li>latest_date<span>date</span></li><li>outcome<span></span></li></ul>
+        </div>
+        <div class="table-card">
+          <div class="th">predictions <span class="rel">1 : 1</span></div>
+          <ul><li><span class="pk">elevator_id</span><span>PK·FK</span></li><li>risk_score<span>0–1</span></li><li>risk_level<span>H/M/L</span></li><li>risk_explanation<span>text</span></li></ul>
+        </div>
+        <div class="table-card">
+          <div class="th">incidents <span class="rel">1 : N</span></div>
+          <ul><li><span class="pk">incident_id</span><span>PK</span></li><li>elevator_id<span>FK</span></li><li>injury_severity<span>enum</span></li><li>narrative<span>text</span></li></ul>
+        </div>
+        <div class="table-card">
+          <div class="th">alterations <span class="rel">1 : N</span></div>
+          <ul><li><span class="pk">alteration_id</span><span>PK</span></li><li>elevator_id<span>FK</span></li><li>alteration_type<span></span></li><li>status<span></span></li></ul>
+        </div>
+        <div class="table-card">
+          <div class="th">conversations <span class="rel">+ messages</span></div>
+          <ul><li><span class="pk">conversation_id</span><span>PK</span></li><li>message_count<span></span></li><li>role · content<span>per turn</span></li><li>agent<span>which one</span></li></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSE -->
+  <section class="slide divider" data-dark="1" id="close">
+    <div class="inner">
+      <div class="eyebrow">Thank you</div>
+      <h2>Rocket Elevators — a live, AI‑assisted operations platform.</h2>
+      <p class="lede" style="color:#A9C0E6;max-width:62ch;">From five disconnected datasets to one operational
+        view, a risk model, and an assistant that answers in plain language — built end to end.</p>
+      <div class="cover-meta" style="margin-top:34px;border-top-color:rgba(255,255,255,.14);">
+        <span><b style="color:#fff;">Questions welcome</b></span>
+        <span>Flask · Go · PostgreSQL · MCP · RAG · ML</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<nav class="nav">
+  <button class="navbtn" id="prev" aria-label="Previous slide">‹</button>
+  <div class="dots" id="dots" role="tablist" aria-label="Slides"></div>
+  <button class="navbtn" id="next" aria-label="Next slide">›</button>
+</nav>
+
+<div class="hint">← → or space to navigate</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var dotsWrap = document.getElementById('dots');
+  var progress = document.getElementById('progress');
+  var counter = document.getElementById('counter');
+  var prevBtn = document.getElementById('prev');
+  var nextBtn = document.getElementById('next');
+  var i = 0;
+
+  slides.forEach(function(s, idx){
+    var b = document.createElement('button');
+    b.setAttribute('role','tab');
+    b.setAttribute('aria-label','Go to slide ' + (idx+1));
+    b.addEventListener('click', function(){ go(idx); });
+    dotsWrap.appendChild(b);
+  });
+  var dots = Array.prototype.slice.call(dotsWrap.children);
+
+  function pad(n){ return (n<10?'0':'') + n; }
+
+  function render(){
+    slides.forEach(function(s, idx){ s.classList.toggle('active', idx===i); });
+    dots.forEach(function(d, idx){ d.classList.toggle('on', idx===i); });
+    progress.style.width = ((i+1)/slides.length*100) + '%';
+    counter.textContent = pad(i+1) + ' / ' + pad(slides.length);
+    prevBtn.disabled = (i===0);
+    nextBtn.disabled = (i===slides.length-1);
+    document.body.classList.toggle('on-dark', slides[i].dataset.dark === '1');
+    if (location.hash !== '#s'+(i+1)) { history.replaceState(null, '', '#s'+(i+1)); }
+  }
+
+  function go(n){ i = Math.max(0, Math.min(slides.length-1, n)); render(); }
+  function next(){ go(i+1); }
+  function prev(){ go(i-1); }
+
+  nextBtn.addEventListener('click', next);
+  prevBtn.addEventListener('click', prev);
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length-1); }
+  });
+
+  var m = location.hash.match(/^#s(\d+)$/);
+  if (m) { i = Math.max(0, Math.min(slides.length-1, parseInt(m[1],10)-1)); }
+  render();
+})();
+</script>
+</body>
+</html>

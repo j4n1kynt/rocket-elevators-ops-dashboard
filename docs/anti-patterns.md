@@ -111,6 +111,58 @@ Template:
 
 ---
 
+## Emmanuel Rendon (erg)
+
+### 1. Committing a temporary diagnostic log to a shared branch
+
+**What I did:** In `platform/server.py` I added a `print()` debug log to the `/chat` route to see the raw `pending_action` the browser sent. I committed it as its own commit (`dd5c4ab`) with the note "temporary — to be removed once the root cause is fixed."
+
+**Why it was wrong:** Debug print code does not belong in a commit on a shared branch. It adds noise to the file and to the git history. If I forgot to remove it, it would print user data on every chat turn in production. A "remove later" promise in a commit message is easy to forget.
+
+**What I would do differently:** Keep debug logging only on my own machine and never commit it. If I really need logs in the code, use the `logging` module at a debug level that is off by default. Find the root cause first, then commit only the real fix.
+
+---
+
+### 2. The same feature worked in one chat path but was missing in the other
+
+**What I did:** The chat widget (`/chat`) round-trips `pending_action`, so two-phase scheduling works there. When I built the conversations-page thread chat (`/conversations/<id>/message`) for S3-8, I did not add the same `pending_action` round-trip.
+
+**Why it was wrong:** The thread chat sent the user's "yes" to the API without `pending_action`. The router then read "yes" as advisory, so Phase 2 never ran and no inspection was saved. Worse, the advisory agent sometimes made up a false "scheduled" reply. The same feature worked in one path and broke silently in the other.
+
+**What I would do differently:** When a feature depends on a request field (here `pending_action`), list every endpoint that handles that field before shipping. A quick grep for `pending_action` would have shown that only one of the two chat paths handled it.
+
+---
+
+### 3. A prompt that told the model to "call" the tool
+
+**What I did:** In `platform/api/prompts/scheduling_prompt.md` I told the model to "call" the `schedule_inspection` tool. But in our design, Go calls the tools and injects the result into the prompt. The model only narrates the result.
+
+**Why it was wrong:** The prompt did not match how the system really runs tools. The model tried to "call" the tool by writing raw `[TOOL_CALL]` markup, and that markup leaked into the user reply. My first fix also added code in `agents.go` to strip the markup, which treats the symptom, not the cause.
+
+**What I would do differently:** Write the prompt to match the real execution model — narrate the injected result, never call a tool. Keep the markup-stripping only as a small safety net, not as the main fix.
+
+---
+
+### 4. The date parser only handled one format
+
+**What I did:** The scheduling flow parsed only ISO dates (`YYYY-MM-DD`). Dates like `25-07-2026` (DD-MM-YYYY) were not parsed, so Phase 1 never built a `pending_action`.
+
+**Why it was wrong:** Real users type dates in many formats. When the date did not parse, the next "yes" fell through to the general agent and nothing was scheduled. This is a happy-path assumption for an input that gates a database write.
+
+**What I would do differently:** Support the common date formats up front (DD-MM-YYYY, MM-DD-YYYY, and slash variants), and add a test for each one. For an action that writes to the database, I should plan for messy input from the start.
+
+---
+
+### 5. A keyword cue that was too broad
+
+**What I did:** In the RAG routing I added a bare `"incident"` cue to `incidentNarrativeCues`. The goal was to send incident questions to the incident-narrative corpus.
+
+**Why it was wrong:** The cue was too broad. A procedural question that only mentions an incident (for example, "how do I report an incident") was routed to the narrative corpus instead of the maintenance manuals. A reviewer caught this in the PR (`2816f93`).
+
+**What I would do differently:** Pick cues that really separate the two corpora, not common words. Add a negative test case — a procedure question that mentions "incident" — before shipping, so a too-broad cue fails the test.
+
+---
+
 ## [Team member 3 — add your name here]
 
 > Add your 3–5 anti-patterns following the template above.

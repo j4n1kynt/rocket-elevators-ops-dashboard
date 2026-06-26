@@ -164,7 +164,7 @@ func toolInScope(toolName string, allowed []string) bool {
 // dataSummaryPrompt drives the one-line natural-language intro that sits above a
 // deterministic data block (hybrid formatting, S3-3). The block is built in Go,
 // so the model only writes the intro — it never touches the numbers.
-const dataSummaryPrompt = `You are OpsBot, an assistant for Rocket Elevators operations. The user asked a question, and the exact data answer is shown below, already formatted. Write ONE short sentence (20 words or fewer) in plain language to introduce it. Do not repeat the field values. Do not add any fact that is not in the data. Output only the sentence, with no labels and no line breaks.`
+const dataSummaryPrompt = `You are OpsBot, an assistant for Rocket Elevators operations. The user asked a question, and the exact data answer is shown below, already formatted. Write ONE short sentence (20 words or fewer) in plain language to introduce it. Do not repeat the field values. Do not add any fact that is not in the data. When naming a risk level, use its uppercase label exactly as it appears in the data (HIGH, MEDIUM, LOW, UNKNOWN). Output only the sentence, with no labels and no line breaks.`
 
 // summarizeForUser asks the model for a single short sentence to sit above a
 // deterministic data block. The block itself is built in Go, so the model never
