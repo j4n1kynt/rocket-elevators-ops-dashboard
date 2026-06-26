@@ -67,6 +67,50 @@ Template:
 
 ---
 
+## Peter Narvaez (ppng-maker)
+
+### 1. An `AllowedTools` field that didn't actually enforce anything
+
+**What I did:** In the Sprint-3 router refactor I added an `AllowedTools` field to each agent and populated it in `router.go`, but the scheduling agent's Phase-1 guard in `agents.go` checked the tool with a hardcoded string comparison instead of consulting that field. I even added `TODO(S3-3)` markers (382fe1a) admitting enforcement wasn't wired, then opened the PR anyway.
+
+**Why it was wrong:** The field *looked* like a security boundary but was inert — the router could set any `AllowedTools` value and the real gate ignored it. PR #58 flagged it as blocking. Anyone reading the code would assume the restriction was load-bearing when it wasn't.
+
+**What I would do differently:** Don't ship a control that only looks enforced. Wire the field to the actual check (the `toolAllowed(allowed, name)` helper I added in 773e5d2) in the same PR, with a test proving a forbidden tool is rejected *via the field*, not a string literal. If enforcement has to wait, the field shouldn't exist yet.
+
+### 2. Committing the 16 MB compiled `api.exe` binary
+
+**What I did:** Pushed the compiled Go binary `api.exe` (~16 MB) into the repo, then removed it later in 74b9ff9 and added `*.exe` to `.gitignore` (b303a9d).
+
+**Why it was wrong:** It bloats every clone permanently (it lives in history even after deletion), it's platform-specific build output, and it should never be tracked. The ignore rule should have existed before the first `go build`.
+
+**What I would do differently:** Add build-output patterns (`*.exe`, `/api`) to `.gitignore` before building, and read `git status` for stray binaries before staging. A blind `git add -A` is how it got in.
+
+### 3. Changing a model identifier in one place and missing the rest
+
+**What I did:** Aligning the RAG embedding model, I updated `rag.py` from `all-MiniLM-L6-v2` (384-dim) to `bge-large` (1024-dim) in 19f2f8a — but a follow-up (8a3903b) had to fix three *more* stale references I'd missed: a docs table, a structure note, and a test still asserting shape `(384,)`. Same pattern with the Ollama tag: `minimax-m2.5` shipped before I corrected it to `minimax-m2.5:cloud` (a3ad3fa) across the default, tests, and docs.
+
+**Why it was wrong:** A magic-string identifier (model name, vector dimension) lives in code, tests *and* docs. Fixing one path left the test validating against a model we no longer used, and the dimension mismatch produced meaningless similarity scores at runtime.
+
+**What I would do differently:** Treat an identifier change as a repo-wide operation — `grep -r` the old value across code, tests, and docs, fix every hit in one commit, then run the test that exercises the real artifact (a 1024-dim assertion against the actual ChromaDB store) to confirm.
+
+### 4. Round-tripping critical confirmation state through the client, then letting the model phrase the outcome
+
+**What I did:** In the two-phase scheduling feature (FEATURE-4, 0c82bd8) I carried the signed `pending_action` only in a hidden HTML form field, and let the chat model phrase the confirmation and result text.
+
+**Why it was wrong:** The browser dropped the hidden field across agent switches, so "yes" fell through to the general agent, which fabricated a fake *"scheduled successfully — Inspection ID …"* with no database write. The HMAC signature was fine; the *delivery* wasn't — and because the model wrote the success text, nothing tied the message to a real write. The worst kind of bug: silent false success on a write action.
+
+**What I would do differently:** Never depend on the client to round-trip state that must survive — mirror it server-side keyed by `conversation_id` (the `pending_store.go` fix in be55373). For any action with a side effect, build the outcome message deterministically in Go from the actual write result, never from the LLM.
+
+### 5. Debugging CI by pushing commits
+
+**What I did:** Getting the AND-107 CI green took a string of one-line fixes pushed straight to the branch — pin numpy 2.1.3, then pin numpy 2.1.3 *again* in the separate MCP requirements file, bump uvicorn, set PYTHONPATH (f51b014, 6e43020, ff7fca2, 6669d08).
+
+**Why it was wrong:** Each push burned a CI run to test a guess, and the duplicate numpy pin shows I fixed one requirements file without noticing a second needed the same change. Noisy history, slow feedback loop.
+
+**What I would do differently:** Reproduce the CI environment locally (Python 3.10, a clean venv per requirements file) and resolve the dependency set in one pass before pushing. When pinning a version, grep for *every* requirements file first.
+
+---
+
 ## Emmanuel Rendon (erg)
 
 ### 1. Committing a temporary diagnostic log to a shared branch

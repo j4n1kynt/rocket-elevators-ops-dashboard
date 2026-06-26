@@ -53,6 +53,19 @@ Several AI-generated code paths included `if err != nil` guards for errors that 
 
 ---
 
+## Peter Narvaez (ppng-maker)
+
+**What AI helped with:**
+
+- **Root-causing the scheduling silent-failure.** I gave Claude one symptom — "scheduling reports success but writes nothing, and 'yes' sometimes gets ignored" — and it traced the whole chain (hidden field dropped on agent switch → "yes" routed to the general agent → model fabricates a success line) and proposed the server-side `pending_store` keyed by `conversation_id` plus deterministic Go-built replies (be55373). The bug spanned the template, router, and agent layers; finding it by hand would have taken far longer.
+- **Scaffolding I didn't want to hand-write.** The FastMCP server structure, the asyncpg pool with startup health check, the Pydantic input models, and the GitHub Actions CI workflow were all solid AI first drafts I reviewed and adjusted rather than wrote from scratch.
+
+**Pitfalls I ran into:**
+
+- **AI confidently doing an incomplete find-and-replace.** Asked to switch the embedding model, it changed the obvious call site in `rag.py` and declared it done, leaving stale references in the docs and a test still asserting `(384,)` — which I only caught in a follow-up commit. **Fix:** after any identifier rename, make the AI grep the whole repo and show every hit before it claims completion; don't trust "done" on a cross-cutting change.
+
+---
+
 ## Emmanuel Rendon (erg)
 
 **What AI helped with:**
