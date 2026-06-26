@@ -108,11 +108,13 @@
     hx-post="/conversations/{{ conversation_id }}/message"
     hx-target="#threadMessages"
     hx-swap="beforeend scroll:bottom"
+    hx-include="#threadHistory, #threadPendingAction, #threadConversationId"
     hx-on:htmx:before-request="this.querySelector('#threadInput').disabled=true;this.querySelector('#threadSend').disabled=true"
     hx-on:htmx:after-request="this.querySelector('#threadInput').disabled=false;this.querySelector('#threadSend').disabled=false;this.querySelector('#threadInput').value=''"
     class="px-4 py-3 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white"
   >
     <input id="threadHistory"        type="hidden" name="history"         value="{{ history }}" />
+    <input id="threadPendingAction"  type="hidden" name="pending_action"  value="null" />
     <input id="threadConversationId" type="hidden" name="conversation_id" value="{{ conversation_id }}" />
 
     <input

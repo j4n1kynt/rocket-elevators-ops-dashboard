@@ -27,6 +27,9 @@
 {# OOB: update conversation_id (the Go API may assign a new id for conversation_id=0) #}
 <input id="threadConversationId" hx-swap-oob="outerHTML" type="hidden" name="conversation_id" value="{{ conversation_id }}" />
 
+{# OOB: update pending action state (null when no scheduling is awaiting confirmation) #}
+<input id="threadPendingAction" hx-swap-oob="outerHTML" type="hidden" name="pending_action" value="{{ pending_action }}" />
+
 {# OOB: refresh the conversation list so new activity appears at the top.
    Classes match the original #conversationList div in _page_conversations.html.
    hx-include carries active search/agent filters so the refreshed list stays filtered. #}
