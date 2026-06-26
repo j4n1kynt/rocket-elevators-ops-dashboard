@@ -176,6 +176,7 @@ type ChatRequest struct {
 
 type ChatResponse struct {
 	Reply          string         `json:"reply"`
+	AgentName      string         `json:"agent_name,omitempty"`
 	History        []ChatMessage  `json:"history"`
 	PendingAction  *PendingAction `json:"pending_action,omitempty"`
 	ConversationID int64          `json:"conversation_id,omitempty"`

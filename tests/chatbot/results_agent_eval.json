@@ -1,0 +1,726 @@
+{
+  "ground_truth": {
+    "tssa_shutdowns": {
+      "_error": "TimeoutError('The read operation timed out')"
+    },
+    "followup_list": {
+      "count": 20,
+      "source": "inspections table (most-recent inspection per elevator)",
+      "elevators": [
+        {
+          "elevator_id": 32998,
+          "location": "341 ERIE ST  STRATFORD N5A 2N3 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-05",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Periodic Inspection"
+        },
+        {
+          "elevator_id": 60503,
+          "location": "21 SYLVAN ST  KENORA P9N 3W7 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-05",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Periodic Inspection"
+        },
+        {
+          "elevator_id": 39683,
+          "location": "291 BLAKE ST  BARRIE L4M 1K7 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-06",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 3241,
+          "location": "280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA",
+          "status": "BY REQUEST",
+          "latest_inspection_date": "2011-01-12",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Periodic Inspection"
+        },
+        {
+          "elevator_id": 78416,
+          "location": "155 MILLWOOD RD  TORONTO M4S 1G1 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-12",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 32367,
+          "location": "300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-12",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Initial Inspection"
+        },
+        {
+          "elevator_id": 35613,
+          "location": "5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-13",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Periodic Inspection"
+        },
+        {
+          "elevator_id": 15555,
+          "location": "300 GRENFELL ST  OSHAWA L1J 4W6 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-13",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 81536,
+          "location": "3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-14",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 61230,
+          "location": "751 WOODBINE AVE  TORONTO M4E 3V5 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-14",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Sub Inspection"
+        },
+        {
+          "elevator_id": 20451,
+          "location": "420 BELL ST  PEMBROKE K8A 2K5 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-18",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Periodic Inspection"
+        },
+        {
+          "elevator_id": 33080,
+          "location": "16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-19",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 84982,
+          "location": "200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-21",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 84983,
+          "location": "200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-21",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 62806,
+          "location": "3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-26",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 70591,
+          "location": "330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-27",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Followup Inspection"
+        },
+        {
+          "elevator_id": 64499652,
+          "location": "12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-27",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Sub Inspection"
+        },
+        {
+          "elevator_id": 64499274,
+          "location": "2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-27",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Initial Inspection"
+        },
+        {
+          "elevator_id": 33005,
+          "location": "835 KING ST W  KITCHENER N2G 1G3 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-01-28",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Initial Inspection"
+        },
+        {
+          "elevator_id": 28066,
+          "location": "303 MIDLAND AV  MIDLAND L4R 4N9 ON CA",
+          "status": "ACTIVE",
+          "latest_inspection_date": "2011-02-01",
+          "outcome": "Follow up",
+          "inspection_type": "ED-Minor B Inspection"
+        }
+      ]
+    },
+    "incident_count": {
+      "source": "incidents table (aggregate)",
+      "total_incidents": 506,
+      "fatal_incidents": 2,
+      "injury_incidents": 142,
+      "year_queried": 2015
+    },
+    "rag_cable": {
+      "query": "What maintenance is required after a cable replacement?",
+      "message": null,
+      "total_returned": 5,
+      "results": [
+        {
+          "text": "Check the safety circuit status on the controller. Common safety\ndevices that trip: governor switch, pit stop switch, car top stop switch, door interlocks, buffer switches. 6. For MRL systems, check whether the emergency manual operation switch has been left in manual mode\nafter a previous service call. This is embarrassingly common and saves everyone time when checked\nearly. Field action: Reset breakers or overloads only after verifying the cause is resolved. Reseat loose connections. Report all findings. If the safety circuit is open, identify which device is tripped but do not bypass it. Escalate\nto ThyssenKrupp for drive faults, contactor replacement, or unresolved electrical issues. Rope and Sheave Problems\nAll rope and sheave work is contractor work. Our field technicians perform visual inspections and report\nfindings, but never adjust, replace, or tension ropes. This section helps technicians identify problems and\nprovide accurate reports to ThyssenKrupp. 4\nHoist Rope Inspection\nCSA B44 specifies the criteria for rope replacement. During visual inspections, check for:\n\u2022 Broken wires. Count visible broken wires per rope lay (one complete twist of the strands around the\ncore). CSA B44 specifies the maximum number of broken wires per lay before replacement is required. Even a few broken wires should be documented and reported. See the Safety Code Quick Reference for\nthe specific numeric thresholds. \u2022 Diameter reduction. Measure rope diameter with calipers and compare to the original diameter (recorded\non the rope data tag or in the maintenance records). A reduction of more than a certain percentage from\nthe nominal diameter indicates internal wear and requires replacement. Ropes wear from the inside as\nwell as the outside. \u2022 Corrosion. Surface rust is common and not always critical, but extensive corrosion weakens the wire\nstrands. Look for pitting, flaking, or discoloration along the length of the rope. Corrosion is particularly\ncommon in hoistways exposed to moisture (buildings with rooftop machine rooms, coastal environments,\nor poor drainage). \u2022 Bird-caging. This occurs when the outer strands bulge outward from the rope core, usually caused by a\nsudden release of tension. Bird-caging is a serious condition requiring immediate rope replacement. \u2022 Unequal tension. All hoist ropes in a set should carry approximately equal load.",
+          "source_name": "Maintenance Document 10079",
+          "similarity_score": 0.7033
+        },
+        {
+          "text": "Fire Service Test Records\nCommon violations: no record of Phase I and Phase II testing in the log book, expired testing records, and\nincomplete records (only one phase tested). Fire service testing should be performed and documented during\nroutine maintenance visits per the maintenance contract schedule. Rope Wear\nWire rope deterioration beyond allowable limits triggers a fail and often leads to mandatory replacement. Indicators: broken wires exceeding the allowable count per rope lay, reduction in diameter indicating internal\nwear, corrosion (particularly in humid environments), and uneven wear patterns suggesting sheave or\nalignment problems. Ropes approaching their limits should be flagged for proactive replacement. Emergency Lighting\nEmergency lighting must activate automatically when normal power is lost. Common failures: dead or weak\nbattery packs, burned-out bulbs, and non-functional transfer circuitry (goes unnoticed because normal\npower is present). Test during every routine maintenance visit by briefly disconnecting the car lighting circuit. Device Type Considerations\nOur fleet includes several device types, each affecting inspection scope and preparation:\n\u2022 Passenger Elevators (~72% of our fleet): standard device type, follows the periodic inspection process\ndescribed above. \u2022 Freight Elevators (E-type and P-type): additional requirements for rated load, door configuration (often\nvertical bi-parting), and industrial environment hazards (dust, chemical exposure, vibration). 13\n\u2022 Observation Elevators: glass panels add inspection points for glass integrity, mounting security, and\nhoistway visibility. Schindler handles most of these installations. \u2022 LULA Elevators (Limited Use/Limited Application): smaller, lower-speed devices for small buildings or\naccessibility. Own subset of CSA B44 requirements; shorter inspections. \u2022 Sidewalk Elevators: vertical access between sidewalk and basement. Unique weather exposure and\nsecurity considerations. \u2022 Material Lifts (ATD), Power Type Manlifts, and Special Installations: specialized CSA B44 sections apply. Technicians must be familiar with the specific requirements. \u2022 Temporary Elevators: used during construction, licensed under temporary licenses, inspected as ED-\nInspection Temp Lic.",
+          "source_name": "Maintenance Document 10081",
+          "similarity_score": 0.698
+        },
+        {
+          "text": "3. Rope condition. Inspect hoist ropes and governor ropes for displacement from sheave grooves, kinking,\nor contact damage. Ropes that have jumped off sheaves require contractor re-seating. 4. Car frame alignment. Check for twisting, hoistway contact, or displaced components. 5. Machine room equipment. Check the drive machine, controller, and governor for displacement or\ndamage. Contact the appropriate contractor for a formal post-seismic inspection on any device where damage is\nsuspected. The elevator must not return to service until the contractor confirms it is safe. Equipment Failure Scenarios\nThis section covers the most serious equipment failure scenarios and the correct response for each. See the\nTraction Elevator Troubleshooting Guide for diagnostic procedures and Common Failure Modes by Elevator\nType for failure patterns and fleet trends. Broken or Damaged Hoist Rope\nMost traction elevators use multiple steel ropes (typically 3 to 8) in parallel, so a single rope failure does not\ncause the car to fall. However, any rope failure is a critical safety event. If a hoist rope breaks during operation:\n1. The governor should activate the car safety device, gripping the guide rails and stopping the car. 2. Treat this as an entrapment with a critical safety failure. Rescue passengers, then secure the device. 9\n3. The device must not operate again until all ropes have been inspected and damaged ropes replaced. All\nrope replacement is contractor work (ThyssenKrupp for traction systems). 4. Report to TSSA within 24 hours. A broken hoist rope is reportable regardless of injury. If rope damage is discovered during inspection:\n1. Shut down the device immediately, regardless of how many ropes remain intact. Broken wires, corrosion,\nor deformation in one rope indicates conditions that may affect others. 2. Contact ThyssenKrupp for a full rope inspection and replacement assessment. 3. Update the device status to \"Out of Service\" with the reason documented. Never operate an elevator with a known damaged rope, even if \"most ropes are fine.\" Safety margins\nassume all ropes are in good condition. Operating with damaged ropes invalidates those margins. Hydraulic System Failure\nHydraulic failures range from minor leaks to catastrophic events. The most serious is rapid oil loss (blowout),\nwhere the car descends uncontrollably.",
+          "source_name": "Maintenance Document 10083",
+          "similarity_score": 0.6896
+        },
+        {
+          "text": "Use your power quality meter to verify voltage on all three phases. Field action: Check and reseat encoder connections. Report findings and escalate drive or sheave issues to\nThyssenKrupp. 3\nSymptom: Excessive Vibration\nVibration felt in the machine room, transmitted through the ropes, or reported by passengers:\n1. Check motor mounting bolts for looseness. Vibration can loosen mounting hardware over time, and a\nloose motor amplifies vibration. 2. Listen to the bearings. Worn bearings produce vibration that increases with speed. 3. Inspect the sheave for uneven groove wear. A worn sheave causes ropes to seat unevenly, creating\nvibration at the frequency of the sheave rotation. 4. For geared systems, check the gearbox for abnormal noise. Gear tooth wear or low lubricant levels cause\nvibration and noise. Check the oil level and look for metal particles in the oil, which indicate gear wear. 5. Check the motor coupling (geared systems). A worn or misaligned coupling transmits vibration between\nthe motor and gearbox. Field action: Tighten any loose mounting hardware. All other causes require contractor diagnosis and repair. Symptom: Motor Won't Start\nThe elevator does not respond to hall calls. The car sits at a floor with doors closed and no movement:\n1. Verify power supply to the motor and drive. Check all three phases at the disconnect. A blown fuse or\ntripped breaker on one phase will prevent the motor from starting (or cause it to attempt to start on two\nphases, which the drive should fault on). 2. Check the main contactor. The contactor connects power to the drive. If it is not pulling in, check the\ncontrol circuit that energizes the contactor coil. A failed contactor is a common cause of \"dead elevator\"\ncalls. 3. Check whether the overload has tripped. If so, investigate why before resetting (see Motor Overheating\nabove). 4. Check the drive for fault codes. Many drive faults will prevent the motor from starting. Record all fault\ncodes. 5. Verify the safety circuit is complete. An open safety circuit (any safety device in the chain is tripped) will\nprevent the elevator from running. Check the safety circuit status on the controller. Common safety\ndevices that trip: governor switch, pit stop switch, car top stop switch, door interlocks, buffer switches.",
+          "source_name": "Maintenance Document 10079",
+          "similarity_score": 0.6725
+        },
+        {
+          "text": "9\n\u2022 6 months to 1 year: expands to cover most of a periodic inspection, since idle components may have\ndeteriorated. \u2022 Over 1 year: essentially an initial inspection. Ropes may have corroded, hydraulic seals may have dried\nout, electrical connections may have corroded, and control systems may have developed faults. The Re-Activation Process\n1. Complete all remediation work that prompted the shutdown (or maintenance required to bring the device\nto operating condition). 2. Submit a re-activation request to the TSSA. 3. The TSSA schedules the re-activation inspection. 4. Prepare as for a periodic inspection, with attention to items that may have deteriorated during the\nshutdown. 5. Pass the inspection. The device receives clearance to return to service. The device must not carry passengers or freight until the TSSA has issued clearance. This is non-negotiable,\nregardless of pressure from the building owner. Other Inspection Types\nThe following inspection types appear less frequently in our records but are important to understand when\nthey occur. ED-Unscheduled Inspection\nA TSSA-initiated inspection outside the regular periodic cycle. Unlike enforcement actions, these are not\nnecessarily triggered by a compliance concern. The TSSA may conduct them as part of targeted campaigns\n(focusing on a device type or age range), random audits, or in response to industry-wide safety bulletins. ED-Sub Inspection and ED-Sub Inspection Major\nPerformed by inspectors subcontracted by the TSSA to handle volume during peak periods. Same standards\nand procedures as TSSA staff inspectors. From our perspective, preparation and response are identical. ED-PWGSC Insp and ED-PWGSC Foll-Up\nInspections of elevating devices on federal government properties. PWGSC (Public Works and Government\nServices Canada) properties are inspected by the TSSA under a federal service agreement. These follow CSA\nB44 but may include additional federal requirements. The follow-up variant verifies resolution of issues from\nthe initial inspection. ED-Non-Mandated Insp ON and ED-Non-Mandated Followup ON\nVoluntary inspections requested by a building owner or by us. Useful for independent assessment before a\nmodernization decision or after significant repair work. The follow-up variant tracks resolution of any issues\nfound.",
+          "source_name": "Maintenance Document 10081",
+          "similarity_score": 0.6714
+        }
+      ]
+    },
+    "rag_overdue": {
+      "query": "When is an inspection considered overdue under TSSA regulations?",
+      "message": null,
+      "total_returned": 5,
+      "results": [
+        {
+          "text": "9\n\u2022 6 months to 1 year: expands to cover most of a periodic inspection, since idle components may have\ndeteriorated. \u2022 Over 1 year: essentially an initial inspection. Ropes may have corroded, hydraulic seals may have dried\nout, electrical connections may have corroded, and control systems may have developed faults. The Re-Activation Process\n1. Complete all remediation work that prompted the shutdown (or maintenance required to bring the device\nto operating condition). 2. Submit a re-activation request to the TSSA. 3. The TSSA schedules the re-activation inspection. 4. Prepare as for a periodic inspection, with attention to items that may have deteriorated during the\nshutdown. 5. Pass the inspection. The device receives clearance to return to service. The device must not carry passengers or freight until the TSSA has issued clearance. This is non-negotiable,\nregardless of pressure from the building owner. Other Inspection Types\nThe following inspection types appear less frequently in our records but are important to understand when\nthey occur. ED-Unscheduled Inspection\nA TSSA-initiated inspection outside the regular periodic cycle. Unlike enforcement actions, these are not\nnecessarily triggered by a compliance concern. The TSSA may conduct them as part of targeted campaigns\n(focusing on a device type or age range), random audits, or in response to industry-wide safety bulletins. ED-Sub Inspection and ED-Sub Inspection Major\nPerformed by inspectors subcontracted by the TSSA to handle volume during peak periods. Same standards\nand procedures as TSSA staff inspectors. From our perspective, preparation and response are identical. ED-PWGSC Insp and ED-PWGSC Foll-Up\nInspections of elevating devices on federal government properties. PWGSC (Public Works and Government\nServices Canada) properties are inspected by the TSSA under a federal service agreement. These follow CSA\nB44 but may include additional federal requirements. The follow-up variant verifies resolution of issues from\nthe initial inspection. ED-Non-Mandated Insp ON and ED-Non-Mandated Followup ON\nVoluntary inspections requested by a building owner or by us. Useful for independent assessment before a\nmodernization decision or after significant repair work. The follow-up variant tracks resolution of any issues\nfound.",
+          "source_name": "Maintenance Document 10081",
+          "similarity_score": 0.7938
+        },
+        {
+          "text": "Follow up\nSome compliance orders from the previous inspection were resolved, but others remain outstanding, or the\ninspector found that some corrections were inadequate. A subsequent follow-up inspection will be\nscheduled. 11\nOur action: Same as Fail, focused on the remaining open orders. Review what was accepted and what was\nnot. If a correction was rejected, determine why and redo the work. Track the next follow-up deadline. Shutdown\nThe inspector found severe violations presenting an immediate safety hazard. The device is ordered out of\nservice immediately. Can occur during any inspection type. Our action: This triggers the TSSA Shutdown Response procedure (see Emergency Response Protocols). Device is taken out of service immediately with \"Out of Service\" signage posted. Notify the building owner,\nzone manager, and Compliance and Regulatory Affairs. Develop a remediation plan, complete the work,\nsubmit a re-activation request, and pass the re-activation inspection before the device returns to service. Shutdowns are tracked as critical compliance events and reviewed by senior management. Unable to Inspect\nThe inspector could not complete the inspection. Common reasons: access denied, device not operational\n(already shut down or under construction), unsafe conditions, or no qualified person available to operate the\nelevator. Our action: Reschedule as soon as possible. Determine and correct the underlying cause (access\ncoordination failure, technician scheduling gap). Repeated \"Unable to Inspect\" results can trigger\nenforcement action, which is a significantly worse outcome. All Orders Resolved\nAll outstanding compliance orders from previous inspections have been satisfactorily addressed and closed. The device returns to a clean compliance status. Our action: Update the device record. Close all open compliance orders in our tracking system. Confirm with\nthe building owner. Administrative Outcomes\nSeveral outcomes in the TSSA system are administrative rather than inspection results.",
+          "source_name": "Maintenance Document 10081",
+          "similarity_score": 0.7805
+        },
+        {
+          "text": "When in doubt, treat the alteration as Minor A\nand request the inspection. It is far better to schedule an unnecessary inspection than to skip a required one\nand face enforcement action. Enforcement Action (ED-Enforcement Action)\nAn enforcement action inspection is an unannounced visit by a TSSA inspector, triggered by compliance\nconcerns. These carry significant operational and reputational implications. What Triggers an Enforcement Action\nEnforcement actions may be triggered by: complaints from building occupants or the public, a pattern of\nfailed periodic inspections, intelligence from other regulatory sources, findings during inspections at the\nsame property, reports of unlicensed operation, or reports of devices in service that should be shut down. How They Work\nWe receive no advance notice. A TSSA inspector arrives at the building and requires immediate access. The\nbuilding owner is legally obligated to provide access. If our technician is not on-site (and they usually are not,\nsince these are unannounced), the inspector proceeds without one. The inspector has the authority to issue\nimmediate compliance orders or shut down the device on the spot. What to Do If an Enforcement Inspector Arrives\nIf a building owner or property manager contacts us to report an enforcement inspector:\n1. Dispatch the nearest available technician immediately. 2. Instruct the building contact to provide full access. Do not delay or obstruct. 3. Notify the zone manager and Compliance and Regulatory Affairs. 4. If the technician arrives during the inspection, introduce themselves and cooperate fully. 5. Document the visit: inspector name, what was examined, orders issued, verbal instructions. Why Enforcement Actions Matter\nA pattern of enforcement actions suggests systemic failures in our maintenance program. Compliance and\nRegulatory Affairs reviews all enforcement actions quarterly. Zones showing a pattern require the zone\nmanager to present a corrective action plan. The ED-FU Enforcement Action Insp is the follow-up to verify that enforcement action issues have been\nresolved. These follow-ups are tracked with the same priority as the original enforcement action. 8\nIncident and Near-Miss Inspections\nWhen an incident or near-miss is reported to the TSSA, they may dispatch an inspector to examine the device\nand investigate. ED-Perform L1 Incident Insp\nA Level 1 incident inspection is triggered by a reported incident involving injury, entrapment, or significant\nequipment failure.",
+          "source_name": "Maintenance Document 10081",
+          "similarity_score": 0.7767
+        },
+        {
+          "text": "ED-Perform L1 Incident Insp\nA Level 1 incident inspection is triggered by a reported incident involving injury, entrapment, or significant\nequipment failure. The inspector:\n\u2022 Examines the device in its current state (this is why preserving the scene is critical)\n\u2022 Reviews maintenance records and the recent inspection history\n\u2022 Interviews witnesses if present\n\u2022 Determines the probable root cause of the incident\n\u2022 May order the device shut down pending further investigation or repairs\nED-Perform L1 Near Miss Insp\nA Level 1 near-miss inspection follows a reported event that could have resulted in injury but did not. The\nsame investigation process applies, though the urgency may be lower since no injury occurred. Near-miss\ninspections are important because they often identify conditions that, if left unaddressed, would lead to an\nactual incident. Our Role During Incident and Near-Miss Inspections\n1. Preserve the scene. Do not reset, repair, or adjust anything until the TSSA inspector has examined it. If\npassengers are trapped, follow the entrapment rescue procedure first, then preserve the scene. 2. Provide maintenance records. The inspector will want the device log book, recent service reports, the\nlast inspection report, and any open compliance orders. 3. Cooperate fully. Answer all questions honestly. Do not speculate about causes; report what is known. 4. Document everything. Record the timeline of events, who was notified, actions taken, and the inspector's\nfindings. These inspections feed into the TSSA's root cause classification system, which categorizes incidents by\ncontributing factors. Our internal data mirrors these categories (component failure, maintenance-related,\nenvironmental, installation error, vandalism, or unknown) for our own risk analysis. Re-Activation Inspection (ED-Re-Activate Inspection)\nA re-activation inspection is required before any shut-down device can return to service, whether the\nshutdown was TSSA-initiated or voluntary (sometimes called a Customer Shutdown). Scope\nThe inspection scope depends on how long the device has been out of service:\n\u2022 Under 6 months: inspector focuses on the shutdown reason and verifies it has been resolved, plus a\ngeneral safety assessment. 9\n\u2022 6 months to 1 year: expands to cover most of a periodic inspection, since idle components may have\ndeteriorated. \u2022 Over 1 year: essentially an initial inspection.",
+          "source_name": "Maintenance Document 10081",
+          "similarity_score": 0.7666
+        },
+        {
+          "text": "Our action: Update the device record. Close all open compliance orders in our tracking system. Confirm with\nthe building owner. Administrative Outcomes\nSeveral outcomes in the TSSA system are administrative rather than inspection results. These include:\nCancelled (scheduled but cancelled, may need rescheduling), Dismantled (device removed, update records),\nDC Follow up (Director's Compliance order follow-up), Extend Time to Comply (TSSA granted a deadline\nextension), Order Transferred (orders moved to a different responsible party, e.g., after ownership change),\nReceived (TSSA received documentation, awaiting processing), RC Established (Responsible Contact\nregistered for the device), Temp Lic Not Needed (temporary license application deemed unnecessary), and\nComplete / Inspection Complete (inspection process finished, final result recorded separately). Common Reasons for Failed Inspections\nBased on our fleet experience, these are the most frequent reasons for failed periodic inspections. Door Interlock Issues\nDoor interlocks are the most frequently cited violation across our fleet. Common problems include worn\ncontacts that no longer make reliable connection, misadjusted rollers that allow the door to be opened slightly\n12\nwith the car away from the landing, and bent or damaged assemblies from impact or vandalism. Door\ninterlocks should be checked during every routine maintenance visit, not just before inspections. Pit Conditions\nPit-related violations are the second most common category: water accumulation (sump pump failure,\ndrainage issues, groundwater), debris (construction materials, garbage, rodent activity), non-functional pit\nstop switches, inadequate lighting, and unsecured pit ladders. Building owners sometimes use elevator pits\nas unofficial storage. Our technicians should flag pit conditions during every visit and report them to the\nbuilding owner in writing. Machine Room Issues\nMachine rooms are cited for storing materials unrelated to the elevator, inadequate ventilation or excessive\ntemperature, uncleaned oil leaks, insufficient lighting, and disconnect switches blocked by stored materials. Emergency Communication Failures\nThe emergency phone or intercom must connect to a monitored station at all times. Common failures: phone\nline disconnected (building telecom changes, unpaid monitoring service), handset damaged or missing,\nincorrect location information at the monitoring station, and non-functional TTY or accessibility\ncommunication. Fire Service Test Records\nCommon violations: no record of Phase I and Phase II testing in the log book, expired testing records, and\nincomplete records (only one phase tested).",
+          "source_name": "Maintenance Document 10081",
+          "similarity_score": 0.7656
+        }
+      ]
+    },
+    "rag_traction": {
+      "query": "What patterns appear in past incident narratives for traction elevators?",
+      "message": null,
+      "total_returned": 5,
+      "results": [
+        {
+          "incident_id": 1781770,
+          "elevator_id": 66373,
+          "date_of_occurrence": "2015-11-19",
+          "category": "ED-Near-Miss",
+          "incident_summary": "ED-Near Miss",
+          "narrative": "Elevator-update to previous incident report",
+          "source_name": "Incident #1781770 (2015-11-19)",
+          "similarity_score": 0.8096
+        },
+        {
+          "incident_id": 1658542,
+          "elevator_id": 64563950,
+          "date_of_occurrence": "2015-05-28",
+          "category": "ED-Near-Miss",
+          "incident_summary": "ED-Near Miss",
+          "narrative": "Elevator -overloaded with material may have broken traction",
+          "source_name": "Incident #1658542 (2015-05-28)",
+          "similarity_score": 0.7775
+        },
+        {
+          "incident_id": 1956680,
+          "elevator_id": 64690478,
+          "date_of_occurrence": "2016-09-28",
+          "category": "ED-Near-Miss",
+          "incident_summary": "ED-Near Miss",
+          "narrative": "Elevator-experienced what may have been loss of traction causing it to shut down locked and tagged out",
+          "source_name": "Incident #1956680 (2016-09-28)",
+          "similarity_score": 0.7667
+        },
+        {
+          "incident_id": 1742966,
+          "elevator_id": 75212,
+          "date_of_occurrence": "2015-09-21",
+          "category": "ED-Incident",
+          "incident_summary": "ED-Incident",
+          "narrative": "Elevator-It was reported to building that elevator made a sudden stop and person hurt back unknown if male or female",
+          "source_name": "Incident #1742966 (2015-09-21)",
+          "similarity_score": 0.7562
+        },
+        {
+          "incident_id": 1969234,
+          "elevator_id": 22258,
+          "date_of_occurrence": "2016-10-07",
+          "category": "ED-Incident",
+          "incident_summary": "ED-Incident",
+          "narrative": "Elevator-Levelling issue caused trip.",
+          "source_name": "Incident #1969234 (2016-10-07)",
+          "similarity_score": 0.7464
+        }
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "D1",
+      "label": "Risk lookup \u2014 illustrative ID",
+      "message": "What is the risk level of elevator 48210?",
+      "reply": "That elevator was not found in the fleet database.\n\nSource: live fleet database\n\nElevator 48210 was not found in the fleet database.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What is the risk level of elevator 48210?"
+        },
+        {
+          "role": "assistant",
+          "content": "That elevator was not found in the fleet database.\n\nSource: live fleet database\n\nElevator 48210 was not found in the fleet database."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 14.6
+    },
+    {
+      "id": "D2",
+      "label": "Inspection history \u2014 illustrative ID",
+      "message": "Show me the inspection history for elevator 92341.",
+      "reply": "That elevator was not found in the fleet database.\n\nSource: live fleet database\n\nElevator 92341 was not found in the fleet database.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Show me the inspection history for elevator 92341."
+        },
+        {
+          "role": "assistant",
+          "content": "That elevator was not found in the fleet database.\n\nSource: live fleet database\n\nElevator 92341 was not found in the fleet database."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 1.6
+    },
+    {
+      "id": "D3",
+      "label": "TSSA shutdown fleet list",
+      "message": "How many elevators are currently flagged for TSSA shutdown?",
+      "reply": "Based on the most recent inspections, there are 20 elevators in the fleet flagged for TSSA shutdown.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "How many elevators are currently flagged for TSSA shutdown?"
+        },
+        {
+          "role": "assistant",
+          "content": "Based on the most recent inspections, there are 20 elevators in the fleet flagged for TSSA shutdown.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)"
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 7.0
+    },
+    {
+      "id": "D4",
+      "label": "Follow-up needed list",
+      "message": "Which elevators need a followup inspection?",
+      "reply": "A followup inspection is required when an inspector has issued compliance orders (deficiencies) during a previous inspection and needs to verify those issues have been resolved. The followup is scheduled to check that corrective action was taken \u2014 it isn't tied to a specific device type or risk level, but rather to the presence of outstanding orders.\n\nIf you're looking at a specific fleet or dashboard, you'd identify these elevators by finding devices whose most recent inspection outcome was \"Fail\" or \"Follow up,\" indicating outstanding compliance work.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Which elevators need a followup inspection?"
+        },
+        {
+          "role": "assistant",
+          "content": "A followup inspection is required when an inspector has issued compliance orders (deficiencies) during a previous inspection and needs to verify those issues have been resolved. The followup is scheduled to check that corrective action was taken \u2014 it isn't tied to a specific device type or risk level, but rather to the presence of outstanding orders.\n\nIf you're looking at a specific fleet or dashboard, you'd identify these elevators by finding devices whose most recent inspection outcome was \"Fail\" or \"Follow up,\" indicating outstanding compliance work."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 4.6
+    },
+    {
+      "id": "D5",
+      "label": "Incident count last year",
+      "message": "How many incidents were reported in the last year?",
+      "reply": "In 2015, the fleet recorded 506 total incidents, with 142 involving injuries and 2 fatal.\n\nSource: live fleet database \u2014 incidents (aggregate)\n\nYear: 2015\nTotal incidents: 506\nWith injury: 142\nFatal: 2",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "How many incidents were reported in the last year?"
+        },
+        {
+          "role": "assistant",
+          "content": "In 2015, the fleet recorded 506 total incidents, with 142 involving injuries and 2 fatal.\n\nSource: live fleet database \u2014 incidents (aggregate)\n\nYear: 2015\nTotal incidents: 506\nWith injury: 142\nFatal: 2"
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 7.5
+    },
+    {
+      "id": "SA1",
+      "label": "Schedule preview \u2014 full input",
+      "message": "Schedule a periodic inspection for elevator 55123 on 2026-07-20.",
+      "reply": "The elevator ID 55123 was not found in the database. It appears this elevator does not exist in our system.\n\nCould you please verify the elevator ID and provide the correct one? You can find the correct ID on the elevator dashboard or in your fleet records.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Schedule a periodic inspection for elevator 55123 on 2026-07-20."
+        },
+        {
+          "role": "assistant",
+          "content": "The elevator ID 55123 was not found in the database. It appears this elevator does not exist in our system.\n\nCould you please verify the elevator ID and provide the correct one? You can find the correct ID on the elevator dashboard or in your fleet records."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 3.8
+    },
+    {
+      "id": "SA1_cancel",
+      "label": "Cancel via pre-emption",
+      "message": "Cancel that.",
+      "reply": "Understood. No action taken \u2014 the request to schedule the inspection for elevator 55123 has been cancelled.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Schedule a periodic inspection for elevator 55123 on 2026-07-20."
+        },
+        {
+          "role": "assistant",
+          "content": "The elevator ID 55123 was not found in the database. It appears this elevator does not exist in our system.\n\nCould you please verify the elevator ID and provide the correct one? You can find the correct ID on the elevator dashboard or in your fleet records."
+        },
+        {
+          "role": "user",
+          "content": "Cancel that."
+        },
+        {
+          "role": "assistant",
+          "content": "Understood. No action taken \u2014 the request to schedule the inspection for elevator 55123 has been cancelled."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 2.1
+    },
+    {
+      "id": "SA2",
+      "label": "Schedule preview \u2014 relative date",
+      "message": "Book a followup inspection for elevator 78432 next Monday.",
+      "reply": "I have the elevator ID (78432) and inspection type (Followup), but I need a specific date. \"Next Monday\" could mean different dates depending on when you're asking.\n\nCould you please provide the exact date for the inspection (e.g., January 6, 2025)?",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Book a followup inspection for elevator 78432 next Monday."
+        },
+        {
+          "role": "assistant",
+          "content": "I have the elevator ID (78432) and inspection type (Followup), but I need a specific date. \"Next Monday\" could mean different dates depending on when you're asking.\n\nCould you please provide the exact date for the inspection (e.g., January 6, 2025)?"
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 5.2
+    },
+    {
+      "id": "SA3",
+      "label": "Schedule \u2014 missing date (needs more info)",
+      "message": "I need to arrange a followup \u2014 elevator 44210 failed last week.",
+      "reply": "I don't have access to scheduling systems, so I can't arrange the inspection directly. However, here's what the process involves:\n\nA **Followup inspection** is scheduled after a **Fail** outcome to verify that the compliance orders issued by the TSSA inspector have been resolved. The device cannot be marked as compliant until a followup inspection confirms the deficiencies are corrected.\n\nTo arrange it, you'll need to contact a licensed TSSA inspector \u2014 either your regular inspection provider or one listed on the TSSA website. When you call, have the device number (44210) and the original inspection order number ready.\n\nWould you like me to explain what typically happens during a followup, or what categories of deficiencies need to be cleared?",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "I need to arrange a followup \u2014 elevator 44210 failed last week."
+        },
+        {
+          "role": "assistant",
+          "content": "I don't have access to scheduling systems, so I can't arrange the inspection directly. However, here's what the process involves:\n\nA **Followup inspection** is scheduled after a **Fail** outcome to verify that the compliance orders issued by the TSSA inspector have been resolved. The device cannot be marked as compliant until a followup inspection confirms the deficiencies are corrected.\n\nTo arrange it, you'll need to contact a licensed TSSA inspector \u2014 either your regular inspection provider or one listed on the TSSA website. When you call, have the device number (44210) and the original inspection order number ready.\n\nWould you like me to explain what typically happens during a followup, or what categories of deficiencies need to be cleared?"
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 4.4
+    },
+    {
+      "id": "SA4",
+      "label": "Schedule preview \u2014 for confirm chain",
+      "message": "Schedule a periodic inspection for elevator 37180 on 2026-08-01.",
+      "reply": "You are about to schedule an inspection:\n\n- **Elevator ID:** 37180\n- **Location:** 75 WATERLOO ST GOVERNMENT OF CANADA BLDG STRATFORD N5A 7B2 ON CA\n- **Status:** ACTIVE\n- **Date:** 2026-08-01\n- **Type:** Periodic\n\nWould you like to proceed? Reply yes to confirm or no to cancel.",
+      "pending_action": {
+        "elevator_id": 37180,
+        "inspection_date": "2026-08-01",
+        "inspection_type": "Periodic",
+        "reason": "Schedule a periodic inspection for elevator 37180 on 2026-08-01.",
+        "summary": "You are about to schedule an inspection:\n  Elevator ID : 37180\n  Location    : 75 WATERLOO ST GOVERNMENT OF CANADA BLDG STRATFORD N5A 7B2 ON CA\n  Status      : ACTIVE\n  Date        : 2026-08-01\n  Type        : Periodic\n  Reason      : Schedule a periodic inspection for elevator 37180 on 2026-08-01.\n\nPlease confirm to proceed.",
+        "expires_at": 1782496971,
+        "signature": "067f3044550b66656974756a4ca52ec48a7c026fbaf6949d84adf2f63a90830f"
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "Schedule a periodic inspection for elevator 37180 on 2026-08-01."
+        },
+        {
+          "role": "assistant",
+          "content": "You are about to schedule an inspection:\n\n- **Elevator ID:** 37180\n- **Location:** 75 WATERLOO ST GOVERNMENT OF CANADA BLDG STRATFORD N5A 7B2 ON CA\n- **Status:** ACTIVE\n- **Date:** 2026-08-01\n- **Type:** Periodic\n\nWould you like to proceed? Reply yes to confirm or no to cancel."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 5.2
+    },
+    {
+      "id": "SA4_confirm",
+      "label": "Confirm via pre-emption (DB WRITE)",
+      "message": "Yes, confirm.",
+      "reply": "Inspection scheduled:\n\n- **Elevator:** 37180 (75 Waterloo St \u2014 Government of Canada Bldg)\n- **Type:** Periodic\n- **Date:** 2026-08-01\n- **Status:** Confirmed\n\nThis will appear in your upcoming inspections list. Let me know if you need anything else.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Schedule a periodic inspection for elevator 37180 on 2026-08-01."
+        },
+        {
+          "role": "assistant",
+          "content": "You are about to schedule an inspection:\n\n- **Elevator ID:** 37180\n- **Location:** 75 WATERLOO ST GOVERNMENT OF CANADA BLDG STRATFORD N5A 7B2 ON CA\n- **Status:** ACTIVE\n- **Date:** 2026-08-01\n- **Type:** Periodic\n\nWould you like to proceed? Reply yes to confirm or no to cancel."
+        },
+        {
+          "role": "user",
+          "content": "Yes, confirm."
+        },
+        {
+          "role": "assistant",
+          "content": "Inspection scheduled:\n\n- **Elevator:** 37180 (75 Waterloo St \u2014 Government of Canada Bldg)\n- **Type:** Periodic\n- **Date:** 2026-08-01\n- **Status:** Confirmed\n\nThis will appear in your upcoming inspections list. Let me know if you need anything else."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 2.5
+    },
+    {
+      "id": "K1",
+      "label": "RAG procedural \u2014 hydraulic",
+      "message": "What is the procedure for hydraulic pressure loss?",
+      "reply": "## Procedure for Hydraulic Pressure Loss\n\nBased on the maintenance documentation, hydraulic pressure loss is diagnosed through a series of pressure tests. Here's the procedure:\n\n### Static Pressure Test\n1. Connect a pressure gauge to the test port.\n2. Allow the system to stabilize for at least 2 minutes after the car has stopped.\n3. Record the static pressure reading.\n4. Monitor the pressure for 5 minutes.\n5. **Interpretation**: A stable reading indicates good seal integrity. A gradual drop indicates an internal leak, either at the cylinder seals or the control valve.\n\n> **Note**: Normal static pressure varies by system design, but most passenger elevators in our fleet operate in the 200 to 500 psi range (14 to 35 bar). The system's design pressure is on the data plate.\n\n### Running Pressure Test\nThis measures system pressure while the car travels upward under load:\n1. With the gauge still connected, send the car on a full up-run under load.\n2. Record the peak pressure during the run.\n3. Compare to the rated working pressure on the data plate.\n4. Running pressure should be within 10% of the rated working pressure.\n\n> **Interpretation**: Pressure significantly below rated may indicate a worn pump, internal valve bypass, or low fluid. Pressure significantly above rated may indicate a restriction in the hydraulic line or an improperly adjusted relief valve.\n\n### If Pressure Loss is Confirmed\n- **Leaking valve**: The valve does not seat fully, allowing fluid to bypass. This is the most common valve failure and a frequent source of leveling complaints.\n- **Solenoid failure**: The electrical solenoid that actuates the valve burns out or loses its magnetic strength.\n\nAll hydraulic repairs beyond basic monitoring require a contractor (typically KONE for our fleet). If you encounter pressure loss during testing, document the findings and escalate to the appropriate contractor.\n\n**Source**: Maintenance Document 10078",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What is the procedure for hydraulic pressure loss?"
+        },
+        {
+          "role": "assistant",
+          "content": "## Procedure for Hydraulic Pressure Loss\n\nBased on the maintenance documentation, hydraulic pressure loss is diagnosed through a series of pressure tests. Here's the procedure:\n\n### Static Pressure Test\n1. Connect a pressure gauge to the test port.\n2. Allow the system to stabilize for at least 2 minutes after the car has stopped.\n3. Record the static pressure reading.\n4. Monitor the pressure for 5 minutes.\n5. **Interpretation**: A stable reading indicates good seal integrity. A gradual drop indicates an internal leak, either at the cylinder seals or the control valve.\n\n> **Note**: Normal static pressure varies by system design, but most passenger elevators in our fleet operate in the 200 to 500 psi range (14 to 35 bar). The system's design pressure is on the data plate.\n\n### Running Pressure Test\nThis measures system pressure while the car travels upward under load:\n1. With the gauge still connected, send the car on a full up-run under load.\n2. Record the peak pressure during the run.\n3. Compare to the rated working pressure on the data plate.\n4. Running pressure should be within 10% of the rated working pressure.\n\n> **Interpretation**: Pressure significantly below rated may indicate a worn pump, internal valve bypass, or low fluid. Pressure significantly above rated may indicate a restriction in the hydraulic line or an improperly adjusted relief valve.\n\n### If Pressure Loss is Confirmed\n- **Leaking valve**: The valve does not seat fully, allowing fluid to bypass. This is the most common valve failure and a frequent source of leveling complaints.\n- **Solenoid failure**: The electrical solenoid that actuates the valve burns out or loses its magnetic strength.\n\nAll hydraulic repairs beyond basic monitoring require a contractor (typically KONE for our fleet). If you encounter pressure loss during testing, document the findings and escalate to the appropriate contractor.\n\n**Source**: Maintenance Document 10078"
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 9.5
+    },
+    {
+      "id": "K2",
+      "label": "RAG procedural \u2014 cable replacement",
+      "message": "What maintenance is required after a cable replacement?",
+      "reply": "After a cable replacement on an elevating device in Ontario, the TSSA requires a **Re-Inspection (Re-Activation)** before the device can return to service. This is because cable replacement is classified as a **Minor A alteration** \u2014 a replacement in kind of a safety-critical component.\n\nDuring the re-activation inspection, the TSSA inspector will verify:\n\n- Proper cable tension and equalization between multiple cables\n- Correct routing and alignment over sheaves and in grooves\n- Secure anchorage and termination points\n- That governor cables (if applicable) are properly adjusted\n- Functional testing of related safety devices (e.g., overspeed governor, brake system)\n\nThe device cannot operate legally until a licensed inspector has examined the work and cleared it. The inspection outcome is recorded as Passed, Failed, or Follow up depending on findings.\n\nFor ongoing maintenance after the replacement, the contractor should include cable condition in their routine inspections \u2014 checking for wear, corrosion, or improper tension at each periodic service visit. Any signs of cable damage or misalignment should be addressed promptly to prevent premature replacement.\n\nIf you need the specific regulatory citation, this falls under the alteration definitions in **O. Reg. 209/01** and the TSSA's alteration inspection policies. For compliance questions about a specific device, direct inquiries to the TSSA or a licensed elevator contractor.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What maintenance is required after a cable replacement?"
+        },
+        {
+          "role": "assistant",
+          "content": "After a cable replacement on an elevating device in Ontario, the TSSA requires a **Re-Inspection (Re-Activation)** before the device can return to service. This is because cable replacement is classified as a **Minor A alteration** \u2014 a replacement in kind of a safety-critical component.\n\nDuring the re-activation inspection, the TSSA inspector will verify:\n\n- Proper cable tension and equalization between multiple cables\n- Correct routing and alignment over sheaves and in grooves\n- Secure anchorage and termination points\n- That governor cables (if applicable) are properly adjusted\n- Functional testing of related safety devices (e.g., overspeed governor, brake system)\n\nThe device cannot operate legally until a licensed inspector has examined the work and cleared it. The inspection outcome is recorded as Passed, Failed, or Follow up depending on findings.\n\nFor ongoing maintenance after the replacement, the contractor should include cable condition in their routine inspections \u2014 checking for wear, corrosion, or improper tension at each periodic service visit. Any signs of cable damage or misalignment should be addressed promptly to prevent premature replacement.\n\nIf you need the specific regulatory citation, this falls under the alteration definitions in **O. Reg. 209/01** and the TSSA's alteration inspection policies. For compliance questions about a specific device, direct inquiries to the TSSA or a licensed elevator contractor."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 7.2
+    },
+    {
+      "id": "K3",
+      "label": "RAG regulatory \u2014 overdue inspections",
+      "message": "When is an inspection considered overdue under TSSA regulations?",
+      "reply": "An inspection is considered overdue when the most recent inspection did not pass and no subsequent passing inspection is recorded.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "When is an inspection considered overdue under TSSA regulations?"
+        },
+        {
+          "role": "assistant",
+          "content": "An inspection is considered overdue when the most recent inspection did not pass and no subsequent passing inspection is recorded.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)"
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 19.0
+    },
+    {
+      "id": "K4",
+      "label": "RAG narrative \u2014 traction elevator incidents",
+      "message": "What patterns appear in past incident narratives for traction elevators?",
+      "reply": "As an AI assistant, I do not have access to live fleet data, historical incident narratives, or specific device records. To analyze patterns in past incidents for your traction elevators, please navigate to the incident reporting or analytics module within your dashboard.\n\nOnce you have retrieved that data, I can help you interpret the maintenance terminology or risk classifications associated with the findings. For example, I can explain the difference between a \"Near-Miss\" and an \"Incident\" as defined under the Technical Standards and Safety Act, or clarify the implications of \"Critical\" compliance order scores.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What patterns appear in past incident narratives for traction elevators?"
+        },
+        {
+          "role": "assistant",
+          "content": "As an AI assistant, I do not have access to live fleet data, historical incident narratives, or specific device records. To analyze patterns in past incidents for your traction elevators, please navigate to the incident reporting or analytics module within your dashboard.\n\nOnce you have retrieved that data, I can help you interpret the maintenance terminology or risk classifications associated with the findings. For example, I can explain the difference between a \"Near-Miss\" and an \"Incident\" as defined under the Technical Standards and Safety Act, or clarify the implications of \"Critical\" compliance order scores."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 4.1
+    },
+    {
+      "id": "G1",
+      "label": "Definition \u2014 TSSA acronym",
+      "message": "What does TSSA stand for?",
+      "reply": "TSSA stands for the **Technical Standards and Safety Authority**, the provincial administrative authority that regulates elevating devices (including elevators), boilers, pressure vessels, and other technical systems in Ontario. It operates under the *Technical Standards and Safety Act* and administers O. Reg. 209/01 \u2014 Elevating Devices, which sets out the licensing, inspection, and safety requirements for elevators in the province.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What does TSSA stand for?"
+        },
+        {
+          "role": "assistant",
+          "content": "TSSA stands for the **Technical Standards and Safety Authority**, the provincial administrative authority that regulates elevating devices (including elevators), boilers, pressure vessels, and other technical systems in Ontario. It operates under the *Technical Standards and Safety Act* and administers O. Reg. 209/01 \u2014 Elevating Devices, which sets out the licensing, inspection, and safety requirements for elevators in the province."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 5.6
+    },
+    {
+      "id": "G2",
+      "label": "Definition \u2014 Customer Shutdown",
+      "message": "What is a Customer Shutdown?",
+      "reply": "A **Customer Shutdown** is a voluntary, building-owner-initiated status where an elevator is taken out of service. The device remains mechanically intact \u2014 it's not a regulatory action. Common reasons include prolonged vacancy, renovation, or planned seasonal closure.\n\nBecause the elevator has been out of service, it requires a **Re-Activation Inspection** before it can legally return to service. This ensures the device is still safe to operate after the shutdown period.\n\nThis differs from a **TSSA Shutdown**, which is an enforcement order issued by the regulator and carries higher compliance priority.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What is a Customer Shutdown?"
+        },
+        {
+          "role": "assistant",
+          "content": "A **Customer Shutdown** is a voluntary, building-owner-initiated status where an elevator is taken out of service. The device remains mechanically intact \u2014 it's not a regulatory action. Common reasons include prolonged vacancy, renovation, or planned seasonal closure.\n\nBecause the elevator has been out of service, it requires a **Re-Activation Inspection** before it can legally return to service. This ensures the device is still safe to operate after the shutdown period.\n\nThis differs from a **TSSA Shutdown**, which is an enforcement order issued by the regulator and carries higher compliance priority."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 56.0
+    },
+    {
+      "id": "G3",
+      "label": "Greeting",
+      "message": "Hello, what can you help me with?",
+      "reply": "I am OpsBot, an AI assistant specialized in elevator fleet operations for the province of Ontario. I provide advisory and educational support to operations analysts, inspectors, and managers regarding the regulatory environment governed by the Technical Standards and Safety Act (TSSA) and O. Reg. 209/01.\n\nI can assist you with the following:\n\n*   **Regulation and Compliance:** Explaining inspection frequencies, license statuses, and the meaning of various device operating statuses.\n*   **Terminology:** Clarifying the differences between device types (such as LULA vs. Passenger elevators) and maintenance terms (such as Major Alterations vs. Minor A/B changes).\n*   **Inspection Frameworks:** Explaining different inspection types and the risk scoring associated with compliance orders.\n*   **Dashboard Guidance:** Helping you interpret the categories, risk classifications, and status indicators you see in your fleet dashboard.\n\nPlease note that I do not have access to live fleet data. For current device statuses, inspection records, or specific risk scores, please refer directly to your dashboard.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "Hello, what can you help me with?"
+        },
+        {
+          "role": "assistant",
+          "content": "I am OpsBot, an AI assistant specialized in elevator fleet operations for the province of Ontario. I provide advisory and educational support to operations analysts, inspectors, and managers regarding the regulatory environment governed by the Technical Standards and Safety Act (TSSA) and O. Reg. 209/01.\n\nI can assist you with the following:\n\n*   **Regulation and Compliance:** Explaining inspection frequencies, license statuses, and the meaning of various device operating statuses.\n*   **Terminology:** Clarifying the differences between device types (such as LULA vs. Passenger elevators) and maintenance terms (such as Major Alterations vs. Minor A/B changes).\n*   **Inspection Frameworks:** Explaining different inspection types and the risk scoring associated with compliance orders.\n*   **Dashboard Guidance:** Helping you interpret the categories, risk classifications, and status indicators you see in your fleet dashboard.\n\nPlease note that I do not have access to live fleet data. For current device statuses, inspection records, or specific risk scores, please refer directly to your dashboard."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 7.6
+    },
+    {
+      "id": "B1",
+      "label": "Borderline: knowledge vs data (what causes + numeric ID + risk)",
+      "message": "What causes elevator 48210 to be high risk?",
+      "reply": "We couldn't locate elevator 48210 in our fleet records, so we cannot assess its risk.\n\nSource: live fleet database\n\nElevator 48210 was not found in the fleet database.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What causes elevator 48210 to be high risk?"
+        },
+        {
+          "role": "assistant",
+          "content": "We couldn't locate elevator 48210 in our fleet records, so we cannot assess its risk.\n\nSource: live fleet database\n\nElevator 48210 was not found in the fleet database."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 34.3
+    },
+    {
+      "id": "B2",
+      "label": "Borderline: knowledge vs data (how + numeric ID)",
+      "message": "How often does elevator 92341 get inspected?",
+      "reply": "In Ontario, most elevating devices must be inspected at least **once per year** by a licensed TSSA inspector, as required by O. Reg. 209/01 under the *Technical Standards and Safety Act*.\n\nThis annual periodic inspection applies to elevator 92341 as it would to any standard passenger or freight elevator. The exact inspection dates, current status, and history for device 92341 would be available on the operations dashboard \u2014 I don't have access to specific device records. If you need those details, check the dashboard or contact the TSSA directly.",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "How often does elevator 92341 get inspected?"
+        },
+        {
+          "role": "assistant",
+          "content": "In Ontario, most elevating devices must be inspected at least **once per year** by a licensed TSSA inspector, as required by O. Reg. 209/01 under the *Technical Standards and Safety Act*.\n\nThis annual periodic inspection applies to elevator 92341 as it would to any standard passenger or freight elevator. The exact inspection dates, current status, and history for device 92341 would be available on the operations dashboard \u2014 I don't have access to specific device records. If you need those details, check the dashboard or contact the TSSA directly."
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 6.3
+    },
+    {
+      "id": "B3",
+      "label": "Borderline: knowledge vs data (TSSA requirement + shutdown, no ID)",
+      "message": "What are the TSSA requirements for getting a shutdown elevator back in service?",
+      "reply": "The data shows 20 elevators with non-passing most recent inspection outcomes from 2011 requiring follow-up or voluntary shutdown actions.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)",
+      "pending_action": null,
+      "history": [
+        {
+          "role": "user",
+          "content": "What are the TSSA requirements for getting a shutdown elevator back in service?"
+        },
+        {
+          "role": "assistant",
+          "content": "The data shows 20 elevators with non-passing most recent inspection outcomes from 2011 requiring follow-up or voluntary shutdown actions.\n\nSource: live fleet database \u2014 most recent inspection per elevator\n\nElevators flagged for TSSA shutdown: 20\nNote: No explicit shutdown flag exists in the database. Results show elevators with non-passing most-recent inspection outcomes.\n\n- Elevator 32998 \u2014 341 ERIE ST  STRATFORD N5A 2N3 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 60503 \u2014 21 SYLVAN ST  KENORA P9N 3W7 ON CA \u2014 Follow up (last inspection 2011-01-05)\n- Elevator 39683 \u2014 291 BLAKE ST  BARRIE L4M 1K7 ON CA \u2014 Follow up (last inspection 2011-01-06)\n- Elevator 78416 \u2014 155 MILLWOOD RD  TORONTO M4S 1G1 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 3241 \u2014 280 PERRY ST UNIT 2 PETERBOROUGH K9J 2J4 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 32367 \u2014 300 ANTIBES DR  WILLOWDALE M2R 3N8 ON CA \u2014 Follow up (last inspection 2011-01-12)\n- Elevator 15555 \u2014 300 GRENFELL ST  OSHAWA L1J 4W6 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 35613 \u2014 5770 AMBLER DR  MISSISSAUGA L4W 2T3 ON CA \u2014 Follow up (last inspection 2011-01-13)\n- Elevator 61230 \u2014 751 WOODBINE AVE  TORONTO M4E 3V5 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 81536 \u2014 3 MARINA RD  PORT COLBORNE L3K 6C6 ON CA \u2014 Follow up (last inspection 2011-01-14)\n- Elevator 20451 \u2014 420 BELL ST  PEMBROKE K8A 2K5 ON CA \u2014 Follow up (last inspection 2011-01-18)\n- Elevator 33080 \u2014 16 CIVIC CENTRE RD  PETAWAWA K8H 3H5 ON CA \u2014 Follow up (last inspection 2011-01-19)\n- Elevator 81102 \u2014 6380 FALLSVIEW BLVD  NIAGARA FALLS L2G 7X5 ON CA \u2014 Vol Shut Down (last inspection 2011-01-20)\n- Elevator 84982 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 84983 \u2014 200 NORTH CENTRE ROAD  LONDON N5X 0B1 ON CA \u2014 Follow up (last inspection 2011-01-21)\n- Elevator 1883 \u2014 JAMES ST (CASCO BLDG #30)  CARDINAL K0E 1E0 ON CA \u2014 Vol Shut Down (last inspection 2011-01-24)\n- Elevator 62806 \u2014 3420 FREDERICK AVE  VINELAND L0R 2C0 ON CA \u2014 Follow up (last inspection 2011-01-26)\n- Elevator 70591 \u2014 330 WALLACE AVE N  LISTOWEL N4W 1L3 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499274 \u2014 2220 UNIVERSITY AVE E  WATERLOO N2K 0A8 ON CA \u2014 Follow up (last inspection 2011-01-27)\n- Elevator 64499652 \u2014 12087 BRAMALEA RD  CALEDON L7C 2P9 ON CA \u2014 Follow up (last inspection 2011-01-27)"
+        }
+      ],
+      "agent": null,
+      "elapsed_s": 6.7
+    }
+  ]
+}

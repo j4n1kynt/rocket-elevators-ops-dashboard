@@ -96,6 +96,7 @@ var keywordGroups = []keywordGroup{
 		{"incident", 1.0},
 		{"follow up", 1.0},
 		{"follow-up", 1.0},
+		{"followup", 1.0},
 		{"overdue", 1.0},
 		{"status of", 1.0},
 		{"last inspected", 1.0},
@@ -105,6 +106,8 @@ var keywordGroups = []keywordGroup{
 		{"rated high", 1.0},
 		{"flagged", 0.5},
 		{"how many", 0.5},
+		{"how often", 1.0},
+		{"how frequent", 1.0},
 		{"list", 0.5},
 		{"which", 0.5},
 	}},
@@ -130,18 +133,32 @@ var keywordGroups = []keywordGroup{
 		{"ever had", 1.5},
 		{"in the past", 1.5},
 		{"similar incident", 1.5},
+		// Regulatory framing anchors. Weight 2.5 so a single regulatory phrase
+		// clears both the confidence floor and the competing data-query score from
+		// "tssa"(1.0)+"shutdown"(1.0)=2.0 or "tssa"(1.0)+"overdue"(1.0)=2.0.
+		// "requirements" matches "requirement" via substring; "regulations" matches
+		// "regulation" the same way.
+		{"regulation", 2.5},
+		{"requirement", 2.5},
+		// Incident-narrative corpus anchor. Weight 1.5 beats the data-query
+		// "incident" keyword (1.0) so "incident narratives" routes to knowledge.
+		{"incident narrative", 1.5},
 		{"guide", 0.5},
 		{"manual", 0.5},
 		{"replace", 0.5},
 		{"repair", 0.5},
 		{"install", 0.5},
 		{"lubricate", 0.5},
-		{"maintenance", 0.5},
+		// maintenance is a stronger signal than repair/replace/install — a single
+		// "what maintenance..." question should combine with any secondary cue
+		// (replace, procedure, etc.) to clear the confidence floor (1.0+0.5=1.5).
+		{"maintenance", 1.0},
 	}},
 	{IntentAction, []keyword{
 		{"schedule", 1.0},
 		{"book", 1.0},
 		{"set up", 1.0},
+		{"arrange", 1.0},
 	}},
 }
 
@@ -263,7 +280,8 @@ func extractInspectionType(msg string) string {
 func extractActionType(msg string) string {
 	lower := strings.ToLower(msg)
 	switch {
-	case strings.Contains(lower, "schedule"), strings.Contains(lower, "book"), strings.Contains(lower, "set up"):
+	case strings.Contains(lower, "schedule"), strings.Contains(lower, "book"),
+		strings.Contains(lower, "set up"), strings.Contains(lower, "arrange"):
 		return "schedule_inspection"
 	case strings.Contains(lower, "replace"), strings.Contains(lower, "swap"):
 		return "replace"
