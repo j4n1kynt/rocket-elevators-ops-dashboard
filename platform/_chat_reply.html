@@ -1,16 +1,16 @@
-{# User message bubble — right-aligned, green background #}
+{# User message bubble — right-aligned, green-600 bg, white text (spec §5.3, §5.10) #}
 <div class="flex justify-end">
-  <div class="max-w-[85%] bg-green-600 text-white rounded-lg px-3 py-2 text-sm break-words">{{ message }}</div>
+  <div class="max-w-[85%] bg-green-600 text-white rounded-lg px-3 py-2 text-sm break-words leading-relaxed">{{ message }}</div>
 </div>
 
-{# Assistant reply or error bubble — left-aligned #}
+{# Assistant reply or error bubble — left-aligned (spec §5.3) #}
 {% if error %}
 <div class="flex justify-start">
-  <div class="max-w-[85%] bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700 break-words">{{ error }}</div>
+  <div class="max-w-[85%] bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700 break-words leading-relaxed">{{ error }}</div>
 </div>
 {% else %}
 <div class="flex justify-start">
-  <div class="max-w-[85%] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 break-words leading-relaxed">{{ reply_html }}</div>
+  <div class="max-w-[85%] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 break-words leading-relaxed chat-md">{{ reply_html }}</div>
 </div>
 {% endif %}
 
@@ -22,3 +22,6 @@
 
 {# OOB: update pending action state (null when no scheduling is awaiting confirmation) #}
 <input id="chatPendingAction" hx-swap-oob="outerHTML" type="hidden" name="pending_action" value="{{ pending_action }}" />
+
+{# OOB: update conversation id so each new turn joins the same conversation #}
+<input id="chatConversationId" hx-swap-oob="outerHTML" type="hidden" name="conversation_id" value="{{ conversation_id }}" />

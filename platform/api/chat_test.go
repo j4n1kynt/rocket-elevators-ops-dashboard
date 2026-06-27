@@ -12,18 +12,18 @@ import (
 
 func TestCallLLMSuccess(t *testing.T) {
 	var gotAuth, gotPath string
-	var gotReq openAIChatReq
+	var gotReq ollamaChatReq
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		gotPath = r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&gotReq)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"  hello  "}}]}`)
+		io.WriteString(w, `{"message":{"role":"assistant","content":"  hello  "},"done":true}`)
 	}))
 	defer srv.Close()
 
-	reply, err := callLLM(context.Background(), srv.URL, "sk-test", "qwen/test", []llmMsg{{Role: "user", Content: "hi"}})
+	reply, err := callLLM(context.Background(), srv.URL, "sk-test", "minimax-m2.5:cloud", []llmMsg{{Role: "user", Content: "hi"}})
 	if err != nil {
 		t.Fatalf("callLLM: %v", err)
 	}
@@ -33,17 +33,95 @@ func TestCallLLMSuccess(t *testing.T) {
 	if gotAuth != "Bearer sk-test" {
 		t.Errorf("auth header: got %q, want %q", gotAuth, "Bearer sk-test")
 	}
+	if gotPath != "/chat" {
+		t.Errorf("path: got %q, want %q", gotPath, "/chat")
+	}
+	if gotReq.Model != "minimax-m2.5:cloud" {
+		t.Errorf("model: got %q, want %q", gotReq.Model, "minimax-m2.5:cloud")
+	}
+}
+
+func TestCallOpenRouterSuccess(t *testing.T) {
+	var gotAuth, gotPath string
+	var gotReq openRouterChatReq
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"  hi there  "}}]}`)
+	}))
+	defer srv.Close()
+
+	reply, err := callOpenRouter(context.Background(), srv.URL, "sk-or", "some/model", []llmMsg{{Role: "user", Content: "hi"}})
+	if err != nil {
+		t.Fatalf("callOpenRouter: %v", err)
+	}
+	if reply != "hi there" {
+		t.Errorf("reply: got %q, want %q", reply, "hi there")
+	}
+	if gotAuth != "Bearer sk-or" {
+		t.Errorf("auth header: got %q, want %q", gotAuth, "Bearer sk-or")
+	}
 	if gotPath != "/chat/completions" {
 		t.Errorf("path: got %q, want %q", gotPath, "/chat/completions")
 	}
-	if gotReq.Model != "qwen/test" {
-		t.Errorf("model: got %q, want %q", gotReq.Model, "qwen/test")
+	if gotReq.Model != "some/model" {
+		t.Errorf("model: got %q, want %q", gotReq.Model, "some/model")
 	}
+}
+
+// TestCallChatLLMSelectsProvider verifies the dispatcher: OpenRouter when its key
+// is set, Ollama otherwise.
+func TestCallChatLLMSelectsProvider(t *testing.T) {
+	orHit, ollamaHit := false, false
+
+	orSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		orHit = true
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"from openrouter"}}]}`)
+	}))
+	defer orSrv.Close()
+
+	ollamaSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ollamaHit = true
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"message":{"role":"assistant","content":"from ollama"},"done":true}`)
+	}))
+	defer ollamaSrv.Close()
+
+	t.Run("uses OpenRouter when its key is set", func(t *testing.T) {
+		t.Setenv("OPENROUTER_API_KEY", "sk-or")
+		t.Setenv("OPENROUTER_BASE_URL", orSrv.URL)
+		orHit = false
+		reply, err := callChatLLM(context.Background(), []llmMsg{{Role: "user", Content: "hi"}})
+		if err != nil {
+			t.Fatalf("callChatLLM: %v", err)
+		}
+		if reply != "from openrouter" || !orHit {
+			t.Errorf("expected OpenRouter to be used; reply=%q orHit=%v", reply, orHit)
+		}
+	})
+
+	t.Run("defaults to Ollama without an OpenRouter key", func(t *testing.T) {
+		// TestMain already cleared OPENROUTER_API_KEY for the package.
+		t.Setenv("OLLAMA_BASE_URL", ollamaSrv.URL)
+		t.Setenv("OLLAMA_API_KEY", "sk-ollama")
+		ollamaHit = false
+		reply, err := callChatLLM(context.Background(), []llmMsg{{Role: "user", Content: "hi"}})
+		if err != nil {
+			t.Fatalf("callChatLLM: %v", err)
+		}
+		if reply != "from ollama" || !ollamaHit {
+			t.Errorf("expected Ollama to be used; reply=%q ollamaHit=%v", reply, ollamaHit)
+		}
+	})
 }
 
 func TestCallLLMMissingKey(t *testing.T) {
 	_, err := callLLM(context.Background(), "http://unused", "", "m", nil)
-	if err == nil || !strings.Contains(err.Error(), "API_KEY is not set") {
+	if err == nil || !strings.Contains(err.Error(), "OLLAMA_API_KEY is not set") {
 		t.Errorf("expected missing-key error, got %v", err)
 	}
 }
@@ -61,23 +139,23 @@ func TestCallLLMNon200(t *testing.T) {
 	}
 }
 
-func TestCallLLMNoChoices(t *testing.T) {
+func TestCallLLMEmptyMessage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"choices":[]}`)
+		io.WriteString(w, `{"message":{"role":"assistant","content":""},"done":true}`)
 	}))
 	defer srv.Close()
 
 	_, err := callLLM(context.Background(), srv.URL, "k", "m", []llmMsg{{Role: "user", Content: "x"}})
-	if err == nil || !strings.Contains(err.Error(), "no choices") {
-		t.Errorf("expected no-choices error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "empty content") {
+		t.Errorf("expected empty-content error, got %v", err)
 	}
 }
 
-func TestCallLLMEmptyContent(t *testing.T) {
+func TestCallLLMWhitespaceContent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"  "}}]}`)
+		io.WriteString(w, `{"message":{"role":"assistant","content":"  "},"done":true}`)
 	}))
 	defer srv.Close()
 
@@ -157,34 +235,6 @@ func TestDetectConfirmation(t *testing.T) {
 		if gotConf != c.wantConf || gotCanc != c.wantCanc {
 			t.Errorf("detectConfirmation(%q) = (conf=%t, canc=%t), want (conf=%t, canc=%t)",
 				c.msg, gotConf, gotCanc, c.wantConf, c.wantCanc)
-		}
-	}
-}
-
-func TestShouldTryRagFallback(t *testing.T) {
-	cases := []struct {
-		msg  string
-		want bool
-	}{
-		// Natural-language procedural questions — the spec FEATURE-3 examples that
-		// the keyword classifier misses. Must reach the maintenance search.
-		{"what do I do when hydraulic pressure drops?", true},
-		{"why does the car drift down?", true},
-		// Substantive statements without a question mark (>= 4 words).
-		{"the hydraulic car will not level", true},
-		{"governor tripped during the up run", true},
-		// Trivial chatter — filtered out to avoid embedding latency.
-		{"hi", false},
-		{"thanks", false},
-		{"hello there", false},
-		{"good morning team", false},
-		// A short message that is still a question stays eligible; retrieval will
-		// simply return nothing if there is no relevant doc.
-		{"why?", true},
-	}
-	for _, c := range cases {
-		if got := shouldTryRagFallback(c.msg); got != c.want {
-			t.Errorf("shouldTryRagFallback(%q) = %t, want %t", c.msg, got, c.want)
 		}
 	}
 }

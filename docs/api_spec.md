@@ -491,6 +491,181 @@ All filters combine with the base alert criteria (HIGH risk + failed/missing mos
 
 ---
 
+### `GET /api/conversations`
+
+**Description:**  
+Returns a paginated list of conversations for the analytics sidebar. Supports full-text search over message content and filtering by the agent that handled the conversation.
+
+**Data source:** `conversations` and `messages` tables (PostgreSQL)
+
+**Query parameters:**
+
+| Parameter | Type | Required | Default | Validation | Description |
+|---|---|---|---|---|---|
+| `page` | int | No | `1` | must be >= 1 | Page number (1-based) |
+| `limit` | int | No | `20` | 1–100 | Records per page |
+| `q` | string | No | — | — | Case-insensitive substring search over message content; a conversation matches if ANY of its messages contains `q` |
+| `agent` | string | No | — | any value | Keep only conversations that have at least one assistant message by this agent. Any value is accepted (the data may contain legacy agent names such as `advisory` or `mcp_data_tool`); an unknown value simply matches nothing and returns an empty list |
+
+**Response — 200 OK:**
+```json
+{
+  "total": 42,
+  "page": 1,
+  "limit": 20,
+  "conversations": [
+    {
+      "conversation_id": 12,
+      "started_at": "2026-06-20T14:30:00Z",
+      "last_activity_at": "2026-06-20T14:45:00Z",
+      "message_count": 6,
+      "agents": ["data", "knowledge"],
+      "title": "what is the risk of elevator 12345?"
+    }
+  ]
+}
+```
+
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `total` | integer | Count of conversations matching the `q`/`agent` filters across all pages |
+| `page` | integer | Current page |
+| `limit` | integer | Page size |
+| `conversations` | array | `[]` (never null) when empty |
+| `conversation_id` | integer | Primary key |
+| `started_at` | string (RFC3339) | Timestamp the conversation row was created |
+| `last_activity_at` | string (RFC3339) | MAX(messages.created_at) for the conversation, or `started_at` when it has no messages |
+| `message_count` | integer | Total number of messages in the conversation |
+| `agents` | array of strings | Sorted distinct non-null `agent` values; empty array `[]` if none |
+| `title` | string | Content of the first user message (lowest `created_at`, then `message_id`), trimmed and truncated to 120 chars with `…`; `"New conversation"` when there is no user message |
+
+**Ordering:** most recent activity first (`last_activity_at DESC`, tiebreak `conversation_id DESC`).
+
+**Error responses:**
+
+| Code | Condition | Body |
+|---|---|---|
+| `400` | `page` is not a positive integer | `{"error": "page must be a positive integer"}` |
+| `400` | `limit` is outside 1–100 | `{"error": "limit must be between 1 and 100"}` |
+
+(The `agent` filter does not reject any value — an unknown agent returns `200` with an empty list.)
+
+---
+
+### `GET /api/conversations/{id}`
+
+**Description:**  
+Returns the full message thread for a single conversation, including all messages in chronological order and the same summary fields as the list endpoint.
+
+**Data source:** `conversations` and `messages` tables (PostgreSQL)
+
+**Path parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | integer | Conversation ID (numeric) |
+
+**Response — 200 OK:**
+```json
+{
+  "conversation_id": 12,
+  "started_at": "2026-06-20T14:30:00Z",
+  "last_activity_at": "2026-06-20T14:45:00Z",
+  "message_count": 6,
+  "agents": ["data", "knowledge"],
+  "title": "what is the risk of elevator 12345?",
+  "messages": [
+    {
+      "message_id": 101,
+      "role": "user",
+      "content": "what is the risk of elevator 12345?",
+      "agent": null,
+      "created_at": "2026-06-20T14:30:00Z"
+    },
+    {
+      "message_id": 102,
+      "role": "assistant",
+      "content": "Risk level: HIGH ...",
+      "agent": "data",
+      "created_at": "2026-06-20T14:30:05Z"
+    }
+  ]
+}
+```
+
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `conversation_id` | integer | Primary key |
+| `started_at` | string (RFC3339) | Timestamp the conversation row was created |
+| `last_activity_at` | string (RFC3339) | MAX(messages.created_at), or `started_at` when no messages |
+| `message_count` | integer | Total number of messages |
+| `agents` | array of strings | Sorted distinct non-null `agent` values; `[]` if none |
+| `title` | string | First user message content (trimmed, truncated to 120 chars + `…`); `"New conversation"` if no user message |
+| `messages` | array | `[]` (never null) when empty; ordered by `created_at ASC`, then `message_id ASC` |
+| `messages[].message_id` | integer | Primary key |
+| `messages[].role` | string | `"user"` or `"assistant"` |
+| `messages[].content` | string | Message text |
+| `messages[].agent` | string \| null | Agent name for assistant messages; `null` for user messages |
+| `messages[].created_at` | string (RFC3339) | Timestamp the message was saved |
+
+**Error responses:**
+
+| Code | Condition | Body |
+|---|---|---|
+| `400` | `id` is not numeric | `{"error": "Invalid conversation ID format. ID must be numeric."}` |
+| `404` | No conversation found for the given ID | `{"error": "Conversation not found.", "conversation_id": "12"}` |
+
+---
+
+### `GET /api/conversations/stats`
+
+**Description:**  
+Returns global analytics for the conversation log: totals, per-agent message counts, average messages per conversation, and a daily activity breakdown for the last 30 days.
+
+**Data source:** `conversations` and `messages` tables (PostgreSQL)
+
+**Query parameters:** None
+
+**Response — 200 OK:**
+```json
+{
+  "total_conversations": 42,
+  "total_messages": 318,
+  "avg_messages_per_conversation": 7.6,
+  "agent_distribution": {
+    "data": 120,
+    "knowledge": 60,
+    "scheduling": 15,
+    "general": 25,
+    "advisory": 4
+  },
+  "activity_by_day": [
+    {"date": "2026-06-18", "conversations": 5},
+    {"date": "2026-06-19", "conversations": 8}
+  ]
+}
+```
+
+**Field definitions:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `total_conversations` | integer | Total number of conversation rows |
+| `total_messages` | integer | Total number of message rows |
+| `avg_messages_per_conversation` | float | `total_messages / total_conversations`, rounded to 1 decimal; `0` when there are no conversations |
+| `agent_distribution` | object | Count of assistant messages grouped by `agent`, for **every** agent value present in the data (including legacy names like `advisory`, `mcp_data_tool`). The four canonical agents (`data`, `knowledge`, `scheduling`, `general`) are always present (`0` when none); other keys appear only when that agent has at least one message |
+| `activity_by_day` | array | Conversations started per calendar day (UTC) over the last 30 days, ascending by date; only days with >= 1 conversation; `[]` when none |
+| `activity_by_day[].date` | string | Calendar date in `YYYY-MM-DD` format |
+| `activity_by_day[].conversations` | integer | Count of conversations started on that day |
+
+**Error responses:** None — this endpoint has no parameters and cannot fail.
+
+---
+
 ## 6. Verification Criteria
 
 ### `GET /api/elevators`
@@ -542,6 +717,34 @@ All filters combine with the base alert criteria (HIGH risk + failed/missing mos
 - Entries with no inspection record on file have `latest_inspection_date: null` and `latest_inspection_outcome: null`
 - `total` equals the length of the `alerts` array
 - Endpoint accepts no query parameters; always returns 200 — never returns 4xx
+
+### `GET /api/conversations`
+- Returns 200 with `conversations` array and correct `total` count
+- `conversations` is `[]` (never null) when there are no matching conversations
+- `agents` is a sorted array of distinct non-null agent values; `[]` when none
+- `title` is the first user message trimmed to 120 chars with `…`; `"New conversation"` when no user message
+- `last_activity_at` equals `started_at` for conversations with no messages
+- Ordering is by `last_activity_at DESC`, tiebreak `conversation_id DESC`
+- `q` filter matches case-insensitively on any message content
+- `agent` filter keeps only conversations with at least one assistant message by that agent; any value is accepted (an unknown agent returns 200 with an empty list)
+- `limit > 100` or `limit < 1` returns 400; `page < 1` returns 400
+
+### `GET /api/conversations/{id}`
+- Returns 200 with `messages` array and correct summary fields
+- `messages` is `[]` (never null) when the conversation has no messages
+- Messages are ordered by `created_at ASC`, then `message_id ASC`
+- `agent` is `null` for user rows; a string for assistant rows
+- Summary fields (title, agents, message_count, last_activity_at) follow the same rules as the list endpoint
+- Returns 400 for a non-numeric `id`
+- Returns 404 with `conversation_id` field when the conversation does not exist
+
+### `GET /api/conversations/stats`
+- Returns 200 with all five top-level fields present
+- `agent_distribution` includes every agent value present in the data; the four canonical keys (`data`, `knowledge`, `scheduling`, `general`) are always present even when count is 0, and legacy values (e.g. `advisory`, `mcp_data_tool`) appear when present
+- `avg_messages_per_conversation` is 0 when there are no conversations
+- `activity_by_day` is `[]` when no conversations were started in the last 30 days
+- `activity_by_day` entries only appear for days with at least 1 conversation, ordered ascending by date
+- Endpoint accepts no query parameters; always returns 200
 
 ---
 

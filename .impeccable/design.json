@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-21T00:00:00Z",
+  "title": "Design System: Rocket Elevators Operations Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "shell-900": { "role": "primary", "displayName": "Shell Slate", "canonical": "#0f172a", "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1"] },
+      "state-good": { "role": "secondary", "displayName": "Signal Green", "canonical": "#16a34a", "tonalRamp": ["#052e16", "#14532d", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#86efac", "#dcfce7"] },
+      "state-warn": { "role": "secondary", "displayName": "Signal Amber", "canonical": "#d97706", "tonalRamp": ["#451a03", "#78350f", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fef3c7"] },
+      "state-bad": { "role": "secondary", "displayName": "Signal Red", "canonical": "#dc2626", "tonalRamp": ["#450a0a", "#7f1d1d", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fee2e2"] },
+      "interaction": { "role": "tertiary", "displayName": "Interaction Blue", "canonical": "#2563eb", "tonalRamp": ["#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#eff6ff"] },
+      "page": { "role": "neutral", "displayName": "Page Slate", "canonical": "#f1f5f9", "tonalRamp": ["#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9"] }
+    },
+    "typographyMeta": {
+      "metric": { "displayName": "Metric", "purpose": "Large mono card numbers; the biggest element on a screen." },
+      "readout": { "displayName": "Readout", "purpose": "Inline mono data: IDs, scores, dates, legend counts." },
+      "label": { "displayName": "Label", "purpose": "Uppercase tracked muted labels and table headers." }
+    },
+    "shadows": [
+      { "name": "card-rest", "value": "0 1px 2px 0 rgba(0,0,0,0.05)", "purpose": "The only ambient shadow; lifts cards and panels just off the page." },
+      { "name": "card-hover", "value": "0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)", "purpose": "Hover feedback on clickable cards only." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "150ms ease-in-out", "purpose": "Hover/focus color and opacity changes on controls." },
+      { "name": "page-fade", "value": "220ms ease-out", "purpose": "HTMX View-Transition page swap; disabled under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Summary Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Fleet metric card: muted label, large mono value, supporting note.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-label\">Active Elevators</p><p class=\"ds-card-metric\">847</p><p class=\"ds-card-note\">Active licenses</p></div>",
+      "css": ".ds-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 1px 2px 0 rgba(0,0,0,0.05); padding:20px; } .ds-card-label { font-family:'IBM Plex Sans',sans-serif; font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin:0 0 12px; } .ds-card-metric { font-family:'IBM Plex Mono',monospace; font-size:2.25rem; font-weight:700; line-height:1.1; color:#16a34a; font-variant-numeric:tabular-nums; margin:0; } .ds-card-note { font-family:'IBM Plex Sans',sans-serif; font-size:0.75rem; color:#94a3b8; margin:8px 0 0; }"
+    },
+    {
+      "name": "Status Badge (Good)",
+      "kind": "chip",
+      "refersTo": "badge-good",
+      "description": "Inline data-state badge; green = ACTIVE / LOW risk / Passed.",
+      "html": "<span class=\"ds-badge ds-badge-good\">ACTIVE</span>",
+      "css": ".ds-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'IBM Plex Sans',sans-serif; font-size:0.75rem; font-weight:500; } .ds-badge-good { background:#dcfce7; color:#15803d; box-shadow:inset 0 0 0 1px #bbf7d0; }"
+    },
+    {
+      "name": "Status Badge (Risk)",
+      "kind": "chip",
+      "refersTo": "badge-bad",
+      "description": "Inline data-state badge; red = cancelled / HIGH risk / Fail.",
+      "html": "<span class=\"ds-badge ds-badge-bad\">HIGH</span>",
+      "css": ".ds-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'IBM Plex Sans',sans-serif; font-size:0.75rem; font-weight:500; } .ds-badge-bad { background:#fee2e2; color:#b91c1c; box-shadow:inset 0 0 0 1px #fecaca; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Dark shell action button (chat send / FAB).",
+      "html": "<button class=\"ds-btn-primary\">Send</button>",
+      "css": ".ds-btn-primary { background:#0f172a; color:#ffffff; border:none; border-radius:8px; padding:8px 12px; font-family:'IBM Plex Sans',sans-serif; font-size:0.875rem; font-weight:500; cursor:pointer; transition:background 150ms ease-in-out; } .ds-btn-primary:hover { background:#334155; } .ds-btn-primary:focus-visible { outline:2px solid #2563eb; outline-offset:2px; } .ds-btn-primary:disabled { opacity:0.4; cursor:not-allowed; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Filter/search field in the controls bar.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search by Elevator ID or Location...\" />",
+      "css": ".ds-input { background:#ffffff; color:#334155; border:1px solid #e2e8f0; border-radius:4px; padding:6px 8px; font-family:'IBM Plex Sans',sans-serif; font-size:0.875rem; outline:none; transition:border-color 150ms ease-in-out; } .ds-input::placeholder { color:#94a3b8; } .ds-input:hover { border-color:#94a3b8; } .ds-input:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Sidebar navigation link inside the dark shell; active state filled.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link ds-nav-link-active\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\" width=\"16\" height=\"16\"><path d=\"M13 3V9H21V3M13 21H21V11H13M3 21H11V15H3M3 13H11V3H3V13Z\"/></svg>Overview</a><a class=\"ds-nav-link\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\" width=\"16\" height=\"16\"><path d=\"M3 5H21V7H3V5M3 11H21V13H3V11M3 17H21V19H3V17Z\"/></svg>Elevator Fleet</a></nav>",
+      "css": ".ds-nav { background:#0f172a; padding:16px 12px; display:flex; flex-direction:column; gap:4px; border-radius:8px; } .ds-nav-link { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:4px; font-family:'IBM Plex Sans',sans-serif; font-size:0.875rem; font-weight:500; color:#cbd5e1; text-decoration:none; cursor:pointer; transition:background 150ms ease-in-out, color 150ms ease-in-out; } .ds-nav-link:hover { background:#1e293b; color:#ffffff; } .ds-nav-link-active { background:#334155; color:#ffffff; }"
+    },
+    {
+      "name": "Risk Donut",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Pure-CSS conic-gradient risk distribution ring, no JavaScript.",
+      "html": "<div class=\"ds-donut\" role=\"img\" aria-label=\"Risk distribution\"><div class=\"ds-donut-hole\"><span class=\"ds-donut-total\">1,024</span><span class=\"ds-donut-cap\">Devices</span></div></div>",
+      "css": ".ds-donut { position:relative; width:128px; height:128px; border-radius:9999px; background:conic-gradient(#16a34a 0 55%, #d97706 55% 75%, #dc2626 75% 90%, #94a3b8 90% 100%); } .ds-donut-hole { position:absolute; inset:14px; background:#ffffff; border-radius:9999px; display:flex; flex-direction:column; align-items:center; justify-content:center; } .ds-donut-total { font-family:'IBM Plex Mono',monospace; font-size:1.25rem; font-weight:700; color:#1e293b; font-variant-numeric:tabular-nums; line-height:1; } .ds-donut-cap { font-family:'IBM Plex Sans',sans-serif; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin-top:4px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Instrument Panel",
+    "overview": "This dashboard reads like a calibrated readout, not a website. The numbers lead and everything else gets out of their way. A dark slate shell frames bright white data surfaces; monospaced numerals give every count, score, and ID the feel of a gauge you can trust. Color is never decoration - green, amber, and red carry operational meaning and nothing else. Blue is held in reserve for interaction so it can never be mistaken for data. The system is calm by default and loud only where it must be; density is a feature, since operations staff scan many rows fast.",
+    "keyCharacteristics": [
+      "Mono numerals for all data readouts; sans for everything else.",
+      "Semantic green / amber / red only; blue only for interaction.",
+      "Flat surfaces, hairline borders, one soft shadow at most.",
+      "Dark shell, bright content - a control surface, not a brochure.",
+      "Density with clear hierarchy."
+    ],
+    "rules": [
+      { "name": "The Two-Channel Color Rule", "body": "Green / amber / red mean data state. Blue means interaction. The two channels never cross.", "section": "colors" },
+      { "name": "The Quiet-Chrome Rule", "body": "The slate shell and neutrals fill ~90% of every screen. A state color earns its place only by attaching to a real signal.", "section": "colors" },
+      { "name": "The Mono-for-Data Rule", "body": "Any number a user reads as a value is set in IBM Plex Mono with tabular figures; language is always IBM Plex Sans.", "section": "typography" },
+      { "name": "The Muted-Label Rule", "body": "Labels and column headers are small, uppercase, tracked, and muted (slate-400).", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "A surface is flat at rest with a hairline border. Shadow is a whisper on cards, a step stronger only as hover feedback. A 16px+ blur is wrong here.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do set every data value in IBM Plex Mono with tabular figures; keep IBM Plex Sans for all language.",
+      "Do use green / amber / red only to signal real state, and keep blue for interaction only.",
+      "Do keep surfaces flat: white fill, 1px slate-200 border, at most shadow-sm.",
+      "Do pair every color signal with a text label so meaning survives for color-blind users (WCAG 2.1 AA).",
+      "Do keep labels and table headers small, uppercase, tracked, and muted (slate-400).",
+      "Do show a muted dash for missing data, never a blank cell."
+    ],
+    "donts": [
+      "Don't ship consumer-SaaS marketing patterns: no gradients, hero-metric template, glassmorphism, or decorative illustration.",
+      "Don't drift toward a generic admin template: no identical icon-card grids, no heavy drop shadows.",
+      "Don't recreate the cluttered legacy-enterprise look: keep hierarchy sharp even when the table is dense.",
+      "Don't use blue for any data value, and don't use green / amber / red for focus, hover, or selection.",
+      "Don't use a shadow blur of 16px or more, or stack shadows for depth.",
+      "Don't set body or label text in light gray below 4.5:1 contrast."
+    ]
+  }
+}

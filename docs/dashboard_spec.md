@@ -213,6 +213,8 @@ Some fields may be blank due to missing cross-dataset matches or missing inspect
 
 This section defines the presentation and branding of the dashboard. It does not change any layout structure or data definitions from the sections above.
 
+**Design language — "The Instrument Panel."** The dashboard reads like a calibrated readout, not a website. Data leads; the chrome recedes. The canonical visual system lives in the project-root `DESIGN.md` (tokens, type roles, components) and the strategic intent lives in `PRODUCT.md`. This section stays the functional source of truth for *what* each element shows; `DESIGN.md` is the source of truth for *how* it looks. The two must not disagree — update both together. Core doctrine: monospaced numerals (IBM Plex Mono) for every data value; green/amber/red signal state only; blue is reserved for interaction (focus, selection) and never used for data; surfaces are flat with hairline borders.
+
 ### 4.1 Branding
 
 The sidebar displays the "Rocket Elevators" brand name at the top, above the navigation menu. The brand area should be visually distinct from the rest of the sidebar — larger text weight, slightly more padding, and a bottom border to separate it from the nav links. A simple rocket icon (text character or inline SVG) may appear immediately to the left of the brand name to reinforce identity. The overall treatment should feel like a professional enterprise product, not decorative.
@@ -286,6 +288,20 @@ The outcome values displayed must match the actual values present in the inspect
 - Table header labels are small, uppercase, and muted — consistent with card labels.
 - Table row text is standard size and dark, with hover highlight on rows for readability.
 - No decorative elements (icons, charts, illustrations) are added beyond what is described above, except the risk-distribution **donut** on the Fleet Health panel (Feature 3) — a functional, no-JavaScript data visual, not decoration.
+
+### 4.8 Spacing & Rhythm
+
+Spacing follows a small, consistent scale (8 / 12 / 20 / 28 px) instead of ad-hoc gaps, so vertical rhythm reads as deliberate. Cards use 20 px internal padding. Sections on a page are separated by the larger step (28 px). The page background is light slate (`#f1f5f9`); content sits on white surfaces with 1 px slate-200 borders. The metric numbers on the summary cards are the clear focal point of the Overview — labels are small, uppercase, and muted; supporting notes are quieter still.
+
+### 4.9 State Coverage
+
+Every data region must handle its non-ideal states, not just the happy path:
+
+- **Loading:** Regions fetched via HTMX (`fleet-health`, alerts preview, table) show a calm skeleton placeholder (tonal gray blocks), never a bare spinner in the middle of empty content.
+- **Empty:** When a query returns nothing, show a short, plain message that orients the user (e.g. "No elevators match the current filters."), never a blank area.
+- **Error / unreachable:** When the Go API is unreachable, the affected region shows its honest fallback text ("Fleet health data unavailable.", "Alerts unavailable.") in place of the panel, as defined in the feature sections above.
+
+These states use the same neutral palette as the rest of the chrome; they do not introduce new colors.
 
 ---
 
@@ -694,7 +710,15 @@ A floating Fleet Assistant panel ("OpsBot") gives operations staff a natural-lan
 
 ### 5.1 Entry Point
 
-A floating action button (FAB) is fixed to the bottom-right corner of the viewport (`position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 40`). Clicking it toggles the chat panel open or closed via a CSS `hidden` class — no page navigation, no URL change, no HTMX push-url.
+> **Superseded in Sprint 3 (S3-8).** The original entry point was a floating
+> action button (FAB) fixed to the bottom-right corner. It is replaced on **every
+> page** by an **"Ask OpsBot" button in the top bar** (right side of the page
+> header), preceded by a short message ("Questions about regulations, terms, or
+> risk?") to draw attention. The button toggles the chat panel via the same CSS
+> `hidden` class — no page navigation, no URL change, no HTMX push-url. The
+> bottom-right FAB no longer exists.
+
+A floating action button (FAB) was fixed to the bottom-right corner of the viewport (`position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 40`). Clicking it toggled the chat panel open or closed via a CSS `hidden` class — no page navigation, no URL change, no HTMX push-url.
 
 ### 5.2 Chat Panel
 
@@ -763,7 +787,9 @@ Flask is the sole intermediary — the browser never calls the Go API or Ollama 
 
 The Go API loads its system prompt from `platform/api/prompts/system_prompt.md` (embedded into the binary at build time) — the hardened "OpsBot" prompt produced and validated in PROMPT-1 / EVAL-1 (`docs/system-prompt-evaluation.md`), used **verbatim**. The prompt's boundaries are in force exactly as validated: no live data access, no specific elevator lookups, no regulatory/procedural advice, no fabrication, no identity override, and emergencies → 911.
 
-**Model:** `mistral:7b` (`mistral:latest`), selected in EVAL-1 §4. Cold start exceeds 300s, so the Go API fires a warm-up request to Ollama on startup and all timeouts on the chat path are set to ~300s+.
+**Model (Sprint 1–2):** `mistral:7b` (`mistral:latest`), selected in EVAL-1 §4. Cold start exceeds 300s, so the Go API fires a warm-up request to Ollama on startup and all timeouts on the chat path are set to ~300s+.
+
+**Model (Sprint 3):** the chat path dispatches by provider in `callChatLLM`. **Production runs on OpenRouter** (`https://openrouter.ai/api/v1`, OpenAI-compatible `/chat/completions`, model `OPENROUTER_MODEL`, default `google/gemma-4-31b-it:free`), because the deploy environment has a working OpenRouter key but no working Ollama cloud account. When `OPENROUTER_API_KEY` is unset, it falls back to Ollama cloud `minimax-m2.5:cloud` (`https://ollama.com/api/`, auth `OLLAMA_API_KEY`) — the model chosen on tested no-tool quality in S3-1. The warm-up request and ~300s+ timeouts are retained until cold-start behavior is validated. See `docs/multi-agent-design.md` §5 for provider selection and model-selection evidence.
 
 ### 5.9 No Live Data Access
 
@@ -779,6 +805,23 @@ The chat widget reuses the dashboard's existing palette (§4.2). No new colours 
 | User message bubble | Green `#16a34a` |
 | Assistant message bubble | White, `#e2e8f0` border |
 | Error bubble | `#fef2f2`, dark red text |
+
+---
+
+## 5.11 Multi-Agent Routing (Sprint 3 — S3-1)
+
+Starting Sprint 3, the chatbot uses multi-agent routing internally. The user experience is unchanged — questions are asked the same way. The routing is transparent to the user.
+
+Four specialized agents handle different question types. The router classifies each message using keyword-based intent detection (no additional LLM call) and dispatches to the appropriate agent:
+
+| Agent | Question type |
+|---|---|
+| General | Terminology, definitions, greetings, anything that does not need tools |
+| Data | Fleet stats, elevator lookups, inspection history, risk, incidents |
+| Knowledge | Procedural and technical questions from maintenance docs and incident narratives |
+| Scheduling | Inspection scheduling requests (maintains the two-phase confirmation flow) |
+
+Full design is in `docs/multi-agent-design.md`.
 
 ---
 
@@ -813,6 +856,7 @@ page — only the main content area swaps, driven by HTMX.
 | **Overview** | `/` | Operational Fleet Overview | Summary cards, fleet health panel, recent critical alerts preview (top 5) | Go API `/api/fleet/stats`, `/api/elevators`, `/api/fleet/alerts` |
 | **Elevator Fleet** | `/fleet` | Elevator Fleet | Controls (search + filters), paginated fleet table, detail panel | Go API `/api/elevators`, `/api/elevators/{id}*` |
 | **Alerts** | `/alerts` | Critical Alerts | Critical alerts table (HIGH risk + failed inspection) | Go API `/api/fleet/alerts` |
+| **Conversations** | `/conversations` | Conversations | Conversation list sidebar + contextual main area (global analytics when nothing is open, or one thread with a resume box) | Go API `/api/conversations`, `/api/conversations/{id}`, `/api/conversations/stats` |
 
 The existing fragment endpoints stay and are reused without change:
 `GET /table`, `GET /fleet-health`, `GET /elevator/<id>`, `DELETE /elevator/<id>`.
@@ -941,3 +985,181 @@ PendingAction {
 | Anything else | Treat as a new intent; clear `pending_action` (scheduling is abandoned) |
 
 The intent classifier is bypassed for the confirmation turn — matching is done by simple keyword check before classification runs.
+
+---
+
+## 8. Conversations Page (S3-8)
+
+A new page lets the team see how people use the chatbot. It shows usage
+statistics and lets the user read past conversations. The team can understand
+chatbot activity without writing database queries. This page builds on the
+conversation logging from S3-7, which writes every turn to the `conversations`
+and `messages` tables.
+
+The chatbot itself (the floating side panel from §5) does not change. This page
+is a separate, read-and-resume view of the same logged data.
+
+### 8.1 Route and Navigation
+
+- **Route:** `GET /conversations`. Top-bar title "Conversations", subtitle
+  "Chatbot usage and history".
+- A fourth nav link "Conversations" is added to the sidebar (§6.2), after
+  "Alerts". It uses the same HTMX page-swap mechanism as the other links.
+- The page follows the same shell and `HX-Request` rendering contract as §6.3
+  and §6.4: a full shell on a direct visit or refresh, a content partial plus
+  out-of-band nav and top bar on an HTMX request.
+
+### 8.2 Layout
+
+Inside `#main-content`, the page has **two columns**:
+
+1. **Conversation-list sidebar (left).** This is the page's own sidebar. It sits
+   just to the right of the dark navigation sidebar. The two sidebars are
+   separate: the dark one is for navigation; this one lists conversations.
+2. **Main area (right).** The content depends on the state (see §8.4).
+
+**Responsive behavior.** On wide screens the two columns sit side by side. On
+narrow screens the list collapses to a short, scrollable strip at the top, and
+the main area fills the width below. This uses Tailwind responsive classes only
+— no custom JavaScript.
+
+### 8.3 Conversation List (left column)
+
+- Lists recent conversations, most recent activity first.
+- Each list item shows:
+  - **Title** — the first user message, trimmed and truncated. "New
+    conversation" when there is no user message yet.
+  - **Relative time** — e.g. "2 hours ago"; the exact time shows on hover.
+  - **Message count.**
+  - **Agent badges** — one small badge per agent used in that conversation.
+- **Search box** — filters the list by message content (the `q` param on
+  `GET /api/conversations`).
+- **Agent filter** — shows only conversations that used a chosen agent (`data`,
+  `knowledge`, `scheduling`, or `general`).
+- **New chat** — a control to start a fresh conversation in the main area.
+- **States (§4.9):** loading skeleton while fetching; "No conversations yet."
+  when empty; "Conversations unavailable." when the Go API is unreachable.
+- **Data source:** `GET /api/conversations` (paginated; supports `q` and
+  `agent`).
+
+### 8.4 Main Area — Two States
+
+| State | When | Shows |
+|---|---|---|
+| **A — Global analytics** | No conversation is open (landing state) | The detailed usage statistics (§8.5) |
+| **B — Conversation thread** | A conversation is open | A per-chat top bar, the full thread, and a resume box (§8.6) |
+
+Opening a conversation swaps the main area from State A to State B. The list
+stays visible on the left.
+
+### 8.5 Global Analytics (State A)
+
+This is the detailed view, shown when nothing is selected. It answers the S3-8
+acceptance criteria for usage patterns:
+
+- **Total conversations.**
+- **Total messages.**
+- **Average messages per conversation.**
+- **Agent split** — the share of assistant messages by agent, shown as
+  horizontal bars with one color per agent (§8.8).
+- **Activity** — conversations started per day over the last 30 days, shown as
+  a simple bar strip (no JavaScript, no chart library).
+
+- **Data source:** `GET /api/conversations/stats`.
+- **Empty state:** "No conversations yet." when there is no data.
+
+### 8.6 Conversation Thread (State B)
+
+- **Top bar — per-chat statistics:** message count, agents used, start time, and
+  last activity for this one conversation.
+- **Thread:** all messages in order. User messages align right, assistant
+  messages align left, reusing the message styles from §5.3. Each assistant
+  message shows the **agent badge** for the agent that handled it.
+- **Resume box:** a single-line input at the bottom to continue the
+  conversation (see §8.7).
+- **Data source:** `GET /api/conversations/{id}` (returns the ordered messages
+  and the per-chat stats).
+- **States (§4.9):** "No messages in this conversation." when empty;
+  "Conversation unavailable." on error.
+
+### 8.7 Resume Behavior
+
+A past conversation can be continued. There are **two entry points**, and both
+reuse the same `conversation_id`:
+
+1. **From this page.** The user clicks a conversation, then types in the resume
+   box to continue it.
+2. **From the existing side-panel chatbot (§5).** That panel is unchanged. New
+   chats started there appear in this page's list automatically.
+
+**How resume works.** The resume box posts to the existing `POST /chat` route
+with this conversation's `conversation_id` and the thread history. The reply is
+appended to the thread. The list then refreshes (out-of-band) so the new
+activity shows at the top. Logging is handled by S3-7's `LogTurn`. As noted in
+the S3-7 design, `conversation_id` is only a group key, not an ownership token,
+so any client may read or append to any conversation — this matches the
+internal, no-login nature of the tool.
+
+> **Not in scope:** loading a page thread back into the floating side panel.
+> The side panel keeps its history in a hidden field with no JavaScript, so
+> injecting an old thread into it would need custom JS. Resume on this page
+> happens on this page.
+
+### 8.8 Agent Color System
+
+One color is assigned to each agent (`data`, `knowledge`, `scheduling`,
+`general`). The same color is reused everywhere that agent appears: the list
+badges, the message badges, and the agent-split bars. This keeps the page easy
+to read at a glance.
+
+To respect the §4 two-channel color rule (green/amber/red mean state, blue means
+interaction, and the two never cross), agent identity is **not** shown with a
+hue. Instead, each agent badge uses a single neutral treatment — a slate
+background with the agent name set in IBM Plex Mono. The agent name (the label)
+carries the meaning, not a color. The agent-split bars in the global analytics
+(§8.5) also use one neutral fill; the row label and the mono count identify each
+agent. This keeps agents readable without adding a third color channel. The
+exact neutral tokens are recorded with the visual tokens in the project-root
+`DESIGN.md` during the design pass, so the two documents stay in agreement.
+
+### 8.9 Visual Design
+
+The page follows "The Instrument Panel" system (§4 and `DESIGN.md`):
+monospaced numerals (IBM Plex Mono) for every count and statistic, flat
+surfaces with hairline borders, and a calm, data-first layout. All non-ideal
+states are covered per §4.9 (loading, empty, error).
+
+### 8.10 No Custom JavaScript
+
+All interactions use HTMX and CSS only:
+
+- Selecting a conversation swaps the main area (`hx-get` → `#main-content` inner
+  region).
+- Search and the agent filter swap the list.
+- Resume appends a turn to the thread and refreshes the list via an out-of-band
+  swap.
+
+This matches the dashboard-wide no-JS constraint (§3, §6.6).
+
+### 8.11 Data Sources (new Go API endpoints)
+
+These read-only endpoints are added to the Go API. Full request and response
+contracts live in `docs/api_spec.md`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/conversations` | List conversations for the sidebar. Params: `page`, `limit`, `q`, `agent`. |
+| `GET /api/conversations/{id}` | One conversation: ordered messages plus per-chat statistics. |
+| `GET /api/conversations/stats` | Global usage statistics: totals, average, agent split, and per-day activity. |
+
+### 8.12 OpsBot Entry Point While a Thread Is Active
+
+The OpsBot entry point (the top-bar "Ask OpsBot" button and the chat panel) is
+global — see §5.1. This page adds one rule on top of that: when a conversation
+thread (or a "New chat") is open, **the OpsBot entry point is hidden** (both the
+button and the panel), because the in-thread resume box (§8.7) is the chat input
+in that state. Closing the thread (back to analytics) or leaving the page
+restores the entry point.
+
+This is done with CSS `:has()` only — no JavaScript — keyed off the
+`#conversationThread` marker that is present only while a thread view is loaded.

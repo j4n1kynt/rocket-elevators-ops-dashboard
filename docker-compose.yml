@@ -16,6 +16,34 @@ services:
       timeout: 5s
       retries: 10
 
+  # FastMCP server — the Go API connects to it as an MCP client on port 8765.
+  # The image is heavy (torch + embedding model for RAG) so the first build is
+  # slow; later starts are fast.
+  mcp:
+    build:
+      context: .
+      dockerfile: platform/mcp/Dockerfile
+    ports:
+      - "8765:8765"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-api_user}
+      DB_PASSWORD: ${DB_PASSWORD:-api_password}
+      DB_NAME: ${DB_NAME:-rocket_elevators}
+      MCP_PORT: 8765
+    healthcheck:
+      # The MCP transport is JSON-RPC over POST /mcp, so just check the port is
+      # open. python is already in the image — no curl needed.
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8765), 2).close()"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
   api:
     build:
       context: .
@@ -25,6 +53,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mcp:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -33,6 +63,7 @@ services:
       DB_USER: ${DB_USER:-api_user}
       DB_PASSWORD: ${DB_PASSWORD:-api_password}
       DB_NAME: ${DB_NAME:-rocket_elevators}
+      MCP_SERVER_URL: http://mcp:8765
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemma-4-31b-it:free}
 

@@ -58,6 +58,14 @@ type Classification struct {
 	Entities   Entities
 	Signals    []Signal // every keyword that matched, in scan order — the TRACE
 	Reason     string   // one-line explanation, for logs
+
+	// KeywordSource, when non-empty, is the text buildMCPArgs scans for
+	// tool-selection sub-keywords instead of the current message. contextCarry
+	// sets it to the previous user turn so an ID-only follow-up ("what about
+	// 20718") inherits that turn's specific tool (e.g. get_inspection_history)
+	// instead of falling back to the elevator-risk default. Entities still come
+	// from the current message, so the new elevator ID is the one looked up.
+	KeywordSource string
 }
 
 // ── Keyword tables ──────────────────────────────────────────────────────────
@@ -88,15 +96,18 @@ var keywordGroups = []keywordGroup{
 		{"incident", 1.0},
 		{"follow up", 1.0},
 		{"follow-up", 1.0},
+		{"followup", 1.0},
 		{"overdue", 1.0},
 		{"status of", 1.0},
 		{"last inspected", 1.0},
-		{"risk level",  1.0},
-		{"dangerous",   1.0},
-		{"risk",        1.0},
-		{"rated high",  1.0},
-		{"flagged",     0.5},
+		{"risk level", 1.0},
+		{"dangerous", 1.0},
+		{"risk", 1.0},
+		{"rated high", 1.0},
+		{"flagged", 0.5},
 		{"how many", 0.5},
+		{"how often", 1.0},
+		{"how frequent", 1.0},
 		{"list", 0.5},
 		{"which", 0.5},
 	}},
@@ -122,18 +133,32 @@ var keywordGroups = []keywordGroup{
 		{"ever had", 1.5},
 		{"in the past", 1.5},
 		{"similar incident", 1.5},
+		// Regulatory framing anchors. Weight 2.5 so a single regulatory phrase
+		// clears both the confidence floor and the competing data-query score from
+		// "tssa"(1.0)+"shutdown"(1.0)=2.0 or "tssa"(1.0)+"overdue"(1.0)=2.0.
+		// "requirements" matches "requirement" via substring; "regulations" matches
+		// "regulation" the same way.
+		{"regulation", 2.5},
+		{"requirement", 2.5},
+		// Incident-narrative corpus anchor. Weight 1.5 beats the data-query
+		// "incident" keyword (1.0) so "incident narratives" routes to knowledge.
+		{"incident narrative", 1.5},
 		{"guide", 0.5},
 		{"manual", 0.5},
 		{"replace", 0.5},
 		{"repair", 0.5},
 		{"install", 0.5},
 		{"lubricate", 0.5},
-		{"maintenance", 0.5},
+		// maintenance is a stronger signal than repair/replace/install — a single
+		// "what maintenance..." question should combine with any secondary cue
+		// (replace, procedure, etc.) to clear the confidence floor (1.0+0.5=1.5).
+		{"maintenance", 1.0},
 	}},
 	{IntentAction, []keyword{
 		{"schedule", 1.0},
 		{"book", 1.0},
 		{"set up", 1.0},
+		{"arrange", 1.0},
 	}},
 }
 
@@ -149,7 +174,11 @@ var (
 	// Standalone long digit runs — 5+ digits avoids matching a 4-digit year.
 	idStandaloneRe = regexp.MustCompile(`\b(\d{5,8})\b`)
 
-	isoDateRe   = regexp.MustCompile(`\b(\d{4}-\d{2}-\d{2})\b`)
+	isoDateRe = regexp.MustCompile(`\b(\d{4}-\d{2}-\d{2})\b`)
+	// Numeric dates with the day/month first and a 4-digit year last, separated by
+	// "-" or "/". Covers DD-MM-YYYY, MM-DD-YYYY, DD/MM/YYYY and MM/DD/YYYY. The
+	// year is required at the end, so this never overlaps isoDateRe (year-first).
+	numDateRe   = regexp.MustCompile(`\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b`)
 	monthDateRe = regexp.MustCompile(`(?i)\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:,?\s+(\d{4}))?\b`)
 )
 
@@ -185,6 +214,27 @@ func extractDates(msg string, now time.Time) []string {
 	}
 	for _, m := range isoDateRe.FindAllStringSubmatch(msg, -1) {
 		if t, err := time.Parse("2006-01-02", m[1]); err == nil {
+			add(t.Format("2006-01-02"))
+		}
+	}
+	for _, m := range numDateRe.FindAllStringSubmatch(msg, -1) {
+		a, _ := strconv.Atoi(m[1])
+		b, _ := strconv.Atoi(m[2])
+		year := m[3]
+		var day, month int
+		switch {
+		case a > 12 && b <= 12:
+			day, month = a, b // first part must be the day (DD-MM / DD/MM)
+		case b > 12 && a <= 12:
+			month, day = a, b // second part must be the day (MM-DD / MM/DD)
+		default:
+			// Ambiguous (both <= 12): default to month-first to match the source
+			// data convention (inspection.csv uses M/D/YYYY). The Phase 1 preview
+			// shows the resolved date, so the user can catch a wrong guess.
+			month, day = a, b
+		}
+		cand := fmt.Sprintf("%s-%02d-%02d", year, month, day)
+		if t, err := time.Parse("2006-01-02", cand); err == nil {
 			add(t.Format("2006-01-02"))
 		}
 	}
@@ -230,7 +280,8 @@ func extractInspectionType(msg string) string {
 func extractActionType(msg string) string {
 	lower := strings.ToLower(msg)
 	switch {
-	case strings.Contains(lower, "schedule"), strings.Contains(lower, "book"), strings.Contains(lower, "set up"):
+	case strings.Contains(lower, "schedule"), strings.Contains(lower, "book"),
+		strings.Contains(lower, "set up"), strings.Contains(lower, "arrange"):
 		return "schedule_inspection"
 	case strings.Contains(lower, "replace"), strings.Contains(lower, "swap"):
 		return "replace"

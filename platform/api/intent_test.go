@@ -106,6 +106,13 @@ func TestExtractDates(t *testing.T) {
 		{"natural_with_year", "July 15, 2027", []string{"2027-07-15"}},
 		{"invalid_date", "February 30", nil},
 		{"no_date", "schedule an inspection", nil},
+		// Numeric day/month-first formats with "-" or "/" separators.
+		{"dd_mm_yyyy_dash", "in 25-07-2026", []string{"2026-07-25"}},
+		{"dd_mm_yyyy_slash", "on 25/07/2026", []string{"2026-07-25"}},
+		{"mm_dd_yyyy_dash", "on 07-25-2026", []string{"2026-07-25"}},
+		{"mm_dd_yyyy_slash", "by 07/25/2026", []string{"2026-07-25"}},
+		{"ambiguous_defaults_month_first", "on 03/04/2026", []string{"2026-03-04"}},
+		{"numeric_invalid", "on 25-13-2026", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -357,6 +364,197 @@ func TestBuildMCPArgsRouting(t *testing.T) {
 					t.Fatalf("buildMCPArgs(%q) arg %q = %v (%T); want %v (%T)",
 						c.msg, k, got, got, want, want)
 				}
+			}
+		})
+	}
+}
+
+func TestContextCarry(t *testing.T) {
+	cases := []struct {
+		name       string
+		msg        string
+		history    []ChatMessage
+		wantIntent Intent
+		wantEntity string // first elevator ID expected, "" if none required
+	}{
+		{
+			// data follow-up: elevator ID triggers carry
+			name: "data_elevator_id",
+			msg:  "And for 20718?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 14575"},
+				{Role: "assistant", Content: "Here are the inspections for elevator 14575."},
+			},
+			wantIntent: IntentDataQuery,
+			wantEntity: "20718",
+		},
+		{
+			// RAG follow-up: connector phrase triggers carry, no elevator ID needed
+			name: "rag_connector",
+			msg:  "What about the hydraulic system?",
+			history: []ChatMessage{
+				{Role: "user", Content: "What are the steps to replace a governor?"},
+				{Role: "assistant", Content: "Here are the steps..."},
+			},
+			wantIntent: IntentRAG,
+			wantEntity: "",
+		},
+		{
+			// No history → no change
+			name:       "no_history",
+			msg:        "And for 20718?",
+			history:    nil,
+			wantIntent: IntentAdvisory,
+			wantEntity: "20718",
+		},
+		{
+			// Genuine advisory question must not be carried
+			name: "genuine_advisory_not_carried",
+			msg:  "What is a hydraulic elevator?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 14575"},
+			},
+			wantIntent: IntentAdvisory,
+			wantEntity: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := ClassifyIntent(tc.msg, fixedNow)
+			carried := contextCarry(c, tc.msg, tc.history, fixedNow)
+
+			if carried.Intent != tc.wantIntent {
+				t.Fatalf("intent: got %s, want %s", carried.Intent, tc.wantIntent)
+			}
+			if tc.wantEntity != "" {
+				if len(carried.Entities.ElevatorIDs) == 0 || carried.Entities.ElevatorIDs[0] != tc.wantEntity {
+					t.Fatalf("entity: got %v, want [%s]", carried.Entities.ElevatorIDs, tc.wantEntity)
+				}
+			}
+		})
+	}
+}
+
+func TestContextCarryEndToEnd(t *testing.T) {
+	cases := []struct {
+		name         string
+		msg          string
+		history      []ChatMessage
+		wantTool     string
+		wantElevator int
+	}{
+		{
+			// "And for 20718?" has no sub-topic keywords of its own, so the carry
+			// inherits the previous turn's specific tool (inspection history) via
+			// KeywordSource — not the elevator-risk default. The new elevator ID is
+			// still the one looked up.
+			name: "short_followup_inherits_inspection_history",
+			msg:  "And for 20718?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 14575"},
+				{Role: "assistant", Content: "Here are the inspections for elevator 14575."},
+			},
+			wantTool:     "get_inspection_history",
+			wantElevator: 20718,
+		},
+		{
+			// Regression for the reported bug: an ID-only "What about NNNNN" after
+			// an inspection-history question must return inspections, not risk.
+			name: "what_about_id_inherits_inspection_history",
+			msg:  "What about 20718",
+			history: []ChatMessage{
+				{Role: "user", Content: "Show me the inspection history for elevator 20657"},
+				{Role: "assistant", Content: "Here are the inspections for elevator 20657."},
+			},
+			wantTool:     "get_inspection_history",
+			wantElevator: 20718,
+		},
+		{
+			name: "generic_followup_with_id",
+			msg:  "And for 20718?",
+			history: []ChatMessage{
+				{Role: "user", Content: "What is the risk for elevator 14575?"},
+				{Role: "assistant", Content: "Elevator 14575 is high risk."},
+			},
+			wantTool:     "get_elevator_risk",
+			wantElevator: 20718,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			base := ClassifyIntent(tc.msg, fixedNow)
+			c := contextCarry(base, tc.msg, tc.history, fixedNow)
+
+			toolName, args := buildMCPArgs(c, tc.msg)
+
+			if toolName != tc.wantTool {
+				t.Errorf("tool: got %s, want %s", toolName, tc.wantTool)
+			}
+			id, ok := args["elevator_id"]
+			if !ok {
+				t.Fatalf("elevator_id missing from args: %v", args)
+			}
+			if id != tc.wantElevator {
+				t.Errorf("elevator_id: got %v, want %d", id, tc.wantElevator)
+			}
+		})
+	}
+}
+
+// TestContextCarryRAGCorpus locks in a behavior that the data-path fix also
+// changed: on a RAG follow-up, buildMCPArgs picks the corpus (incident
+// narratives vs. maintenance manuals) from the carried turn via KeywordSource,
+// while the search query text still comes from the current message. This keeps
+// the corpus consistent within one thread.
+func TestContextCarryRAGCorpus(t *testing.T) {
+	cases := []struct {
+		name      string
+		msg       string
+		history   []ChatMessage
+		wantTool  string
+		wantQuery string
+	}{
+		{
+			// Previous turn is an experiential "have we seen" question (narrative
+			// corpus). The connector follow-up inherits that corpus, but searches
+			// it with the current words.
+			name: "followup_inherits_narrative_corpus",
+			msg:  "What about the brakes?",
+			history: []ChatMessage{
+				{Role: "user", Content: "Have we seen similar incidents with the door sensors?"},
+				{Role: "assistant", Content: "Yes, there were a few similar incidents."},
+			},
+			wantTool:  "search_incident_narratives",
+			wantQuery: "What about the brakes?",
+		},
+		{
+			// Previous turn is a how-to question (manuals corpus). The follow-up
+			// stays on the manuals, again with the current words.
+			name: "followup_inherits_manuals_corpus",
+			msg:  "And how about the brakes?",
+			history: []ChatMessage{
+				{Role: "user", Content: "How do I replace the governor?"},
+				{Role: "assistant", Content: "Here are the steps to replace the governor."},
+			},
+			wantTool:  "search_maintenance_docs",
+			wantQuery: "And how about the brakes?",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			base := ClassifyIntent(tc.msg, fixedNow)
+			c := contextCarry(base, tc.msg, tc.history, fixedNow)
+
+			toolName, args := buildMCPArgs(c, tc.msg)
+
+			if toolName != tc.wantTool {
+				t.Errorf("tool: got %s, want %s", toolName, tc.wantTool)
+			}
+			if q := args["query"]; q != tc.wantQuery {
+				t.Errorf("query: got %v, want %q (must be the current message, not the carried turn)", q, tc.wantQuery)
 			}
 		})
 	}
