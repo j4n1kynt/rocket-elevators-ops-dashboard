@@ -79,16 +79,3 @@ Several AI-generated code paths included `if err != nil` guards for errors that 
 - **Committing a temporary diagnostic log**: while we were chasing the `pending_action` bug, I added a `print()` debug log to `server.py` and committed it as its own commit. AI is happy to add a quick log to diagnose a problem, but I should keep that local and never commit it. **Fix**: keep debug prints on my machine, or use the `logging` module at debug level, and commit only the real fix.
 - **Trusting an AI-written prompt that did not match the architecture**: Claude Code wrote the scheduling prompt telling the model to "call" the tool. In our system Go calls the tools and the model only narrates, so the model leaked raw `[TOOL_CALL]` markup into the reply. **Fix**: when AI writes a prompt, check that it matches how the system really executes tools, not just that it reads well.
 
----
-
-## [Team member 3 — add your name here]
-
-> Add your individual AI playbook section following the template above.
-> Include: 2–3 things AI helped you with, and 1–2 pitfalls you hit.
-
----
-
-## [Team member 4 — add your name here]
-
-> Add your individual AI playbook section following the template above.
-> Include: 2–3 things AI helped you with, and 1–2 pitfalls you hit.
