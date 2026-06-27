@@ -499,3 +499,135 @@ carry consistent meaning. Capturing the tokens in `DESIGN.md` (and the intent in
 
 **Constraints kept:** all HTMX contracts and the no-custom-JavaScript rule were
 preserved — the redesign is presentation only, no behavior or data-flow change.
+
+---
+
+## AND-108 (Sprint 3) Improvements
+
+### 1. Server-side pending action store — confirmation survives client-side field drops
+
+**What was added:**
+The HMAC-signed `pending_action` is now mirrored server-side in `pending_store.go`, keyed by `conversation_id` with the same 10-minute TTL. The HMAC signature is still verified on every Phase 2 call.
+
+**Where:**
+`platform/api/pending_store.go` (new), `platform/api/router.go`, `platform/api/agents.go`
+
+**Why:**
+The original design carried `pending_action` only in a hidden HTML form field. When a message switched agent mid-conversation (e.g., a bare "yes" was classified as advisory), the field was dropped and Phase 2 never ran. The general agent then replied as if the inspection had been scheduled — with no database write. Mirroring server-side means the confirmation survives even if the client drops the field, and a false success is no longer possible.
+
+---
+
+### 2. Deterministic scheduling replies — Go builds the outcome, not the LLM
+
+**What was added:**
+The Phase 1 preview and Phase 2 write outcome are built in Go from the real MCP payload fields (`inspection_id`, `elevator_id`, `location`, `inspection_date`, `outcome`), not phrased by the chat model. A general-agent backstop replaces any fabricated "has been scheduled" reply with a safe redirect.
+
+**Where:**
+`platform/api/agents.go` — `extractPhase2SuccessMsg()`, `isLLMFallback()`, general-agent guard
+
+**Why:**
+The chat model hallucinated tool-call blocks, false inspection IDs, and scheduling confirmations with no database write. Building the reply deterministically in Go means the user sees exactly what was written and nothing more.
+
+---
+
+### 3. Scheduling available from both chat paths
+
+**What was added:**
+The conversations-page thread chat (`/conversations/<id>/message`) now round-trips `pending_action` — the same two-phase scheduling flow that already worked in the widget chat (`/chat`).
+
+**Where:**
+`platform/server.py` (`conversation_message`), `platform/_conversation_thread.html`, `platform/_conversation_reply.html`
+
+**Why:**
+The thread chat sent "yes" to the API without `pending_action`, so Phase 2 never ran from that path. Users scheduling from the analytics conversations page got false confirmations. This was the root cause of all the false-success conversations visible in the monitoring log.
+
+---
+
+### 4. Flexible date parsing for scheduling input
+
+**What was added:**
+The date extractor in `intent.go` now handles `DD-MM-YYYY`, `MM-DD-YYYY`, slash variants (`25/07/2026`), relative phrases (`next tuesday`, `next monday`), and multi-turn slot fill (elevator ID and date can arrive in separate messages).
+
+**Where:**
+`platform/api/intent.go` — `extractDates()`
+
+**Why:**
+The original parser accepted only `YYYY-MM-DD` and "Month D, YYYY". Any other format silently produced no `pending_action`, so Phase 1 never ran and the user received no feedback about why. Real users type dates in many formats; an action that gates a database write must handle them.
+
+---
+
+### 5. Tool-call markup stripped from scheduling replies
+
+**What was added:**
+`stripToolCallMarkup()` in `agents.go` removes `[TOOL_CALL]`, `<FunctionCall>`, and raw JSON blocks from scheduling replies as a safety net. The scheduling prompt was also rewritten to tell the model to narrate the injected result rather than "call" the tool.
+
+**Where:**
+`platform/api/agents.go` — `stripToolCallMarkup()`, `platform/api/prompts/scheduling_prompt.md`
+
+**Why:**
+The original prompt told the model to "call" the tool. Because Go calls the tools and injects the result, the model instead printed raw markup as text. The prompt rewrite removes the root cause; the stripper is a backstop for any residual leak.
+
+---
+
+### 6. Context-carry routing for follow-up messages
+
+**What was added:**
+`contextCarry()` in `router.go` detects follow-up messages (low-confidence classification + elevator ID present, or conversational connectors like "what about", "and for") and inherits the most recent non-advisory intent from history. `KeywordSource` carries the previous turn's text into `buildMCPArgs` so an ID-only follow-up reuses the same specific tool (inspection history, incidents, etc.) rather than defaulting to the risk endpoint.
+
+**Where:**
+`platform/api/router.go` — `contextCarry()`, `isFollowUp()`, `followUpPrefixes`; `platform/api/intent.go` — `Classification.KeywordSource`
+
+**Why:**
+Short follow-ups like "And for 20718?" or "What about the hydraulic system?" scored below the confidence floor and fell back to the general agent, which replied "I don't have access to live fleet data." This was found in real conversations during monitoring. Context-carry makes multi-turn conversations work without requiring the user to repeat the full question each time.
+
+---
+
+### 7. Three-tier LLM provider cascade
+
+**What was added:**
+`callChatLLM` now tries three tiers in order: OpenRouter (primary) → Ollama `minimax-m2.5:cloud` → Ollama `gemma4:31b`. Each tier is skipped if the context is already cancelled. `callOllamaCascade()` encapsulates the two-Ollama retry. The fallback model is configurable via `OLLAMA_FALLBACK_MODEL`.
+
+**Where:**
+`platform/api/chat.go` — `callChatLLM()`, `callOllamaCascade()`, `getOllamaFallbackModel()`
+
+**Why:**
+OpenRouter's free tier rate-limited roughly 25% of turns during team testing, producing "I'm having trouble reaching the assistant" errors. A silent fallback to Ollama models of equivalent quality eliminates hard failures without changing the user-visible behaviour.
+
+---
+
+### 8. Intent classifier accuracy: 15/21 → 21/21
+
+**What was added:**
+Seven keyword and weight fixes in `intent.go`: added `followup` (data), `arrange` (action), `incident narrative` (RAG), `regulation` and `requirement` (RAG, weight 2.5 to beat competing data signals), `how often` and `how frequent` (data); raised `maintenance` weight from 0.5 to 1.0.
+
+**Where:**
+`platform/api/intent.go`
+
+**Why:**
+The agent evaluation (21-scenario routing matrix) found 6 misroutes on first run. All were traced to missing keywords or weights too low to beat competing signals. The fixes were verified by `TestEvalMatrix` (19 subtests) and confirmed 21/21 accuracy.
+
+---
+
+### 9. `formatShutdown` splits Voluntary Shut Down from Follow-up counts
+
+**What was added:**
+`formatShutdown` in `data_format.go` now groups rows by outcome type before writing the header, producing "Voluntarily shut down: X / Requiring follow-up: Y" instead of a single "flagged for TSSA shutdown: N" count.
+
+**Where:**
+`platform/api/data_format.go` — `formatShutdown()`
+
+**Why:**
+The original header applied the total count to all non-passing outcomes, including follow-up cases. The LLM intro faithfully echoed the misleading label, causing the data agent to describe follow-up elevators as "TSSA shutdowns." The split makes the distinction explicit at the data layer so the LLM cannot conflate them.
+
+---
+
+### 10. `AgentName` field in `ChatResponse`
+
+**What was added:**
+`AgentName string` added to the `ChatResponse` struct in `models.go` and populated in `chat.go` before the response is written.
+
+**Where:**
+`platform/api/models.go`, `platform/api/chat.go`
+
+**Why:**
+With no agent attribution in the API response, the analytics page and monitoring tools had to infer which agent handled each turn from reply content (presence of "Source:", citation lines, etc.). An explicit field makes agent distribution queryable directly and removes the inference logic from the monitoring tooling.
