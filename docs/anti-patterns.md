@@ -161,14 +161,3 @@ Template:
 
 **What I would do differently:** Pick cues that really separate the two corpora, not common words. Add a negative test case — a procedure question that mentions "incident" — before shipping, so a too-broad cue fails the test.
 
----
-
-## [Team member 3 — add your name here]
-
-> Add your 3–5 anti-patterns following the template above.
-
----
-
-## [Team member 4 — add your name here]
-
-> Add your 3–5 anti-patterns following the template above.
